@@ -10,471 +10,581 @@ import {
   Trash2,
   ChevronRight,
   TrendingUp,
-  FileCheck,
   AlertCircle,
   MoreVertical,
-  X
+  X,
+  Filter,
+  Search,
+  MoveRight
 } from 'lucide-react';
 import PageContainer from '../components/layout/PageContainer';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
-import Badge from '../components/ui/Badge';
-
-const DEFAULT_APPLICATIONS = [
-  {
-    id: 'app-1',
-    company: 'Google',
-    role: 'Software Engineering Intern — Summer 2025',
-    type: 'Internship',
-    stage: 'interview', // wishlist, applied, assessment, interview, offer
-    appliedDate: '2025-09-15',
-    deadline: '2025-10-30',
-    notes: 'Completed technical phone screen. Round 2 Coding Interview scheduled on Google Meet.',
-    compensation: '₹1,20,000 / mo',
-  },
-  {
-    id: 'app-2',
-    company: 'Microsoft',
-    role: 'Full Stack Developer Intern',
-    type: 'Internship',
-    stage: 'assessment',
-    appliedDate: '2025-09-20',
-    deadline: '2025-10-15',
-    notes: 'Online assessment link received via Codility. 3 algorithmic tasks.',
-    compensation: '₹1,00,000 / mo',
-  },
-  {
-    id: 'app-3',
-    company: 'Flipkart',
-    role: 'Flipkart GRiD 6.0 — Software Track',
-    type: 'Contest',
-    stage: 'applied',
-    appliedDate: '2025-09-22',
-    deadline: '2025-10-18',
-    notes: 'Team registered. Problem statement submission in progress.',
-    compensation: '₹5,00,000 Prize',
-  },
-  {
-    id: 'app-4',
-    company: 'Amazon',
-    role: 'SDE-1 (Full Time 2023-2025)',
-    type: 'Full-Time',
-    stage: 'wishlist',
-    appliedDate: '2025-09-24',
-    deadline: '2025-11-01',
-    notes: 'Need to review AWS services and Low Level Design before applying.',
-    compensation: '₹28,00,000 / yr',
-  },
-];
+import SearchInput from '../components/ui/SearchInput';
+import Select from '../components/ui/Select';
+import Textarea from '../components/ui/Textarea';
+import Badge, { StatusBadge } from '../components/ui/Badge';
+import Modal from '../components/ui/Modal';
+import EmptyState from '../components/ui/EmptyState';
+import { useToast } from '../context/ToastContext';
+import { mockApplications } from '../services/mockData';
 
 const STAGES = [
-  { id: 'wishlist', label: 'Saved / Wishlist', variant: 'neutral' },
-  { id: 'applied', label: 'Applied', variant: 'primary' },
-  { id: 'assessment', label: 'Online Assessment', variant: 'purple' },
-  { id: 'interview', label: 'Interview Scheduled', variant: 'accent' },
-  { id: 'offer', label: 'Offer Received', variant: 'success' },
+  { id: 'Saved', label: 'Saved', color: 'var(--text-muted)' },
+  { id: 'Applied', label: 'Applied', color: 'var(--primary)' },
+  { id: 'Interviewing', label: 'Interviewing', color: 'var(--secondary)' },
+  { id: 'Offered', label: 'Offered', color: 'var(--success)' },
+  { id: 'Rejected', label: 'Rejected', color: 'var(--danger)' },
 ];
 
 export default function ApplicationsPage() {
-  const [applications, setApplications] = useState([]);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'list'
+  const toast = useToast();
+  const [applications, setApplications] = useState(() => {
+    const saved = localStorage.getItem('careerpilot_applications_v2');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return mockApplications;
+  });
 
-  // New Application Form State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedMobileStage, setSelectedMobileStage] = useState('Interviewing');
+
+  // Form State
   const [newCompany, setNewCompany] = useState('');
   const [newRole, setNewRole] = useState('');
   const [newType, setNewType] = useState('Internship');
-  const [newStage, setNewStage] = useState('applied');
-  const [newDeadline, setNewDeadline] = useState('');
-  const [newCompensation, setNewCompensation] = useState('');
+  const [newStatus, setNewStatus] = useState('Applied');
+  const [newNextAction, setNewNextAction] = useState('');
+  const [newNextActionDate, setNewNextActionDate] = useState('');
   const [newNotes, setNewNotes] = useState('');
 
+  // Persist to local storage
   useEffect(() => {
-    const saved = localStorage.getItem('careerpilot_applications');
-    if (saved) {
-      try {
-        setApplications(JSON.parse(saved));
-        return;
-      } catch (e) {}
-    }
-    setApplications(DEFAULT_APPLICATIONS);
-  }, []);
-
-  const saveApplicationsToStorage = (updated) => {
-    setApplications(updated);
-    localStorage.setItem('careerpilot_applications', JSON.stringify(updated));
-  };
-
-  const handleStageChange = (appId, nextStage) => {
-    const updated = applications.map((app) =>
-      app.id === appId ? { ...app, stage: nextStage } : app
-    );
-    saveApplicationsToStorage(updated);
-  };
-
-  const handleDelete = (appId) => {
-    const updated = applications.filter((app) => app.id !== appId);
-    saveApplicationsToStorage(updated);
-  };
+    localStorage.setItem('careerpilot_applications_v2', JSON.stringify(applications));
+  }, [applications]);
 
   const handleAddApplication = (e) => {
     e.preventDefault();
-    if (!newCompany.trim() || !newRole.trim()) return;
+    if (!newCompany.trim() || !newRole.trim()) {
+      toast.error('Please provide company and role name');
+      return;
+    }
 
     const newApp = {
       id: `app-${Date.now()}`,
-      company: newCompany,
-      role: newRole,
+      company: newCompany.trim(),
+      role: newRole.trim(),
       type: newType,
-      stage: newStage,
+      status: newStatus,
       appliedDate: new Date().toISOString().split('T')[0],
-      deadline: newDeadline || '2025-11-30',
-      compensation: newCompensation || 'Competitive',
-      notes: newNotes,
+      lastUpdated: new Date().toISOString().split('T')[0],
+      nextAction: newNextAction.trim() || 'Awaiting response',
+      nextActionDate: newNextActionDate || 'TBD',
+      notes: newNotes.trim() || 'Added manually to tracker',
+      timeline: [{ date: new Date().toISOString().split('T')[0], event: `Added to ${newStatus} stage` }],
     };
 
-    const updated = [newApp, ...applications];
-    saveApplicationsToStorage(updated);
+    setApplications((prev) => [newApp, ...prev]);
+    toast.success(`Tracked application for ${newCompany}!`);
 
     // Reset Form
     setNewCompany('');
     setNewRole('');
-    setNewDeadline('');
-    setNewCompensation('');
+    setNewNextAction('');
+    setNewNextActionDate('');
     setNewNotes('');
     setShowAddModal(false);
   };
 
-  // Metrics
-  const totalCount = applications.length;
-  const appliedCount = applications.filter((a) => a.stage === 'applied').length;
-  const assessmentCount = applications.filter((a) => a.stage === 'assessment').length;
-  const interviewCount = applications.filter((a) => a.stage === 'interview').length;
-  const offerCount = applications.filter((a) => a.stage === 'offer').length;
+  const handleMoveStage = (appId, targetStatus) => {
+    setApplications((prev) =>
+      prev.map((app) => {
+        if (app.id === appId) {
+          toast.info(`Moved ${app.company} to ${targetStatus}`);
+          return {
+            ...app,
+            status: targetStatus,
+            lastUpdated: new Date().toISOString().split('T')[0],
+            timeline: [
+              ...app.timeline,
+              { date: new Date().toISOString().split('T')[0], event: `Moved to ${targetStatus}` },
+            ],
+          };
+        }
+        return app;
+      })
+    );
+  };
+
+  const handleDelete = (appId, company) => {
+    setApplications((prev) => prev.filter((a) => a.id !== appId));
+    toast.info(`Removed ${company} from your tracker`);
+  };
+
+  const filteredApplications = applications.filter((app) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      app.company.toLowerCase().includes(q) ||
+      app.role.toLowerCase().includes(q) ||
+      app.notes.toLowerCase().includes(q)
+    );
+  });
 
   return (
-    <PageContainer>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-              <Badge variant="primary" size="sm" dot>
-                Application Pipeline
-              </Badge>
-            </div>
-            <h1 className="text-h1">Applications Tracker</h1>
-            <p className="text-small" style={{ fontSize: '0.95rem', marginTop: '0.35rem' }}>
-              Monitor your job and internship search pipeline from discovery through interviews and final offers.
-            </p>
+    <PageContainer style={{ maxWidth: '1600px', width: '100%' }}>
+      {/* 1. Header & Controls */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
+            <h1 className="text-h1" style={{ margin: 0, color: 'var(--text-primary)' }}>
+              Application Tracker
+            </h1>
+            <Badge variant="primary" size="md">
+              {applications.length} Tracked
+            </Badge>
           </div>
-
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <Button
-              variant="primary"
-              icon={<Plus size={16} />}
-              onClick={() => setShowAddModal(true)}
-            >
-              Add Application
-            </Button>
-          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', margin: 0 }}>
+            Manage and track every job application, technical assessment, and interview round end-to-end.
+          </p>
         </div>
 
-        {/* Pipeline Summary Metrics */}
-        <div className="grid-4" style={{ marginBottom: '2rem' }}>
-          <Card variant="raised">
-            <Card.Content style={{ padding: '1.25rem' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Total Active
-              </div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--color-text)', marginTop: '0.25rem' }}>
-                {totalCount}
-              </div>
-            </Card.Content>
-          </Card>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button
+            variant="primary"
+            onClick={() => setShowAddModal(true)}
+            icon={<Plus size={16} />}
+          >
+            Add Application
+          </Button>
+        </div>
+      </div>
 
-          <Card variant="raised">
-            <Card.Content style={{ padding: '1.25rem' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Assessments
-              </div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--color-accent-600)', marginTop: '0.25rem' }}>
-                {assessmentCount}
-              </div>
-            </Card.Content>
-          </Card>
-
-          <Card variant="raised">
-            <Card.Content style={{ padding: '1.25rem' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Interviews
-              </div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--color-primary-600)', marginTop: '0.25rem' }}>
-                {interviewCount}
-              </div>
-            </Card.Content>
-          </Card>
-
-          <Card variant="raised">
-            <Card.Content style={{ padding: '1.25rem' }}>
-              <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Offers Received
-              </div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--color-success-dark)', marginTop: '0.25rem' }}>
-                {offerCount}
-              </div>
-            </Card.Content>
-          </Card>
+      {/* 2. Search & Pipeline Stats Banner */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+          padding: '0.85rem 1.25rem',
+          borderRadius: 'var(--radius-lg)',
+          backgroundColor: 'var(--surface)',
+          border: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-sm)',
+        }}
+      >
+        <div style={{ maxWidth: '380px', width: '100%' }}>
+          <SearchInput
+            placeholder="Search tracked companies or roles..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
+          />
         </div>
 
-        {/* Kanban Board */}
+        <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {STAGES.map((s) => {
+            const count = applications.filter((a) => a.status === s.id).length;
+            return (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: s.color }} />
+                <span style={{ color: 'var(--text-secondary)' }}>{s.label}:</span>
+                <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{count}</strong>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Mobile / Tablet Column Selector (Only visible on screens <= 1024px) */}
+      <div className="mobile-kanban-nav" style={{ display: 'none', marginBottom: '1.25rem' }}>
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 250px), 1fr))',
-            gap: '1.25rem',
-            alignItems: 'flex-start',
+            display: 'flex',
+            gap: '0.35rem',
+            overflowX: 'auto',
+            paddingBottom: '0.5rem',
           }}
+          className="no-scrollbar"
         >
           {STAGES.map((stage) => {
-            const stageApps = applications.filter((a) => a.stage === stage.id);
+            const count = filteredApplications.filter((a) => a.status === stage.id).length;
+            const isSelected = selectedMobileStage === stage.id;
+
             return (
-              <div
+              <button
                 key={stage.id}
+                type="button"
+                onClick={() => setSelectedMobileStage(stage.id)}
                 style={{
-                  backgroundColor: 'var(--color-bg)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '1rem',
-                  border: '1px solid var(--border-subtle)',
-                  minHeight: '400px',
-                  boxShadow: 'var(--shadow-sunken)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  padding: '0.45rem 0.95rem',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  backgroundColor: isSelected ? 'var(--primary)' : 'var(--surface)',
+                  color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                  border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                  whiteSpace: 'nowrap',
+                  cursor: 'pointer',
+                  boxShadow: isSelected ? 'var(--shadow-btn-primary)' : 'none',
                 }}
               >
-                {/* Column Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                <span>{stage.label}</span>
+                <span
+                  style={{
+                    fontSize: '0.71875rem',
+                    padding: '0.05rem 0.4rem',
+                    borderRadius: 'var(--radius-full)',
+                    backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.25)' : 'var(--bg-secondary)',
+                    color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                  }}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 4. Desktop Kanban Board */}
+      <div className="kanban-desktop-board">
+        {STAGES.map((stage) => {
+          const stageApps = filteredApplications.filter((app) => app.status === stage.id);
+
+          return (
+            <div
+              key={stage.id}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                borderRadius: 'var(--radius-lg)',
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--border)',
+                minHeight: '520px',
+                overflow: 'hidden',
+              }}
+            >
+              {/* Column Header */}
+              <div
+                style={{
+                  padding: '0.85rem 1rem',
+                  borderBottom: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface-raised)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: stage.color }} />
+                  <span style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                     {stage.label}
                   </span>
-                  <Badge variant={stage.variant} size="sm">
-                    {stageApps.length}
-                  </Badge>
                 </div>
+                <span
+                  style={{
+                    fontSize: '0.71875rem',
+                    fontWeight: 700,
+                    padding: '0.1rem 0.45rem',
+                    borderRadius: 'var(--radius-full)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  {stageApps.length}
+                </span>
+              </div>
 
-                {/* Cards */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  {stageApps.length === 0 ? (
-                    <div style={{ padding: '2rem 0.5rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-                      No applications in this stage
-                    </div>
-                  ) : (
-                    stageApps.map((app) => (
+              {/* Cards Stream */}
+              <div
+                style={{
+                  padding: '0.75rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem',
+                  flex: 1,
+                  overflowY: 'auto',
+                }}
+              >
+                {stageApps.length === 0 ? (
+                  <div
+                    style={{
+                      padding: '2.5rem 1rem',
+                      textAlign: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.8125rem',
+                      fontStyle: 'italic',
+                    }}
+                  >
+                    No applications in {stage.label.toLowerCase()}
+                  </div>
+                ) : (
+                  stageApps.map((app) => (
+                    <Card
+                      key={app.id}
+                      variant="raised"
+                      style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}
+                      className="hover-lift"
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                        <div>
+                          <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                            {app.company}
+                          </div>
+                          <div style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)', marginTop: '1px' }}>
+                            {app.role}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(app.id, app.company)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: '2px',
+                          }}
+                          title="Delete application"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+
+                      {/* Next Action Box */}
+                      {app.nextAction && (
+                        <div
+                          style={{
+                            padding: '0.5rem 0.65rem',
+                            borderRadius: 'var(--radius-sm)',
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border)',
+                            fontSize: '0.75rem',
+                          }}
+                        >
+                          <div style={{ color: 'var(--text-muted)', fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                            Next Step
+                          </div>
+                          <div style={{ color: 'var(--text-primary)', fontWeight: 600, marginTop: '2px' }}>
+                            {app.nextAction}
+                          </div>
+                          {app.nextActionDate && (
+                            <div style={{ color: 'var(--primary)', fontSize: '0.6875rem', marginTop: '2px' }}>
+                              Due: {app.nextActionDate}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Card Bottom: Move status selector & applied timestamp */}
                       <div
-                        key={app.id}
                         style={{
-                          backgroundColor: 'var(--color-surface)',
-                          borderRadius: 'var(--radius-md)',
-                          padding: '1rem',
-                          border: '1px solid var(--border-control)',
-                          boxShadow: 'var(--shadow-raised-sm)',
                           display: 'flex',
-                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
                           gap: '0.5rem',
+                          marginTop: '0.35rem',
+                          paddingTop: '0.5rem',
+                          borderTop: '1px solid var(--border)',
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>
-                            {app.company}
-                          </span>
-                          <button
-                            onClick={() => handleDelete(app.id)}
-                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: '2px' }}
-                            title="Delete Application"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
+                        <span style={{ fontSize: '0.71875rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                          {app.appliedDate ? `Applied ${app.appliedDate}` : 'Bookmarked'}
+                        </span>
 
-                        <div style={{ fontSize: '0.825rem', color: 'var(--color-primary-600)', fontWeight: 600 }}>
-                          {app.role}
-                        </div>
-
-                        {app.notes && (
-                          <div style={{ fontSize: '0.775rem', color: 'var(--color-text-muted)', lineHeight: 1.4, backgroundColor: 'var(--color-bg)', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)' }}>
-                            {app.notes}
-                          </div>
-                        )}
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          <span>Deadline: {app.deadline}</span>
-                          <span style={{ fontWeight: 600, color: 'var(--color-success-dark)' }}>{app.compensation}</span>
-                        </div>
-
-                        {/* Move Stage Selector */}
-                        <div style={{ marginTop: '0.25rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                           <select
-                            value={app.stage}
-                            onChange={(e) => handleStageChange(app.id, e.target.value)}
+                            value={app.status}
+                            onChange={(e) => handleMoveStage(app.id, e.target.value)}
+                            aria-label={`Change stage for ${app.company}`}
                             style={{
-                              width: '100%',
-                              padding: '0.35rem 0.5rem',
-                              fontSize: '0.75rem',
+                              fontSize: '0.71875rem',
+                              fontWeight: 600,
+                              padding: '0.2rem 0.45rem',
                               borderRadius: 'var(--radius-sm)',
-                              border: '1px solid var(--border-control)',
-                              backgroundColor: 'var(--color-surface)',
-                              color: 'var(--color-text)',
+                              backgroundColor: 'var(--bg-secondary)',
+                              color: 'var(--text-primary)',
+                              border: '1px solid var(--border)',
                               cursor: 'pointer',
-                              fontWeight: 500,
+                              outline: 'none',
                             }}
                           >
                             {STAGES.map((s) => (
                               <option key={s.id} value={s.id}>
-                                Move to: {s.label}
+                                {s.label}
                               </option>
                             ))}
                           </select>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
+                    </Card>
+                  ))
+                )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
+      </div>
 
-        {/* Add Application Modal */}
-        {showAddModal && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(15, 23, 42, 0.65)',
-              backdropFilter: 'blur(4px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 100,
-              padding: '1.5rem',
-            }}
-            onClick={() => setShowAddModal(false)}
-          >
-            <div
-              style={{
-                backgroundColor: 'var(--color-surface)',
-                borderRadius: 'var(--radius-lg)',
-                maxWidth: '540px',
-                width: '100%',
-                boxShadow: 'var(--shadow-raised-lg)',
-                padding: '2rem',
-                border: '1px solid var(--border-control)',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h3 className="text-h3" style={{ margin: 0 }}>Add Application</h3>
+      {/* 5. Mobile Tabbed Single Column View (Only rendered on mobile) */}
+      <div className="kanban-mobile-view" style={{ display: 'none' }}>
+        {filteredApplications
+          .filter((a) => a.status === selectedMobileStage)
+          .map((app) => (
+            <Card key={app.id} variant="raised" style={{ padding: '1.25rem', marginBottom: '0.85rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                <div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    {app.company}
+                  </div>
+                  <div style={{ fontSize: '0.84375rem', color: 'var(--text-secondary)' }}>
+                    {app.role}
+                  </div>
+                </div>
+                <StatusBadge status={app.status} size="sm" />
+              </div>
+
+              {app.nextAction && (
+                <div style={{ padding: '0.65rem', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', margin: '0.75rem 0', fontSize: '0.8125rem' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Next Step</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{app.nextAction}</div>
+                  <div style={{ color: 'var(--primary)', fontSize: '0.75rem', marginTop: '2px' }}>Target: {app.nextActionDate}</div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Applied: {app.appliedDate || 'Saved'}
+                </span>
                 <button
-                  onClick={() => setShowAddModal(false)}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)' }}
+                  type="button"
+                  onClick={() => handleDelete(app.id, app.company)}
+                  style={{ background: 'none', border: 'none', color: 'var(--danger)', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 600 }}
                 >
-                  <X size={20} />
+                  Delete
                 </button>
               </div>
-
-              <form onSubmit={handleAddApplication} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                <Input
-                  label="Company Name"
-                  placeholder="e.g. Google, Atlassian, Microsoft"
-                  value={newCompany}
-                  onChange={(e) => setNewCompany(e.target.value)}
-                  required
-                />
-                <Input
-                  label="Role Title"
-                  placeholder="e.g. Software Engineer Intern"
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  required
-                />
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--color-text)' }}>
-                      Initial Stage
-                    </label>
-                    <select
-                      value={newStage}
-                      onChange={(e) => setNewStage(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.65rem 0.85rem',
-                        fontSize: '0.875rem',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-control)',
-                        backgroundColor: 'var(--color-surface)',
-                        color: 'var(--color-text)',
-                      }}
-                    >
-                      {STAGES.map((s) => (
-                        <option key={s.id} value={s.id}>{s.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <Input
-                    label="Application Deadline"
-                    type="date"
-                    value={newDeadline}
-                    onChange={(e) => setNewDeadline(e.target.value)}
-                  />
-                </div>
-
-                <Input
-                  label="Stipend / Salary"
-                  placeholder="e.g. ₹80,000 / month"
-                  value={newCompensation}
-                  onChange={(e) => setNewCompensation(e.target.value)}
-                />
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--color-text)' }}>
-                    Interview / Application Notes
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="e.g. Applied via referral, OA due next Friday..."
-                    value={newNotes}
-                    onChange={(e) => setNewNotes(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      fontSize: '0.875rem',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-control)',
-                      backgroundColor: 'var(--color-surface)',
-                      color: 'var(--color-text)',
-                      fontFamily: 'inherit',
-                      resize: 'vertical',
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
-                  <Button variant="ghost" onClick={() => setShowAddModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button variant="primary" type="submit">
-                    Save to Tracker
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+            </Card>
+          ))}
       </div>
+
+      {/* 6. Add Application Modal */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="Track New Application"
+        description="Add a company and role you applied to or wish to save."
+        maxWidth="500px"
+      >
+        <form onSubmit={handleAddApplication} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <Input
+            label="Company Name"
+            placeholder="e.g. Stripe, Google, Razorpay"
+            value={newCompany}
+            onChange={(e) => setNewCompany(e.target.value)}
+            required
+          />
+
+          <Input
+            label="Job / Role Title"
+            placeholder="e.g. Software Engineering Intern"
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value)}
+            required
+          />
+
+          <div className="grid-2">
+            <Select
+              label="Application Stage"
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value)}
+              options={STAGES.map((s) => ({ value: s.id, label: s.label }))}
+            />
+
+            <Select
+              label="Opportunity Type"
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+              options={['Internship', 'Full-Time', 'Hackathons', 'Coding Contests', 'Scholarships']}
+            />
+          </div>
+
+          <div className="grid-2">
+            <Input
+              label="Next Step Action"
+              placeholder="e.g. Online Assessment, HR Round"
+              value={newNextAction}
+              onChange={(e) => setNewNextAction(e.target.value)}
+            />
+
+            <Input
+              label="Target Date / Deadline"
+              type="date"
+              value={newNextActionDate}
+              onChange={(e) => setNewNextActionDate(e.target.value)}
+            />
+          </div>
+
+          <Textarea
+            label="Notes & Interview Links"
+            placeholder="Key notes, recruiter contact, or interview schedule link..."
+            rows={3}
+            value={newNotes}
+            onChange={(e) => setNewNotes(e.target.value)}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.75rem' }}>
+            <Button variant="secondary" onClick={() => setShowAddModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary">
+              Track Application
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <style>{`
+        .kanban-desktop-board {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(260px, 1fr));
+          gap: 1.25rem;
+          overflow-x: auto;
+          padding-bottom: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+          .kanban-desktop-board {
+            display: none !important;
+          }
+          .mobile-kanban-nav {
+            display: block !important;
+          }
+          .kanban-mobile-view {
+            display: block !important;
+          }
+        }
+      `}</style>
     </PageContainer>
   );
 }

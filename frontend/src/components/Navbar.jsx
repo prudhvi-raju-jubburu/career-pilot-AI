@@ -12,13 +12,17 @@ import {
   Layers,
   FileText,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useTheme } from '../context/ThemeContext';
 import Button from './ui/Button';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -37,22 +41,22 @@ export default function Navbar() {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        backgroundColor: 'rgba(255, 255, 255, 0.94)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid var(--border-subtle)',
+        backgroundColor: 'var(--surface-glass)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid var(--border)',
         boxShadow: 'var(--shadow-sm)',
       }}
     >
       <div
         className="nav-container"
         style={{
-          maxWidth: '1200px',
+          maxWidth: '1240px',
           margin: '0 auto',
           padding: '0.75rem 1.25rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '0.75rem',
+          gap: '1rem',
         }}
       >
         {/* Brand Logo & Name */}
@@ -63,11 +67,11 @@ export default function Navbar() {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '0.55rem',
+            gap: '0.65rem',
             textDecoration: 'none',
-            color: 'var(--color-text)',
+            color: 'var(--text-primary)',
             fontWeight: 800,
-            fontSize: '1.15rem',
+            fontSize: '1.2rem',
             flexShrink: 0,
           }}
         >
@@ -76,41 +80,31 @@ export default function Navbar() {
               width: '32px',
               height: '32px',
               borderRadius: 'var(--radius-md)',
-              background: 'linear-gradient(135deg, var(--color-primary-600), var(--color-accent-600))',
+              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
-              boxShadow: 'var(--shadow-raised-sm)',
+              boxShadow: '0 2px 6px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35)',
             }}
           >
-            <Compass size={18} />
+            <Compass size={19} />
           </div>
           <span>CareerPilot</span>
-          <span
-            style={{
-              fontSize: '0.7rem',
-              fontWeight: 800,
-              backgroundColor: 'var(--color-primary-50)',
-              color: 'var(--color-primary-600)',
-              padding: '0.12rem 0.4rem',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid rgba(37,99,235,0.2)',
-            }}
-          >
+          <span className="brand-badge">
             AI
           </span>
         </Link>
 
         {/* Desktop Nav Links */}
-        <nav className="nav-links">
+        <nav className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <NavLink
             to="/"
             style={({ isActive }) => ({
               textDecoration: 'none',
               fontWeight: 600,
-              fontSize: '0.9rem',
-              color: isActive ? 'var(--color-primary-600)' : 'var(--color-text-muted)',
+              fontSize: '0.875rem',
+              color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
               transition: 'color var(--transition-fast)',
             })}
           >
@@ -123,8 +117,8 @@ export default function Navbar() {
                 style={({ isActive }) => ({
                   textDecoration: 'none',
                   fontWeight: 600,
-                  fontSize: '0.9rem',
-                  color: isActive ? 'var(--color-primary-600)' : 'var(--color-text-muted)',
+                  fontSize: '0.875rem',
+                  color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
                   transition: 'color var(--transition-fast)',
                 })}
               >
@@ -135,57 +129,96 @@ export default function Navbar() {
                 style={({ isActive }) => ({
                   textDecoration: 'none',
                   fontWeight: 600,
-                  fontSize: '0.9rem',
-                  color: isActive ? 'var(--color-primary-600)' : 'var(--color-text-muted)',
+                  fontSize: '0.875rem',
+                  color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
                   transition: 'color var(--transition-fast)',
                 })}
               >
                 Opportunities
               </NavLink>
+              <NavLink
+                to="/applications"
+                style={({ isActive }) => ({
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                  transition: 'color var(--transition-fast)',
+                })}
+              >
+                Tracker
+              </NavLink>
             </>
           ) : (
-            <a
-              href="#how-it-works"
-              style={{
-                textDecoration: 'none',
-                fontWeight: 600,
-                fontSize: '0.9rem',
-                color: 'var(--color-text-muted)',
-                transition: 'color var(--transition-fast)',
-              }}
-            >
-              How It Works
-            </a>
+            <>
+              <a
+                href="#features"
+                style={{
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  color: 'var(--text-secondary)',
+                  transition: 'color var(--transition-fast)',
+                }}
+              >
+                Features
+              </a>
+              <a
+                href="#how-it-works"
+                style={{
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  color: 'var(--text-secondary)',
+                  transition: 'color var(--transition-fast)',
+                }}
+              >
+                How It Works
+              </a>
+            </>
           )}
         </nav>
 
         {/* Header Actions */}
-        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {/* Theme Switcher Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="topbar-icon-btn"
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
+            aria-label="Toggle Theme"
+          >
+            {theme === 'dark' ? (
+              <Sun size={17} className="text-warning animate-scale-in" />
+            ) : (
+              <Moon size={17} className="text-primary animate-scale-in" />
+            )}
+          </button>
+
           {isAuthenticated ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Link
-                to="/dashboard"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.45rem',
-                  padding: '0.35rem 0.8rem',
-                  backgroundColor: 'var(--color-primary-50)',
-                  borderRadius: 'var(--radius-full)',
-                  color: 'var(--color-primary-700)',
-                  fontWeight: 600,
-                  fontSize: '0.85rem',
-                  border: '1px solid rgba(37, 99, 235, 0.2)',
-                  textDecoration: 'none',
-                }}
-                title="Go to Dashboard"
-              >
-                <User size={14} />
-                <span className="desktop-only-text" style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user?.name?.split(' ')[0] || 'Dashboard'}
-                </span>
-              </Link>
-            </div>
+            <Link
+              to="/dashboard"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                padding: '0.4rem 0.85rem',
+                backgroundColor: 'var(--primary-subtle)',
+                borderRadius: 'var(--radius-full)',
+                color: 'var(--primary)',
+                fontWeight: 700,
+                fontSize: '0.84375rem',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                textDecoration: 'none',
+              }}
+              title="Go to Student Dashboard"
+            >
+              <User size={15} />
+              <span className="desktop-only-text" style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {user?.name?.split(' ')[0] || 'Dashboard'}
+              </span>
+            </Link>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Link to="/login" className="desktop-only-badge" style={{ textDecoration: 'none' }}>
@@ -214,18 +247,18 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Slide-down Drawer */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div
+          className="animate-fade-down"
           style={{
-            backgroundColor: 'var(--color-surface)',
-            borderTop: '1px solid var(--border-subtle)',
+            backgroundColor: 'var(--surface-raised)',
+            borderTop: '1px solid var(--border)',
             padding: '1rem 1.25rem 1.5rem',
             display: 'flex',
             flexDirection: 'column',
             gap: '0.5rem',
-            boxShadow: 'var(--shadow-raised-lg)',
-            animation: 'fadeInUp 0.2s ease-out',
+            boxShadow: 'var(--shadow-floating)',
           }}
         >
           <NavLink
@@ -235,9 +268,9 @@ export default function Navbar() {
               padding: '0.65rem 0.85rem',
               borderRadius: 'var(--radius-md)',
               fontWeight: 600,
-              fontSize: '0.95rem',
-              color: 'var(--color-text)',
-              backgroundColor: 'var(--color-bg)',
+              fontSize: '0.9rem',
+              color: 'var(--text-primary)',
+              backgroundColor: 'var(--surface)',
             }}
           >
             Home
@@ -249,161 +282,113 @@ export default function Navbar() {
                 to="/dashboard"
                 onClick={closeMobile}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.65rem',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  color: 'var(--color-primary-700)',
-                  backgroundColor: 'var(--color-primary-50)',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-primary)',
                 }}
               >
-                <LayoutDashboard size={18} />
-                <span>Student Dashboard</span>
+                Dashboard
               </NavLink>
-
               <NavLink
                 to="/opportunities"
                 onClick={closeMobile}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.65rem',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  color: 'var(--color-text)',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-primary)',
                 }}
               >
-                <Briefcase size={18} />
-                <span>Opportunities</span>
+                Opportunities
               </NavLink>
-
               <NavLink
                 to="/applications"
                 onClick={closeMobile}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.65rem',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  color: 'var(--color-text)',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-primary)',
                 }}
               >
-                <Layers size={18} />
-                <span>Applications Tracker</span>
+                Application Tracker
               </NavLink>
-
               <NavLink
                 to="/resume"
                 onClick={closeMobile}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.65rem',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  color: 'var(--color-text)',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-primary)',
                 }}
               >
-                <FileText size={18} />
-                <span>Resume Intelligence</span>
+                Resume Workspace
               </NavLink>
-
               <NavLink
                 to="/skill-gap"
                 onClick={closeMobile}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.65rem',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  color: 'var(--color-text)',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-primary)',
                 }}
               >
-                <TrendingUp size={18} />
-                <span>Skill Gap &amp; Roadmap</span>
+                Skill Gap Analysis
               </NavLink>
-
               <NavLink
                 to="/ai-advisor"
                 onClick={closeMobile}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.65rem',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  color: 'var(--color-text)',
+                  fontSize: '0.9rem',
+                  color: 'var(--text-primary)',
                 }}
               >
-                <Sparkles size={18} color="var(--color-purple-600)" />
-                <span>AI Career Advisor</span>
+                AI Career Advisor
               </NavLink>
-
-              <NavLink
-                to="/profile"
-                onClick={closeMobile}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.65rem',
-                  padding: '0.65rem 0.85rem',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: 600,
-                  fontSize: '0.95rem',
-                  color: 'var(--color-text)',
-                }}
-              >
-                <User size={18} />
-                <span>Profile ({user?.name || 'Student'})</span>
-              </NavLink>
-
               <button
+                type="button"
                 onClick={handleLogout}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.65rem',
+                  marginTop: '0.5rem',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   fontWeight: 600,
-                  fontSize: '0.95rem',
-                  color: 'var(--color-danger-dark)',
+                  fontSize: '0.9rem',
+                  color: 'var(--danger)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
                   background: 'none',
                   border: 'none',
                   textAlign: 'left',
                   cursor: 'pointer',
-                  marginTop: '0.5rem',
                 }}
               >
-                <LogOut size={18} />
+                <LogOut size={16} />
                 <span>Sign Out</span>
               </button>
             </>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
               <Link to="/login" onClick={closeMobile} style={{ textDecoration: 'none' }}>
-                <Button variant="secondary" size="md" style={{ width: '100%', justifyContent: 'center' }}>
+                <Button variant="secondary" style={{ width: '100%' }}>
                   Sign In
                 </Button>
               </Link>
               <Link to="/register" onClick={closeMobile} style={{ textDecoration: 'none' }}>
-                <Button variant="primary" size="md" iconRight={<ArrowRight size={15} />} style={{ width: '100%', justifyContent: 'center' }}>
-                  Get Started Free
+                <Button variant="primary" style={{ width: '100%' }}>
+                  Get Started
                 </Button>
               </Link>
             </div>

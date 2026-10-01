@@ -19,10 +19,11 @@ import {
   MessageSquare
 } from 'lucide-react';
 import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
+import Card, { CardHeader, CardContent, CardTitle } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import ProgressBar from '../components/ui/ProgressBar';
 import AnimatedRoadmap from '../components/AnimatedRoadmap';
+import HeroPipelineVisual from '../components/HeroPipelineVisual';
 import { useScrollReveal } from '../hooks/useScrollReveal';
 
 export default function LandingPage() {
@@ -188,6 +189,11 @@ export default function LandingPage() {
                 Explore Live Dashboard
               </Button>
             </Link>
+          </div>
+
+          {/* Animated Student-to-Opportunity Pipeline Visualization */}
+          <div style={{ marginBottom: '3.5rem' }}>
+            <HeroPipelineVisual />
           </div>
 
           {/* Real Animated CareerPilot Dashboard Preview */}
@@ -429,19 +435,19 @@ export default function LandingPage() {
           >
             {/* Student Profile Card */}
             <Card variant="raised">
-              <Card.Header>
+              <CardHeader>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                   <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--color-primary-50)', color: 'var(--color-primary-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
                     JR
                   </div>
                   <div>
-                    <Card.Title style={{ fontSize: '1rem' }}>Student Profile</Card.Title>
+                    <CardTitle style={{ fontSize: '1rem' }}>Student Profile</CardTitle>
                     <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>Computer Science • CGPA: 8.9</div>
                   </div>
                 </div>
                 <Badge variant="success" size="sm">Verified</Badge>
-              </Card.Header>
-              <Card.Content>
+              </CardHeader>
+              <CardContent>
                 <div style={{ marginBottom: '1rem' }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
                     Extracted Skills &amp; Stack
@@ -462,7 +468,7 @@ export default function LandingPage() {
                     Preferred Role: <strong>Software Engineer Intern</strong> • Location: <strong>Bengaluru / Remote</strong>
                   </div>
                 </div>
-              </Card.Content>
+              </CardContent>
             </Card>
 
             {/* AI Match Telemetry Center */}
@@ -497,14 +503,14 @@ export default function LandingPage() {
 
             {/* Target Job Requirement Card */}
             <Card variant="raised">
-              <Card.Header>
+              <CardHeader>
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>Stripe Core Platform</div>
-                  <Card.Title style={{ fontSize: '1rem' }}>Internship Requirements</Card.Title>
+                  <CardTitle style={{ fontSize: '1rem' }}>Internship Requirements</CardTitle>
                 </div>
                 <Badge variant="primary" size="sm">₹1.25L / mo</Badge>
-              </Card.Header>
-              <Card.Content>
+              </CardHeader>
+              <CardContent>
                 <div style={{ marginBottom: '1rem' }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-success-dark)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
                     Matching Skills (7/8)
@@ -525,7 +531,7 @@ export default function LandingPage() {
                     + Docker Containers
                   </Badge>
                 </div>
-              </Card.Content>
+              </CardContent>
             </Card>
           </div>
         </div>

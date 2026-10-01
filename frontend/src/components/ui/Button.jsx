@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 /**
  * Reusable Tactile Modern Skeuomorphic Button Component
  *
- * @param {('primary'|'secondary'|'outline'|'ghost'|'danger'|'accent')} variant
+ * @param {('primary'|'secondary'|'outline'|'ghost'|'danger'|'success'|'icon')} variant
  * @param {('sm'|'md'|'lg')} size
  * @param {boolean} loading
  * @param {boolean} disabled
@@ -25,76 +25,58 @@ export default function Button({
   onClick,
   ...props
 }) {
-  // Styles based on variant
-  const getVariantStyles = () => {
+  const getVariantClass = () => {
     switch (variant) {
-      case 'primary':
-        return {
-          backgroundColor: 'var(--color-primary-600)',
-          color: '#ffffff',
-          boxShadow: 'var(--shadow-btn-primary)',
-          border: '1px solid rgba(29, 78, 216, 0.6)',
-        };
       case 'secondary':
-        return {
-          backgroundColor: 'var(--color-surface)',
-          color: 'var(--color-text)',
-          boxShadow: 'var(--shadow-btn-secondary)',
-          border: '1px solid var(--border-control)',
-        };
+        return 'btn-skeuo-secondary';
       case 'outline':
-        return {
-          backgroundColor: 'transparent',
-          color: 'var(--color-primary-600)',
-          border: '1px solid var(--color-primary-600)',
-          boxShadow: 'none',
-        };
+        return 'btn-skeuo-outline';
       case 'ghost':
-        return {
-          backgroundColor: 'transparent',
-          color: 'var(--color-text-muted)',
-          border: '1px solid transparent',
-          boxShadow: 'none',
-        };
+        return 'btn-skeuo-ghost';
       case 'danger':
-        return {
-          backgroundColor: 'var(--color-danger)',
-          color: '#ffffff',
-          boxShadow: '0 1px 2px rgba(239, 68, 68, 0.25), 0 3px 6px -1px rgba(239, 68, 68, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
-          border: '1px solid var(--color-danger-dark)',
-        };
-      case 'accent':
-        return {
-          backgroundColor: 'var(--color-accent-600)',
-          color: '#ffffff',
-          boxShadow: '0 1px 2px rgba(79, 70, 229, 0.25), 0 3px 6px -1px rgba(79, 70, 229, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
-          border: '1px solid var(--color-accent-700)',
-        };
+        return 'btn-skeuo-danger';
+      case 'success':
+        return 'btn-skeuo-success';
+      case 'icon':
+        return 'btn-skeuo-secondary';
+      case 'primary':
       default:
-        return {};
+        return 'btn-skeuo-primary';
     }
   };
 
   const getSizeStyles = () => {
+    if (variant === 'icon') {
+      switch (size) {
+        case 'sm':
+          return { width: '32px', height: '32px', padding: 0, borderRadius: 'var(--radius-sm)' };
+        case 'lg':
+          return { width: '44px', height: '44px', padding: 0, borderRadius: 'var(--radius-lg)' };
+        case 'md':
+        default:
+          return { width: '38px', height: '38px', padding: 0, borderRadius: 'var(--radius-md)' };
+      }
+    }
+
     switch (size) {
       case 'sm':
         return {
-          padding: '0.4rem 0.75rem',
+          padding: '0.4rem 0.8rem',
           fontSize: '0.8125rem',
-          gap: '0.35rem',
+          gap: '0.375rem',
           borderRadius: 'var(--radius-sm)',
         };
       case 'lg':
         return {
-          padding: '0.75rem 1.45rem',
+          padding: '0.75rem 1.5rem',
           fontSize: '1rem',
-          gap: '0.6rem',
+          gap: '0.625rem',
           borderRadius: 'var(--radius-lg)',
         };
       case 'md':
       default:
         return {
-          padding: '0.55rem 1.05rem',
+          padding: '0.55rem 1.15rem',
           fontSize: '0.875rem',
           gap: '0.5rem',
           borderRadius: 'var(--radius-md)',
@@ -102,73 +84,26 @@ export default function Button({
     }
   };
 
-  const baseStyles = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 600,
-    fontFamily: 'inherit',
-    cursor: disabled || loading ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.55 : 1,
-    transition: 'all var(--transition-fast)',
-    whiteSpace: 'nowrap',
-    textDecoration: 'none',
-    userSelect: 'none',
-    ...getVariantStyles(),
-    ...getSizeStyles(),
-    ...style,
-  };
-
   return (
     <button
       type={type}
+      className={`btn-skeuo ${getVariantClass()} ${className}`}
       disabled={disabled || loading}
       onClick={onClick}
-      style={baseStyles}
-      className={`btn-tactile ${variant} ${className}`}
-      onMouseEnter={(e) => {
-        if (!disabled && !loading) {
-          e.currentTarget.style.transform = 'translateY(-1px)';
-          if (variant === 'primary') e.currentTarget.style.boxShadow = 'var(--shadow-btn-primary-hover)';
-          if (variant === 'secondary') e.currentTarget.style.boxShadow = 'var(--shadow-btn-secondary-hover)';
-          if (variant === 'ghost') e.currentTarget.style.backgroundColor = 'var(--color-bg-alt)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!disabled && !loading) {
-          e.currentTarget.style.transform = 'translateY(0)';
-          if (variant === 'primary') e.currentTarget.style.boxShadow = 'var(--shadow-btn-primary)';
-          if (variant === 'secondary') e.currentTarget.style.boxShadow = 'var(--shadow-btn-secondary)';
-          if (variant === 'ghost') e.currentTarget.style.backgroundColor = 'transparent';
-        }
-      }}
-      onMouseDown={(e) => {
-        if (!disabled && !loading) {
-          e.currentTarget.style.transform = 'translateY(1px)';
-          if (variant === 'primary') e.currentTarget.style.boxShadow = 'var(--shadow-btn-primary-active)';
-          if (variant === 'secondary') e.currentTarget.style.boxShadow = 'var(--shadow-btn-secondary-active)';
-        }
-      }}
-      onMouseUp={(e) => {
-        if (!disabled && !loading) {
-          e.currentTarget.style.transform = 'translateY(-1px)';
-          if (variant === 'primary') e.currentTarget.style.boxShadow = 'var(--shadow-btn-primary-hover)';
-          if (variant === 'secondary') e.currentTarget.style.boxShadow = 'var(--shadow-btn-secondary-hover)';
-        }
+      style={{
+        ...getSizeStyles(),
+        ...style,
       }}
       {...props}
     >
       {loading ? (
-        <>
-          <Loader2 size={size === 'sm' ? 14 : size === 'lg' ? 18 : 16} className="spin" />
-          <span>{children}</span>
-        </>
+        <Loader2 size={size === 'sm' ? 14 : size === 'lg' ? 20 : 16} className="animate-spin" />
       ) : (
-        <>
-          {icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
-          <span>{children}</span>
-          {iconRight && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{iconRight}</span>}
-        </>
+        icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>
+      )}
+      {children && <span>{children}</span>}
+      {!loading && iconRight && (
+        <span style={{ display: 'inline-flex', alignItems: 'center' }}>{iconRight}</span>
       )}
     </button>
   );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   Briefcase,
@@ -10,25 +10,37 @@ import {
   ArrowRight,
   Bookmark,
   ExternalLink,
-  Building2,
   MapPin,
   Calendar,
   AlertTriangle,
   Award,
-  Zap
+  Zap,
+  Target,
+  FileCheck,
+  ChevronRight,
+  BookOpen
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from '../context/ToastContext';
 import PageContainer from '../components/layout/PageContainer';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
-import ProgressBar from '../components/ui/ProgressBar';
+import Badge, { StatusBadge, MatchBadge, EligibilityBadge } from '../components/ui/Badge';
+import ProgressBar, { CircularProgress } from '../components/ui/ProgressBar';
+import {
+  mockOpportunities,
+  mockApplications,
+  mockSkillGapData,
+  mockStudentProfile
+} from '../services/mockData';
 
 export default function DashboardPlaceholder() {
   const { user } = useAuth();
-  const [savedOpportunities, setSavedOpportunities] = useState(new Set());
+  const toast = useToast();
+  const navigate = useNavigate();
 
-  // Determine time-of-day greeting
+  const [savedOpportunities, setSavedOpportunities] = useState(new Set(['opp-stripe-sde']));
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -36,71 +48,52 @@ export default function DashboardPlaceholder() {
     return 'Good evening';
   };
 
-  const toggleSave = (id) => {
+  const toggleSave = (id, title) => {
     setSavedOpportunities((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        toast.info(`Removed ${title} from saved items`);
+      } else {
+        next.add(id);
+        toast.success(`Saved ${title} to your tracker!`);
+      }
       return next;
     });
   };
 
-  // Sample opportunity preview data demonstrating Modern Skeuomorphic UI
-  const sampleOpportunities = [
-    {
-      id: 'opp-1',
-      company: 'Stripe',
-      title: 'Software Engineering Intern — Core Platform',
-      type: 'Internship',
-      mode: 'Hybrid',
-      location: 'Bengaluru / Hybrid',
-      matchScore: 92,
-      eligible: true,
-      deadline: 'in 4 days',
-      skills: ['Python', 'SQL', 'REST APIs', 'System Design'],
-      missingSkills: ['Distributed Systems'],
-    },
-    {
-      id: 'opp-2',
-      company: 'Microsoft',
-      title: 'Graduate SDE (Full-Time)',
-      type: 'Full-Time',
-      mode: 'Onsite',
-      location: 'Hyderabad, India',
-      matchScore: 86,
-      eligible: true,
-      deadline: 'in 11 days',
-      skills: ['Data Structures', 'C++', 'Algorithms', 'OOP'],
-      missingSkills: ['Azure'],
-    },
-  ];
+  const topOpportunities = mockOpportunities.slice(0, 3);
+  const activeApplications = mockApplications.filter((a) => a.status !== 'Rejected');
+  const targetRole = mockSkillGapData.targetRoles[0];
+  const missingSkills = mockSkillGapData.skillsBreakdown['role-fullstack'].requiredSkills.filter(
+    (s) => s.status === 'missing'
+  );
 
   return (
     <PageContainer>
-      {/* 1. Welcome & Hero Banner */}
+      {/* 1. Welcome & Telemetry Header Banner */}
       <div
         style={{
-          background: 'linear-gradient(135deg, var(--color-primary-900) 0%, #1e1b4b 100%)',
+          background: 'linear-gradient(135deg, var(--surface-raised) 0%, var(--surface) 100%)',
           borderRadius: 'var(--radius-xl)',
           padding: '2rem 2.25rem',
-          color: 'white',
-          marginBottom: '2rem',
+          border: '1px solid var(--border)',
           boxShadow: 'var(--shadow-raised)',
+          marginBottom: '2rem',
           position: 'relative',
           overflow: 'hidden',
         }}
-        className="dashboard-welcome-banner animate-slide-up"
+        className="animate-fade-up"
       >
-        {/* Subtle decorative glow */}
         <div
           style={{
             position: 'absolute',
             top: '-50px',
             right: '-50px',
-            width: '220px',
-            height: '220px',
+            width: '240px',
+            height: '240px',
             borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, rgba(99, 102, 241, 0) 70%)',
+            background: 'radial-gradient(circle, var(--primary-subtle) 0%, transparent 70%)',
             pointerEvents: 'none',
           }}
         />
@@ -108,31 +101,29 @@ export default function DashboardPlaceholder() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-              <Badge variant="purple" size="sm" dot>
+              <Badge variant="primary" size="sm" dot>
                 CareerPilot AI Telemetry Active
               </Badge>
+              <Badge variant="success" size="sm">
+                Student Profile 88% Complete
+              </Badge>
             </div>
-            <h1 style={{ fontSize: '1.85rem', fontWeight: 800, letterSpacing: '-0.025em', marginBottom: '0.4rem' }}>
-              {getGreeting()}, {user?.name || 'Student'}! 👋
+            <h1 className="font-h1" style={{ color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+              {getGreeting()}, {user?.name?.split(' ')[0] || 'Student'}! 👋
             </h1>
-            <p style={{ opacity: 0.85, fontSize: '0.95rem', maxWidth: '620px', lineHeight: 1.5 }}>
-              Your personalized career opportunities and skill gap telemetry are active. We identified <strong style={{ color: '#93c5fd' }}>18 matching opportunities</strong> tailored to your student profile.
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', maxWidth: '640px', lineHeight: 1.5 }}>
+              We analyzed your student profile and resume against <strong style={{ color: 'var(--primary)' }}>2,400+ active roles</strong>. You have <strong>18 high-match opportunities</strong> eligible for immediate application.
             </p>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <Link to="/opportunities">
-              <Button variant="accent" size="md" icon={<Briefcase size={16} />}>
+              <Button variant="primary" size="md" icon={<Briefcase size={16} />}>
                 Explore Matches
               </Button>
             </Link>
             <Link to="/ai-advisor">
-              <Button
-                variant="secondary"
-                size="md"
-                icon={<Sparkles size={16} color="var(--color-purple-600)" />}
-                style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)' }}
-              >
+              <Button variant="secondary" size="md" icon={<Sparkles size={16} className="text-secondary" />}>
                 Ask AI Advisor
               </Button>
             </Link>
@@ -140,331 +131,501 @@ export default function DashboardPlaceholder() {
         </div>
       </div>
 
-      {/* 2. Key Metrics & Telemetry Grid */}
+      {/* 2. Key Statistics Grid */}
       <div className="grid-4" style={{ marginBottom: '2rem' }}>
-        <Card variant="default" className="hover-lift">
+        <Card variant="raised" className="animate-fade-up" style={{ animationDelay: '0.05s' }}>
           <Card.Content style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-              <span className="text-caption">Matching Opportunities</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
+              <span className="font-caption" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                Matching Roles
+              </span>
               <div
                 style={{
                   width: '36px',
                   height: '36px',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-primary-50)',
-                  color: 'var(--color-primary-600)',
+                  backgroundColor: 'var(--primary-subtle)',
+                  color: 'var(--primary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: 'var(--shadow-sm)',
                 }}
               >
                 <Briefcase size={18} />
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <span style={{ fontSize: '1.875rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--color-text)' }}>
+              <span style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                 18
               </span>
-              <Badge variant="success" size="sm">
-                +4 new
-              </Badge>
+              <Badge variant="success" size="sm">+4 new</Badge>
             </div>
-            <p className="text-small" style={{ fontSize: '0.8rem' }}>89% average student match score</p>
+            <p className="font-small" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+              94% highest student match score
+            </p>
           </Card.Content>
         </Card>
 
-        <Card variant="default" className="hover-lift">
+        <Card variant="raised" className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
           <Card.Content style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-              <span className="text-caption">Active Applications</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
+              <span className="font-caption" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                Active Applications
+              </span>
               <div
                 style={{
                   width: '36px',
                   height: '36px',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-accent-50)',
-                  color: 'var(--color-accent-600)',
+                  backgroundColor: 'var(--secondary-subtle)',
+                  color: 'var(--secondary)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: 'var(--shadow-sm)',
                 }}
               >
                 <Layers size={18} />
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <span style={{ fontSize: '1.875rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--color-text)' }}>
-                4
+              <span style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                {activeApplications.length}
               </span>
-              <span className="text-small">in flight</span>
+              <Badge variant="accent" size="sm">1 Offer</Badge>
             </div>
-            <p className="text-small" style={{ fontSize: '0.8rem' }}>1 Assessment • 1 Tech Interview</p>
+            <p className="font-small" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+              1 Interview • 1 Assessment in flight
+            </p>
           </Card.Content>
         </Card>
 
-        <Card variant="default" className="hover-lift">
+        <Card variant="raised" className="animate-fade-up" style={{ animationDelay: '0.15s' }}>
           <Card.Content style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-              <span className="text-caption">Closing Soon</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
+              <span className="font-caption" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                Upcoming Deadlines
+              </span>
               <div
                 style={{
                   width: '36px',
                   height: '36px',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-warning-bg)',
-                  color: 'var(--color-warning-dark)',
+                  backgroundColor: 'var(--warning-bg)',
+                  color: 'var(--warning)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: 'var(--shadow-sm)',
                 }}
               >
                 <Clock size={18} />
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <span style={{ fontSize: '1.875rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--color-text)' }}>
+              <span style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                 2
               </span>
-              <Badge variant="warning" size="sm">
-                &lt; 5 Days
-              </Badge>
+              <Badge variant="warning" size="sm">&lt; 7 Days</Badge>
             </div>
-            <p className="text-small" style={{ fontSize: '0.8rem' }}>Stripe Intern closes in 4 days</p>
+            <p className="font-small" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+              Stripe closes in 4 days
+            </p>
           </Card.Content>
         </Card>
 
-        <Card variant="default" className="hover-lift">
+        <Card variant="raised" className="animate-fade-up" style={{ animationDelay: '0.2s' }}>
           <Card.Content style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-              <span className="text-caption">Profile Readiness</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
+              <span className="font-caption" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                Profile Readiness
+              </span>
               <div
                 style={{
                   width: '36px',
                   height: '36px',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-primary-50)',
-                  color: 'var(--color-primary-600)',
+                  backgroundColor: 'var(--success-bg)',
+                  color: 'var(--success)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  boxShadow: 'var(--shadow-sm)',
                 }}
               >
-                <TrendingUp size={18} />
+                <Award size={18} />
               </div>
             </div>
-            <div style={{ marginBottom: '0.65rem' }}>
-              <span style={{ fontSize: '1.875rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--color-text)' }}>
-                70%
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
+              <span style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
+                88%
               </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Verified</span>
             </div>
-            <ProgressBar value={70} size="sm" variant="primary" showPercentage={false} />
+            <p className="font-small" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+              Resume ATS Score: 88/100
+            </p>
           </Card.Content>
         </Card>
       </div>
 
-      {/* 3. Main Content Split: Recommended Opportunities & Application Pipeline */}
-      <div className="page-2col-grid dashboard-main-grid" style={{ marginBottom: '2rem' }}>
-        {/* Left Column: Recommended Opportunities */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div>
-              <h2 className="text-h3">Top AI-Recommended Opportunities</h2>
-              <p className="text-small">Ranked by deterministic eligibility and semantic match</p>
-            </div>
-            <Link to="/opportunities">
-              <Button variant="ghost" size="sm" iconRight={<ArrowRight size={14} />}>
-                View All (18)
-              </Button>
-            </Link>
-          </div>
-
-          {sampleOpportunities.map((opp) => (
-            <Card key={opp.id} variant="raised" className="hover-lift">
-              <Card.Content style={{ padding: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-                        {opp.company}
-                      </span>
-                      <span style={{ color: 'var(--color-text-subtle)' }}>•</span>
-                      <Badge variant="primary" size="sm">
-                        {opp.type}
-                      </Badge>
-                      <Badge variant="neutral" size="sm">
-                        {opp.mode}
-                      </Badge>
-                    </div>
-                    <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--color-text)' }}>
-                      {opp.title}
-                    </h3>
-                  </div>
-
-                  {/* Match Score Badge */}
-                  <div
-                    style={{
-                      padding: '0.5rem 0.85rem',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--color-success-bg)',
-                      border: '1px solid var(--color-success-border)',
-                      textAlign: 'center',
-                      boxShadow: 'var(--shadow-sm)',
-                      flexShrink: 0,
-                    }}
-                  >
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-success-dark)', lineHeight: 1 }}>
-                      {opp.matchScore}%
-                    </div>
-                    <div style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-success-dark)', marginTop: '2px' }}>
-                      Match
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem 1.25rem', flexWrap: 'wrap', fontSize: '0.84375rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <MapPin size={15} />
-                    {opp.location}
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={15} />
-                    Deadline {opp.deadline}
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--color-success-dark)', fontWeight: 600 }}>
-                    <CheckCircle2 size={15} />
-                    Eligible
-                  </span>
-                </div>
-
-                {/* Skills tags */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1.25rem' }}>
-                  {opp.skills.map((skill) => (
-                    <Badge key={skill} variant="neutral" size="sm">
-                      ✓ {skill}
-                    </Badge>
-                  ))}
-                  {opp.missingSkills.map((missing) => (
-                    <Badge key={missing} variant="warning" size="sm">
-                      Missing: {missing}
-                    </Badge>
-                  ))}
-                </div>
-
-                {/* Card Actions */}
-                <div
-                  className="dashboard-card-actions"
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingTop: '1rem',
-                    borderTop: '1px solid var(--border-subtle)',
-                    flexWrap: 'wrap',
-                    gap: '0.75rem',
-                  }}
-                >
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleSave(opp.id)}
-                    icon={<Bookmark size={15} fill={savedOpportunities.has(opp.id) ? 'var(--color-primary-600)' : 'none'} color="var(--color-primary-600)" />}
-                  >
-                    {savedOpportunities.has(opp.id) ? 'Saved' : 'Save Opportunity'}
-                  </Button>
-
-                  <div className="button-group" style={{ display: 'flex', gap: '0.65rem' }}>
-                    <Link to="/opportunities">
-                      <Button variant="secondary" size="sm">
-                        View Details
-                      </Button>
-                    </Link>
-                    <Button variant="primary" size="sm" iconRight={<ExternalLink size={14} />}>
-                      Apply Now
-                    </Button>
-                  </div>
-                </div>
-              </Card.Content>
-            </Card>
-          ))}
-        </div>
-
-        {/* Right Column: Application Tracker Preview & Next Action */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Next Immediate Action */}
-          <Card variant="raised" style={{ borderLeft: '4px solid var(--color-primary-600)' }}>
-            <Card.Content style={{ padding: '1.35rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' }}>
-                <Zap size={16} color="var(--color-primary-600)" />
-                <span className="text-caption" style={{ color: 'var(--color-primary-700)' }}>
-                  Next Immediate Action
-                </span>
-              </div>
-              <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                Google Online Assessment
-              </h4>
-              <p className="text-small" style={{ marginBottom: '1rem' }}>
-                Assessment link received for SWE Summer 2027. Complete before Thursday 11:59 PM.
-              </p>
-              <Link to="/applications">
-                <Button variant="primary" size="sm" style={{ width: '100%' }}>
-                  Go to Application Tracker
-                </Button>
-              </Link>
-            </Card.Content>
-          </Card>
-
-          {/* Application Pipeline Stages Preview */}
+      {/* 3. Main Dashboard Body: Left Column (Recommended Opps + Pipeline) & Right Column (Skill Gap & Deadlines) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }} className="dashboard-main-grid">
+        {/* Left Column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Section: Recommended Opportunities */}
           <Card variant="default">
             <Card.Header>
-              <Card.Title style={{ fontSize: '1rem' }}>Application Stages</Card.Title>
-              <Badge variant="neutral" size="sm">4 Total</Badge>
-            </Card.Header>
-            <Card.Content style={{ padding: '1.25rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="text-small" style={{ fontWeight: 600 }}>Applied</span>
-                  <Badge variant="neutral" size="sm">2 Opportunities</Badge>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="text-small" style={{ fontWeight: 600 }}>Assessment</span>
-                  <Badge variant="warning" size="sm">1 Active</Badge>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="text-small" style={{ fontWeight: 600 }}>Interview</span>
-                  <Badge variant="purple" size="sm">1 Scheduled</Badge>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="text-small" style={{ fontWeight: 600 }}>Selected</span>
-                  <Badge variant="success" size="sm">0</Badge>
-                </div>
+              <div>
+                <h3 className="font-h3" style={{ color: 'var(--text-primary)' }}>
+                  Recommended For You
+                </h3>
+                <p className="font-small" style={{ color: 'var(--text-secondary)' }}>
+                  Tailored based on your extracted skills, verified CGPA, and graduation year
+                </p>
               </div>
+              <Link to="/opportunities">
+                <Button variant="ghost" size="sm" iconRight={<ArrowRight size={14} />}>
+                  View all 18
+                </Button>
+              </Link>
+            </Card.Header>
+
+            <Card.Content style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              {topOpportunities.map((opp) => {
+                const isSaved = savedOpportunities.has(opp.id);
+
+                return (
+                  <div
+                    key={opp.id}
+                    style={{
+                      padding: '1.25rem',
+                      borderRadius: 'var(--radius-lg)',
+                      backgroundColor: 'var(--surface-raised)',
+                      border: '1px solid var(--border)',
+                      boxShadow: 'var(--shadow-sm)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.85rem',
+                      transition: 'all var(--transition-fast)',
+                    }}
+                    className="hover-lift"
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+                        <div
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: 'var(--radius-md)',
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 800,
+                            color: 'var(--primary)',
+                            fontSize: '1rem',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {opp.company.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                              {opp.company}
+                            </span>
+                            <Badge variant="primary" size="sm">{opp.type}</Badge>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>• {opp.location}</span>
+                          </div>
+                          <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>
+                            {opp.title}
+                          </h4>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleSave(opp.id, opp.company)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          color: isSaved ? 'var(--primary)' : 'var(--text-muted)',
+                          padding: '4px',
+                        }}
+                        title={isSaved ? 'Remove from saved' : 'Save opportunity'}
+                      >
+                        <Bookmark size={18} fill={isSaved ? 'currentColor' : 'none'} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <MatchBadge score={opp.matchScore} size="sm" />
+                        <EligibilityBadge eligible={opp.eligibility.isEligible} size="sm" />
+                        <span style={{ fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <Clock size={12} />
+                          {opp.daysLeft} days left
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => navigate(`/opportunities?selected=${opp.id}`)}
+                        >
+                          View Details
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => {
+                            toast.success(`Started application process for ${opp.company}!`);
+                            navigate('/applications');
+                          }}
+                        >
+                          Quick Apply
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </Card.Content>
           </Card>
 
-          {/* Complete Student Profile Card */}
+          {/* Section: Application Pipeline Progress */}
           <Card variant="default">
-            <Card.Content style={{ padding: '1.35rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <Award size={18} color="var(--color-accent-600)" />
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Profile Completion</h4>
+            <Card.Header>
+              <div>
+                <h3 className="font-h3" style={{ color: 'var(--text-primary)' }}>
+                  Application Pipeline Tracker
+                </h3>
+                <p className="font-small" style={{ color: 'var(--text-secondary)' }}>
+                  Real-time status of your active submissions and upcoming interview milestones
+                </p>
               </div>
-              <p className="text-small" style={{ marginBottom: '0.85rem' }}>
-                Add your CGPA, Branch, and upload resume to unlock 100% eligibility accuracy.
-              </p>
-              <ProgressBar value={70} size="md" variant="accent" label="Academic & Skills Progress" style={{ marginBottom: '1rem' }} />
-              <Link to="/profile">
-                <Button variant="secondary" size="sm" style={{ width: '100%' }}>
-                  Complete Student Profile
+              <Link to="/applications">
+                <Button variant="ghost" size="sm" iconRight={<ArrowRight size={14} />}>
+                  Open Kanban Board
                 </Button>
               </Link>
+            </Card.Header>
+
+            <Card.Content style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {activeApplications.map((app) => (
+                  <div
+                    key={app.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '1rem',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--surface-raised)',
+                      border: '1px solid var(--border)',
+                      flexWrap: 'wrap',
+                      gap: '0.75rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: 'var(--radius-sm)',
+                          backgroundColor: 'var(--bg-secondary)',
+                          color: 'var(--primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                        }}
+                      >
+                        {app.company.charAt(0)}
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                            {app.company}
+                          </span>
+                          <StatusBadge status={app.status} size="sm" />
+                        </div>
+                        <div style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)' }}>
+                          {app.role}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)' }}>
+                        {app.nextAction}
+                      </div>
+                      <div style={{ fontSize: '0.71875rem', color: 'var(--text-muted)' }}>
+                        Target: {app.nextActionDate}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card.Content>
+          </Card>
+        </div>
+
+        {/* Right Column: Skill Gap Snapshot & AI Advisor Quick Launcher */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Target Role & Skill Gap Snapshot */}
+          <Card variant="raised">
+            <Card.Header>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Target size={18} className="text-primary" />
+                <h3 className="font-h3" style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                  Skill Gap Snapshot
+                </h3>
+              </div>
+              <Link to="/skill-gap">
+                <Button variant="ghost" size="sm">
+                  Roadmap
+                </Button>
+              </Link>
+            </Card.Header>
+
+            <Card.Content style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Target Specialization
+                  </div>
+                  <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {targetRole.title}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
+                    {targetRole.currentFit}%
+                  </span>
+                  <div style={{ fontSize: '0.71875rem', color: 'var(--text-muted)' }}>Alignment</div>
+                </div>
+              </div>
+
+              <ProgressBar value={targetRole.currentFit} variant="primary" size="sm" showPercentage={false} style={{ marginBottom: '1.25rem' }} />
+
+              <div style={{ fontSize: '0.78125rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                High-Impact Missing Skills:
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {missingSkills.slice(0, 3).map((skill) => (
+                  <div
+                    key={skill.name}
+                    style={{
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      border: '1px solid var(--border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.78125rem',
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{skill.name}</span>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{skill.demand}</div>
+                    </div>
+                    <Badge variant="warning" size="sm">High Priority</Badge>
+                  </div>
+                ))}
+              </div>
+
+              <Link to="/skill-gap" style={{ textDecoration: 'none', display: 'block', marginTop: '1rem' }}>
+                <Button variant="outline" size="sm" style={{ width: '100%' }} iconRight={<ChevronRight size={14} />}>
+                  View Tailored Learning Roadmap
+                </Button>
+              </Link>
+            </Card.Content>
+          </Card>
+
+          {/* AI Career Advisor Prompt Shortcut */}
+          <Card
+            variant="default"
+            style={{
+              background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface-raised) 100%)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <Card.Content style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' }}>
+                <div
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--secondary-subtle)',
+                    color: 'var(--secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Sparkles size={17} />
+                </div>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Ask AI Career Advisor
+                </h4>
+              </div>
+
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
+                Prepare for technical interviews, analyze resume match for any job link, or generate targeted prep notes.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                {[
+                  'What skills should I learn for an SDE role?',
+                  'How can I improve my resume for ATS?',
+                  'Prepare me for a React & Python interview'
+                ].map((promptText) => (
+                  <button
+                    key={promptText}
+                    type="button"
+                    onClick={() => navigate(`/ai-advisor?prompt=${encodeURIComponent(promptText)}`)}
+                    style={{
+                      textAlign: 'left',
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      fontSize: '0.78125rem',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      transition: 'all var(--transition-fast)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--primary)';
+                      e.currentTarget.style.color = 'var(--primary)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border)';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }}
+                  >
+                    "{promptText}"
+                  </button>
+                ))}
+              </div>
             </Card.Content>
           </Card>
         </div>
       </div>
+
+      <style>{`
+        @media (max-width: 980px) {
+          .dashboard-main-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </PageContainer>
   );
 }

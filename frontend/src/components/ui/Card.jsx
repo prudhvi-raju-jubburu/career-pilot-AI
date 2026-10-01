@@ -3,75 +3,64 @@ import React from 'react';
 /**
  * Modern Skeuomorphic Card Component with layered depth & subtle top highlight
  *
- * @param {('default'|'raised'|'interactive'|'sunken')} variant
+ * @param {('default'|'raised'|'interactive'|'glass'|'outlined'|'flat'|'sunken')} variant
+ * @param {boolean} selected
+ * @param {boolean} disabled
  */
-export default function Card({
+export function Card({
   children,
   variant = 'default',
+  selected = false,
+  disabled = false,
   className = '',
   style = {},
   onClick,
   ...props
 }) {
-  const getVariantStyles = () => {
+  const getVariantClass = () => {
     switch (variant) {
       case 'raised':
-        return {
-          backgroundColor: 'var(--color-surface)',
-          boxShadow: 'var(--shadow-raised)',
-          border: '1px solid var(--border-card)',
-        };
-      case 'sunken':
-        return {
-          backgroundColor: 'var(--color-bg-sunken)',
-          boxShadow: 'var(--shadow-sunken)',
-          border: '1px solid var(--border-subtle)',
-        };
+        return 'raised';
       case 'interactive':
-        return {
-          backgroundColor: 'var(--color-surface)',
-          boxShadow: 'var(--shadow-card)',
-          border: '1px solid var(--border-card)',
-          cursor: 'pointer',
-          transition: 'transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast)',
-        };
+        return 'interactive';
+      case 'glass':
+        return 'glass';
+      case 'sunken':
+        return 'sunken';
+      case 'flat':
+        return 'flat';
+      case 'outlined':
+        return 'outlined';
       case 'default':
       default:
-        return {
-          backgroundColor: 'var(--color-surface)',
-          boxShadow: 'var(--shadow-card)',
-          border: '1px solid var(--border-card)',
-        };
+        return '';
     }
   };
 
-  const baseStyles = {
-    borderRadius: 'var(--radius-lg)',
-    overflow: 'hidden',
-    position: 'relative',
-    ...getVariantStyles(),
-    ...style,
-  };
+  const selectedStyles = selected
+    ? {
+        borderColor: 'var(--primary)',
+        boxShadow: '0 0 0 2px var(--primary-subtle), var(--shadow-raised)',
+      }
+    : {};
+
+  const disabledStyles = disabled
+    ? {
+        opacity: 0.6,
+        pointerEvents: 'none',
+        filter: 'grayscale(0.2)',
+      }
+    : {};
 
   return (
     <div
-      style={baseStyles}
-      className={`card-skeuo ${variant} ${className}`}
-      onClick={onClick}
-      onMouseEnter={(e) => {
-        if (variant === 'interactive') {
-          e.currentTarget.style.transform = 'translateY(-2px)';
-          e.currentTarget.style.boxShadow = 'var(--shadow-raised-hover)';
-          e.currentTarget.style.borderColor = 'var(--color-primary-400)';
-        }
+      className={`card-skeuo ${getVariantClass()} ${className}`}
+      style={{
+        ...selectedStyles,
+        ...disabledStyles,
+        ...style,
       }}
-      onMouseLeave={(e) => {
-        if (variant === 'interactive') {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = 'var(--shadow-card)';
-          e.currentTarget.style.borderColor = 'var(--border-card)';
-        }
-      }}
+      onClick={!disabled ? onClick : undefined}
       {...props}
     >
       {children}
@@ -79,15 +68,17 @@ export default function Card({
   );
 }
 
-Card.Header = function CardHeader({ children, className = '', style = {}, ...props }) {
+export function CardHeader({ children, className = '', style = {}, ...props }) {
   return (
     <div
       style={{
         padding: '1.25rem 1.5rem',
-        borderBottom: '1px solid var(--border-subtle)',
+        borderBottom: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '0.75rem',
         ...style,
       }}
       className={`card-header ${className}`}
@@ -96,44 +87,9 @@ Card.Header = function CardHeader({ children, className = '', style = {}, ...pro
       {children}
     </div>
   );
-};
+}
 
-Card.Title = function CardTitle({ children, className = '', style = {}, ...props }) {
-  return (
-    <h3
-      style={{
-        fontSize: '1.15rem',
-        fontWeight: 700,
-        color: 'var(--color-text)',
-        letterSpacing: '-0.015em',
-        ...style,
-      }}
-      className={`card-title ${className}`}
-      {...props}
-    >
-      {children}
-    </h3>
-  );
-};
-
-Card.Description = function CardDescription({ children, className = '', style = {}, ...props }) {
-  return (
-    <p
-      style={{
-        fontSize: '0.875rem',
-        color: 'var(--color-text-muted)',
-        marginTop: '0.2rem',
-        ...style,
-      }}
-      className={`card-description ${className}`}
-      {...props}
-    >
-      {children}
-    </p>
-  );
-};
-
-Card.Content = function CardContent({ children, className = '', style = {}, ...props }) {
+export function CardContent({ children, className = '', style = {}, ...props }) {
   return (
     <div
       style={{
@@ -146,18 +102,20 @@ Card.Content = function CardContent({ children, className = '', style = {}, ...p
       {children}
     </div>
   );
-};
+}
 
-Card.Footer = function CardFooter({ children, className = '', style = {}, ...props }) {
+export function CardFooter({ children, className = '', style = {}, ...props }) {
   return (
     <div
       style={{
         padding: '1rem 1.5rem',
-        borderTop: '1px solid var(--border-subtle)',
-        backgroundColor: 'var(--color-bg-alt)',
+        borderTop: '1px solid var(--border)',
+        backgroundColor: 'var(--bg-secondary)',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-end',
+        gap: '0.75rem',
+        flexWrap: 'wrap',
         ...style,
       }}
       className={`card-footer ${className}`}
@@ -166,4 +124,51 @@ Card.Footer = function CardFooter({ children, className = '', style = {}, ...pro
       {children}
     </div>
   );
-};
+}
+
+export function CardTitle({ children, className = '', style = {}, ...props }) {
+  return (
+    <h3
+      style={{
+        fontSize: '1.1rem',
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        letterSpacing: '-0.015em',
+        margin: 0,
+        ...style,
+      }}
+      className={`card-title ${className}`}
+      {...props}
+    >
+      {children}
+    </h3>
+  );
+}
+
+export function CardDescription({ children, className = '', style = {}, ...props }) {
+  return (
+    <p
+      style={{
+        fontSize: '0.8125rem',
+        color: 'var(--text-secondary)',
+        marginTop: '0.2rem',
+        margin: 0,
+        lineHeight: 1.5,
+        ...style,
+      }}
+      className={`card-description ${className}`}
+      {...props}
+    >
+      {children}
+    </p>
+  );
+}
+
+// Attach subcomponents to default Card object
+Card.Header = CardHeader;
+Card.Content = CardContent;
+Card.Footer = CardFooter;
+Card.Title = CardTitle;
+Card.Description = CardDescription;
+
+export default Card;

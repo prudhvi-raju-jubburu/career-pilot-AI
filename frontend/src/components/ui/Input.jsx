@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 
 /**
  * Reusable Modern Skeuomorphic Input Field
@@ -7,12 +7,16 @@ import { Eye, EyeOff, AlertCircle } from 'lucide-react';
  * @param {string} label
  * @param {string} error
  * @param {string} helper
+ * @param {boolean} success
+ * @param {boolean} loading
  * @param {React.ReactNode} icon - Left icon
  */
 export default function Input({
   label,
   error,
   helper,
+  success = false,
+  loading = false,
   icon,
   type = 'text',
   id,
@@ -31,22 +35,26 @@ export default function Input({
   const isPasswordType = type === 'password';
   const effectiveType = isPasswordType ? (showPassword ? 'text' : 'password') : type;
 
+  let borderColor = 'var(--border-control)';
+  if (error) borderColor = 'var(--danger)';
+  else if (success) borderColor = 'var(--success)';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', width: '100%', ...style }}>
       {label && (
         <label
           htmlFor={inputId}
           style={{
-            fontSize: '0.84375rem',
+            fontSize: '0.8125rem',
             fontWeight: 600,
-            color: 'var(--color-text)',
+            color: 'var(--text-primary)',
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
           }}
         >
           {label}
-          {required && <span style={{ color: 'var(--color-danger)' }}>*</span>}
+          {required && <span style={{ color: 'var(--danger)' }}>*</span>}
         </label>
       )}
 
@@ -58,8 +66,9 @@ export default function Input({
               left: '0.85rem',
               display: 'flex',
               alignItems: 'center',
-              color: 'var(--color-text-subtle)',
+              color: 'var(--text-muted)',
               pointerEvents: 'none',
+              zIndex: 1,
             }}
           >
             {icon}
@@ -78,74 +87,68 @@ export default function Input({
           style={{
             width: '100%',
             padding: `0.6rem 0.95rem 0.6rem ${icon ? '2.4rem' : '0.95rem'}`,
-            paddingRight: isPasswordType ? '2.5rem' : '0.95rem',
-            fontSize: '0.9375rem',
+            paddingRight: isPasswordType || loading || error || success ? '2.5rem' : '0.95rem',
+            fontSize: '0.875rem',
             fontFamily: 'inherit',
-            color: 'var(--color-text)',
-            backgroundColor: disabled ? 'var(--color-bg-alt)' : 'var(--color-surface)',
-            border: `1px solid ${error ? 'var(--color-danger)' : 'var(--border-control)'}`,
+            color: 'var(--text-primary)',
+            backgroundColor: disabled ? 'var(--bg-sunken)' : 'var(--surface)',
+            border: `1px solid ${borderColor}`,
             borderRadius: 'var(--radius-md)',
             boxShadow: 'var(--shadow-sunken)',
             transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast)',
             outline: 'none',
           }}
           className={`input-tactile ${error ? 'error' : ''} ${className}`}
-          onFocus={(e) => {
-            if (!error) {
-              e.currentTarget.style.borderColor = 'var(--color-primary-500)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.15), var(--shadow-sunken)';
-            }
-          }}
-          onBlur={(e) => {
-            if (!error) {
-              e.currentTarget.style.borderColor = 'var(--border-control)';
-              e.currentTarget.style.boxShadow = 'var(--shadow-sunken)';
-            }
-          }}
           {...props}
         />
 
-        {isPasswordType && (
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            tabIndex={-1}
-            style={{
-              position: 'absolute',
-              right: '0.75rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--color-text-subtle)',
-              padding: '0.2rem',
-              borderRadius: 'var(--radius-sm)',
-            }}
-            title={showPassword ? 'Hide password' : 'Show password'}
-          >
-            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
-        )}
-      </div>
-
-      {error ? (
-        <span
+        {/* Right Status Indicators */}
+        <div
           style={{
+            position: 'absolute',
+            right: '0.85rem',
             display: 'flex',
             alignItems: 'center',
             gap: '0.35rem',
-            fontSize: '0.78125rem',
-            color: 'var(--color-danger)',
-            fontWeight: 500,
           }}
         >
-          <AlertCircle size={14} />
-          {error}
-        </span>
-      ) : helper ? (
-        <span style={{ fontSize: '0.78125rem', color: 'var(--color-text-subtle)' }}>
+          {loading && <Loader2 size={16} className="animate-spin text-muted" />}
+          {!loading && success && <CheckCircle2 size={16} className="text-success" />}
+          {!loading && error && <AlertCircle size={16} className="text-danger" />}
+          {isPasswordType && (
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                padding: '2px',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Helper text or error message */}
+      {error && (
+        <div style={{ fontSize: '0.75rem', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <AlertCircle size={13} />
+          <span>{error}</span>
+        </div>
+      )}
+      {!error && helper && (
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
           {helper}
-        </span>
-      ) : null}
+        </div>
+      )}
     </div>
   );
 }
