@@ -1,1 +1,9 @@
 export { useAuth } from './useAuth';
+export { useOpportunities } from './useOpportunities';
+export { useProfile } from './useProfile';
+export { useApplications } from './useApplications';
+export { useResume } from './useResume';
+export { useSkillGap } from './useSkillGap';
+export { useNotifications } from './useNotifications';
+export { useNetworkStatus } from './useNetworkStatus';
+export { useScrollReveal } from './useScrollReveal';

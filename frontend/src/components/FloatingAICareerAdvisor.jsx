@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Sparkles,
   MessageSquare,
@@ -23,6 +23,7 @@ const QUICK_PROMPTS = [
 ];
 
 export default function FloatingAICareerAdvisor() {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -32,7 +33,11 @@ export default function FloatingAICareerAdvisor() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Do not render floating advisor on dedicated advisor page or auth pages
+  const isExcluded = location.pathname === '/ai-advisor' || location.pathname === '/login' || location.pathname === '/register';
+
   useEffect(() => {
+    if (isExcluded || !user) return;
     // Initial greeting
     const loadProfile = async () => {
       let studentName = user?.name || 'there';
@@ -111,6 +116,8 @@ export default function FloatingAICareerAdvisor() {
     setIsOpen(false);
     navigate('/ai-advisor');
   };
+
+  if (isExcluded) return null;
 
   return (
     <>

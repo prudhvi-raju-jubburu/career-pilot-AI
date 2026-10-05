@@ -7,29 +7,37 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  Sun,
-  Moon,
   Sparkles,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Compass,
+  Search,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
-import { useTheme } from '../../context/ThemeContext';
 import SearchInput from '../ui/SearchInput';
 import Badge from '../ui/Badge';
 import { mockNotifications } from '../../services/mockData';
 
 export default function Topbar({ onToggleMobile }) {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const userDropdownRef = useRef(null);
   const notifDropdownRef = useRef(null);
+  const mobileSearchInputRef = useRef(null);
+
+  // Focus mobile input when opened
+  useEffect(() => {
+    if (mobileSearchOpen && mobileSearchInputRef.current) {
+      mobileSearchInputRef.current.focus();
+    }
+  }, [mobileSearchOpen]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -53,6 +61,7 @@ export default function Topbar({ onToggleMobile }) {
 
   const handleSearchSubmit = (e) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
+      setMobileSearchOpen(false);
       navigate(`/opportunities?search=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
@@ -62,32 +71,110 @@ export default function Topbar({ onToggleMobile }) {
 
   return (
     <header className="app-topbar">
-      {/* Left Area: Mobile Menu + Search */}
-      <div className="topbar-left">
-        <button
-          onClick={onToggleMobile}
-          className="topbar-icon-btn topbar-mobile-toggle"
-          id="mobile-menu-trigger"
-          title="Toggle Navigation Menu"
-          aria-label="Toggle navigation menu"
+      {/* Mobile Expandable Search Bar overlay */}
+      {mobileSearchOpen ? (
+        <div
+          className="mobile-search-bar animate-fade-in"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            width: '100%',
+            height: '100%',
+          }}
         >
-          <Menu size={18} />
-        </button>
-
-        <div style={{ flex: 1, minWidth: 0, maxWidth: '420px' }}>
-          <SearchInput
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleSearchSubmit}
-            placeholder="Search internships, roles, skills, or companies..."
-            showShortcut
-            shortcutKey="↵ Enter"
-          />
+          <div style={{ flex: 1 }}>
+            <SearchInput
+              ref={mobileSearchInputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchSubmit}
+              placeholder="Search internships, skills, companies..."
+              autoFocus
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileSearchOpen(false)}
+            className="topbar-icon-btn"
+            title="Close search"
+            aria-label="Close search"
+          >
+            <X size={18} />
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Left Area: Mobile Menu + Mobile Brand + Desktop Search */}
+          <div className="topbar-left">
+            <button
+              onClick={onToggleMobile}
+              className="topbar-icon-btn topbar-mobile-toggle"
+              id="mobile-menu-trigger"
+              title="Toggle Navigation Menu"
+              aria-label="Toggle navigation menu"
+            >
+              <Menu size={18} />
+            </button>
 
-      {/* Right Area: Status Badge + Theme Toggle + Notifications + User Menu */}
-      <div className="topbar-right">
+            {/* Mobile Brand Mark visible only <= 768px */}
+            <Link
+              to="/dashboard"
+              className="mobile-topbar-brand"
+              style={{
+                display: 'none',
+                alignItems: 'center',
+                gap: '0.45rem',
+                textDecoration: 'none',
+                color: 'var(--text-primary)',
+                fontWeight: 800,
+                fontSize: '1rem',
+              }}
+            >
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  flexShrink: 0,
+                }}
+              >
+                <Compass size={16} />
+              </div>
+              <span>CareerPilot</span>
+            </Link>
+
+            {/* Desktop Search Input */}
+            <div className="desktop-search-wrapper" style={{ flex: 1, minWidth: 0, maxWidth: '420px' }}>
+              <SearchInput
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearchSubmit}
+                placeholder="Search internships, roles, skills, or companies..."
+                showShortcut
+                shortcutKey="↵ Enter"
+              />
+            </div>
+          </div>
+
+          {/* Right Area: Mobile Search Toggle + Status Badge + Theme Toggle + Notifications + User Menu */}
+          <div className="topbar-right">
+            {/* Mobile Search Toggle Icon */}
+            <button
+              type="button"
+              onClick={() => setMobileSearchOpen(true)}
+              className="topbar-icon-btn mobile-search-btn"
+              style={{ display: 'none' }}
+              title="Search opportunities"
+              aria-label="Open search input"
+            >
+              <Search size={17} />
+            </button>
         {/* Status Badge */}
         <Badge
           variant="primary"
@@ -99,20 +186,6 @@ export default function Topbar({ onToggleMobile }) {
           Telemetry Active
         </Badge>
 
-        {/* Theme Toggle Button */}
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="topbar-icon-btn"
-          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-          aria-label="Toggle theme"
-        >
-          {theme === 'dark' ? (
-            <Sun size={17} className="text-warning animate-scale-in" />
-          ) : (
-            <Moon size={17} className="text-primary animate-scale-in" />
-          )}
-        </button>
 
         {/* Notifications Dropdown Container */}
         <div style={{ position: 'relative' }} ref={notifDropdownRef}>
@@ -380,10 +453,26 @@ export default function Topbar({ onToggleMobile }) {
           )}
         </div>
       </div>
+      </>
+      )}
 
       <style>{`
+        #mobile-menu-trigger {
+          display: none !important;
+        }
         @media (max-width: 1024px) {
           #mobile-menu-trigger {
+            display: flex !important;
+          }
+        }
+        @media (max-width: 768px) {
+          .desktop-search-wrapper {
+            display: none !important;
+          }
+          .mobile-search-btn {
+            display: flex !important;
+          }
+          .mobile-topbar-brand {
             display: flex !important;
           }
         }

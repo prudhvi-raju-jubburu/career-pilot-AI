@@ -208,6 +208,23 @@ export function OpportunityTypeBadge({ type, size = 'sm' }) {
 }
 
 /**
+ * PriorityBadge for skill priority (Critical, High, Medium, Low)
+ */
+export function PriorityBadge({ priority = 'Medium', size = 'sm' }) {
+  let variant = 'neutral';
+  if (priority === 'Critical') variant = 'danger';
+  else if (priority === 'High') variant = 'warning';
+  else if (priority === 'Medium') variant = 'primary';
+  else if (priority === 'Low') variant = 'neutral';
+
+  return (
+    <Badge variant={variant} size={size} dot>
+      {priority} Priority
+    </Badge>
+  );
+}
+
+/**
  * SkillBadge for skills with optional source tag or removable action
  */
 export function SkillBadge({ name, verified = true, onRemove, size = 'sm' }) {
@@ -248,3 +265,4 @@ export function SkillBadge({ name, verified = true, onRemove, size = 'sm' }) {
     </span>
   );
 }
+

@@ -1,124 +1,137 @@
+import logging
 from flask import Blueprint, request, jsonify
 from app.utils.auth import token_required
-from app.models.profile import ProfileModel
+from app.services.profile_service import ProfileService
 
+logger = logging.getLogger(__name__)
 profile_bp = Blueprint("profile", __name__)
 
 @profile_bp.route("", methods=["GET"])
 @token_required
 def get_profile(current_user):
-    """Retrieves authenticated student's profile."""
+    """Retrieves authenticated student's profile from student_profiles."""
     user_id = str(current_user["_id"])
-    profile = ProfileModel.find_by_user_id(user_id)
+    profile = ProfileService.get_profile_by_user_id(user_id)
 
     if not profile:
-        # Return empty default profile structure initialized with user details
-        default_profile = {
-            "user_id": user_id,
-            "personal": {
-                "fullName": {"value": current_user.get("name", ""), "source": "system", "confidence": 1.0},
-                "email": {"value": current_user.get("email", ""), "source": "system", "confidence": 1.0},
-                "phone": {"value": None, "source": "manual", "confidence": 0.0},
-                "location": {"value": None, "source": "manual", "confidence": 0.0},
-            },
-            "education": {
-                "college": {"value": None, "source": "manual", "confidence": 0.0},
-                "degree": {"value": None, "source": "manual", "confidence": 0.0},
-                "branch": {"value": None, "source": "manual", "confidence": 0.0},
-                "graduationYear": {"value": None, "source": "manual", "confidence": 0.0},
-                "cgpa": {"value": None, "source": "manual", "confidence": 0.0},
-            },
-            "skills": {
-                "programmingLanguages": {"value": [], "source": "manual"},
-                "technical": {"value": [], "source": "manual"},
-                "frameworks": {"value": [], "source": "manual"},
-                "databases": {"value": [], "source": "manual"},
-                "cloud": {"value": [], "source": "manual"},
-                "tools": {"value": [], "source": "manual"},
-            },
-            "projects": [],
-            "experience": [],
-            "certifications": [],
-            "achievements": [],
-            "interests": [],
-            "preferences": {
-                "targetRoles": {"value": [], "source": "manual"},
-                "preferredLocations": {"value": [], "source": "manual"},
-                "workModes": {"value": ["Remote", "Hybrid"], "source": "manual"},
-            },
-            "resume": {"parsed": False, "analysisStatus": "none"},
-            "verification_status": "draft",
-            "profileCompletion": 12,
-        }
-        return jsonify({
-            "success": True,
-            "message": "Initialized empty student profile",
-            "data": default_profile
-        }), 200
+        # Initialize default student profile using authenticated credentials
+        profile = ProfileService.create_default_profile(
+            user_id=user_id,
+            user_email=current_user.get("email", ""),
+            user_name=current_user.get("name", "")
+        )
 
     return jsonify({
         "success": True,
         "message": "Student profile retrieved successfully",
-        "data": ProfileModel.to_dict(profile)
+        "data": ProfileService.to_dict(profile)
     }), 200
 
 @profile_bp.route("", methods=["PUT"])
 @token_required
 def update_profile(current_user):
-    """Updates student profile fields, marking changed fields with source 'manual'."""
+    """
+    Updates student profile fields.
+    Enforces manual provenance tracking, validation, and resets verified status if edited.
+    """
     user_id = str(current_user["_id"])
     updates = request.get_json(silent=True)
 
-    if not updates or not isinstance(updates, dict):
+    if updates is None or not isinstance(updates, dict):
         return jsonify({
             "success": False,
-            "message": "Request body must be valid JSON object",
-            "error": "BAD_REQUEST"
+            "message": "Request body must be a valid JSON object",
+            "error": {
+                "code": "BAD_REQUEST",
+                "message": "Malformed profile update payload"
+            }
         }), 400
 
-    updated_profile = ProfileModel.update_profile(user_id, updates)
-
-    return jsonify({
-        "success": True,
-        "message": "Profile updated successfully",
-        "data": ProfileModel.to_dict(updated_profile)
-    }), 200
-
-@profile_bp.route("/verify", methods=["POST"])
-@token_required
-def verify_profile(current_user):
-    """Marks student profile as verified, ready for opportunity matching."""
-    user_id = str(current_user["_id"])
     try:
-        verified_profile = ProfileModel.verify_profile(user_id)
+        updated_profile = ProfileService.update_profile_for_user(user_id, updates)
         return jsonify({
             "success": True,
-            "message": "Student profile successfully verified",
-            "data": ProfileModel.to_dict(verified_profile)
+            "message": "Profile updated successfully",
+            "data": ProfileService.to_dict(updated_profile)
         }), 200
     except ValueError as e:
         return jsonify({
             "success": False,
             "message": str(e),
-            "error": "VERIFICATION_FAILED"
+            "error": {
+                "code": "VALIDATION_ERROR",
+                "message": str(e)
+            }
         }), 400
     except Exception as e:
+        logger.exception("Unexpected error updating profile for user %s: %s", user_id, str(e))
         return jsonify({
             "success": False,
-            "message": f"Verification failed: {str(e)}",
-            "error": "INTERNAL_ERROR"
+            "message": "Failed to update profile",
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": str(e)
+            }
+        }), 500
+
+@profile_bp.route("/verify", methods=["POST"])
+@token_required
+def verify_profile(current_user):
+    """
+    Marks student profile as verified after ensuring baseline requirements.
+    Sets verification.status = 'verified'.
+    """
+    user_id = str(current_user["_id"])
+    try:
+        verified_profile = ProfileService.verify_profile(user_id)
+        return jsonify({
+            "success": True,
+            "message": "Student profile successfully verified",
+            "data": ProfileService.to_dict(verified_profile)
+        }), 200
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "message": str(e),
+            "error": {
+                "code": "VERIFICATION_FAILED",
+                "message": str(e)
+            }
+        }), 400
+    except Exception as e:
+        logger.exception("Error verifying profile for user %s: %s", user_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Internal verification error",
+            "error": {
+                "code": "INTERNAL_ERROR",
+                "message": str(e)
+            }
         }), 500
 
 @profile_bp.route("/completion", methods=["GET"])
 @token_required
 def get_completion(current_user):
-    """Calculates weighted completion details and identifies missing profile fields."""
+    """
+    Returns deterministic profile completion percentage and missing fields.
+    """
     user_id = str(current_user["_id"])
-    profile = ProfileModel.find_by_user_id(user_id)
-    completion = ProfileModel.calculate_completion(profile)
+    profile = ProfileService.get_profile_by_user_id(user_id)
+    if not profile:
+        profile = ProfileService.create_default_profile(
+            user_id=user_id,
+            user_email=current_user.get("email", ""),
+            user_name=current_user.get("name", "")
+        )
 
+    completion = ProfileService.calculate_profile_completion(profile)
     return jsonify({
         "success": True,
-        "message": "Profile completion calculated",
-        "data": completion
+        "message": "Profile completion calculated successfully",
+        "data": {
+            "percentage": completion["percentage"],
+            "missing_fields": completion["missing_fields"],
+            "breakdown": completion.get("breakdown", {}),
+            "missing_items": completion.get("missing_items", [])
+        }
     }), 200

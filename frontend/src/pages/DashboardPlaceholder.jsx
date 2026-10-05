@@ -1,631 +1,633 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Sparkles,
-  Briefcase,
-  Layers,
-  Clock,
-  CheckCircle2,
-  TrendingUp,
   ArrowRight,
   Bookmark,
-  ExternalLink,
-  MapPin,
+  BookmarkCheck,
   Calendar,
-  AlertTriangle,
-  Award,
-  Zap,
-  Target,
-  FileCheck,
-  ChevronRight,
-  BookOpen
+  Clock,
+  Sparkles,
+  TrendingUp,
+  Briefcase,
+  Layers,
+  CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../context/ToastContext';
+import { useProfile } from '../hooks/useProfile';
+import { useOpportunities } from '../hooks/useOpportunities';
+import { useApplications } from '../hooks/useApplications';
+import { useSkillGap } from '../hooks/useSkillGap';
 import PageContainer from '../components/layout/PageContainer';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
-import Badge, { StatusBadge, MatchBadge, EligibilityBadge } from '../components/ui/Badge';
-import ProgressBar, { CircularProgress } from '../components/ui/ProgressBar';
-import {
-  mockOpportunities,
-  mockApplications,
-  mockSkillGapData,
-  mockStudentProfile
-} from '../services/mockData';
+import Badge, { MatchBadge, PriorityBadge, OpportunityTypeBadge } from '../components/ui/Badge';
+import ProgressBar from '../components/ui/ProgressBar';
+import { SkeletonCard } from '../components/ui/Skeleton';
+import EmptyState from '../components/ui/EmptyState';
+
+const PRIORITY_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function formatShortDate(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function isInterviewStatus(status) {
+  return ['Interviewing', 'Interview', 'Assessment', 'Online Assessment'].includes(status);
+}
+
+function isOfferStatus(status) {
+  return ['Offered', 'Selected', 'Offer'].includes(status);
+}
+
+function isSubmittedStatus(status) {
+  return status && status !== 'Saved' && status !== 'Rejected';
+}
 
 export default function DashboardPlaceholder() {
   const { user } = useAuth();
-  const toast = useToast();
   const navigate = useNavigate();
+  const { profile, completion, loading: profileLoading } = useProfile();
+  const { data: opportunities, pagination, loading: oppsLoading, error: oppsError, refetch: refetchOpps } = useOpportunities();
+  const { applications, loading: appsLoading, error: appsError, refetch: refetchApps } = useApplications();
+  const { data: skillGap, loading: skillsLoading, error: skillsError, refetch: refetchSkills } = useSkillGap(
+    'Full Stack Developer'
+  );
 
-  const [savedOpportunities, setSavedOpportunities] = useState(new Set(['opp-stripe-sde']));
+  const [savedOppIds, setSavedOppIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('careerpilot_saved_opps');
+      return saved ? JSON.parse(saved) : ['opp-google-sde-intern'];
+    } catch {
+      return ['opp-google-sde-intern'];
+    }
+  });
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
-  const toggleSave = (id, title) => {
-    setSavedOpportunities((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        toast.info(`Removed ${title} from saved items`);
-      } else {
-        next.add(id);
-        toast.success(`Saved ${title} to your tracker!`);
-      }
+  const toggleSaveOpp = (oppId, e) => {
+    e.stopPropagation();
+    setSavedOppIds((prev) => {
+      const next = prev.includes(oppId) ? prev.filter((id) => id !== oppId) : [...prev, oppId];
+      try {
+        localStorage.setItem('careerpilot_saved_opps', JSON.stringify(next));
+      } catch {}
       return next;
     });
   };
 
-  const topOpportunities = mockOpportunities.slice(0, 3);
-  const activeApplications = mockApplications.filter((a) => a.status !== 'Rejected');
-  const targetRole = mockSkillGapData.targetRoles[0];
-  const missingSkills = mockSkillGapData.skillsBreakdown['role-fullstack'].requiredSkills.filter(
-    (s) => s.status === 'missing'
+  const firstName = user?.name?.split(' ')[0] || 'there';
+  const loading = oppsLoading || appsLoading || skillsLoading || profileLoading;
+
+  const totalOppsCount = pagination?.total ?? opportunities?.length ?? 0;
+  const appliedCount = useMemo(
+    () => (applications || []).filter((app) => isSubmittedStatus(app.status)).length,
+    [applications]
   );
+
+  const completionPercentage = completion?.percentage ?? profile?.profileCompletion ?? 0;
+  const missingItem = completion?.missing_items?.[0] || 'Complete your student profile to maximize opportunity discovery.';
+
+  const recentOpportunities = useMemo(() => {
+    const list = opportunities || [];
+    // Prioritize student-oriented opportunities: internships, hackathons, fellowships, contests
+    const studentTypes = ['internship', 'fellowship', 'hackathon', 'coding_contest', 'scholarship'];
+    const studentRoles = list.filter((o) => studentTypes.includes(o.type));
+    const otherRoles = list.filter((o) => !studentTypes.includes(o.type));
+    return [...studentRoles, ...otherRoles].slice(0, 4);
+  }, [opportunities]);
+
+  const upcomingDeadlines = useMemo(() => {
+    const list = opportunities || [];
+    return list
+      .filter((opp) => opp.deadline)
+      .slice(0, 3)
+      .map((opp) => ({
+        id: opp.id,
+        company: opp.company,
+        role: opp.title,
+        deadline: opp.deadline,
+        type: opp.type,
+      }));
+  }, [opportunities]);
+
+  const skillsToImprove = useMemo(() => {
+    const missing = skillGap?.prioritySpotlight || skillGap?.missingSkills || [];
+    return [...missing]
+      .map((skill) =>
+        typeof skill === 'string'
+          ? { name: skill, priority: 'High' }
+          : { name: skill.name, priority: skill.priority || skill.importance || 'High' }
+      )
+      .sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9))
+      .slice(0, 4);
+  }, [skillGap]);
+
+  const pipeline = useMemo(() => {
+    const list = applications || [];
+    return {
+      saved: list.filter((app) => app.status === 'Saved').length,
+      applied: list.filter((app) => app.status === 'Applied').length,
+      interview: list.filter((app) => isInterviewStatus(app.status)).length,
+      offer: list.filter((app) => isOfferStatus(app.status)).length,
+    };
+  }, [applications]);
+
+  const targetRoleTitle = skillGap?.targetRole || 'Full Stack Developer';
+  const readinessScore = skillGap?.readinessScore ?? null;
 
   return (
     <PageContainer>
-      {/* 1. Welcome & Telemetry Header Banner */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, var(--surface-raised) 0%, var(--surface) 100%)',
-          borderRadius: 'var(--radius-xl)',
-          padding: '2rem 2.25rem',
-          border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow-raised)',
-          marginBottom: '2rem',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-        className="animate-fade-up"
-      >
-        <div
-          style={{
-            position: 'absolute',
-            top: '-50px',
-            right: '-50px',
-            width: '240px',
-            height: '240px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, var(--primary-subtle) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }}
-        />
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
+      <div className="dashboard-container animate-fade-up">
+        {/* Top Header */}
+        <div className="dashboard-header">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
-              <Badge variant="primary" size="sm" dot>
-                CareerPilot AI Telemetry Active
-              </Badge>
-              <Badge variant="success" size="sm">
-                Student Profile 88% Complete
-              </Badge>
-            </div>
-            <h1 className="font-h1" style={{ color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-              {getGreeting()}, {user?.name?.split(' ')[0] || 'Student'}! 👋
+            <h1 className="font-h1" style={{ color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+              {getGreeting()}, {firstName} 👋
             </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', maxWidth: '640px', lineHeight: 1.5 }}>
-              We analyzed your student profile and resume against <strong style={{ color: 'var(--primary)' }}>2,400+ active roles</strong>. You have <strong>18 high-match opportunities</strong> eligible for immediate application.
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+              Here is your career progression overview and latest opportunities.
             </p>
           </div>
-
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Link to="/opportunities">
-              <Button variant="primary" size="md" icon={<Briefcase size={16} />}>
-                Explore Matches
-              </Button>
-            </Link>
-            <Link to="/ai-advisor">
-              <Button variant="secondary" size="md" icon={<Sparkles size={16} className="text-secondary" />}>
-                Ask AI Advisor
+          <div className="dashboard-header-action">
+            <Link to="/opportunities" style={{ textDecoration: 'none' }}>
+              <Button variant="primary" size="md" iconRight={<ArrowRight size={15} />}>
+                Explore Opportunities
               </Button>
             </Link>
           </div>
         </div>
-      </div>
 
-      {/* 2. Key Statistics Grid */}
-      <div className="grid-4" style={{ marginBottom: '2rem' }}>
-        <Card variant="raised" className="animate-fade-up" style={{ animationDelay: '0.05s' }}>
-          <Card.Content style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
-              <span className="font-caption" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                Matching Roles
-              </span>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--primary-subtle)',
-                  color: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Briefcase size={18} />
-              </div>
+        {loading ? (
+          <div style={{ display: 'grid', gap: '1.25rem' }}>
+            <div className="metrics-grid">
+              <SkeletonCard height="100px" />
+              <SkeletonCard height="100px" />
+              <SkeletonCard height="100px" />
+              <SkeletonCard height="100px" />
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <span style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                18
-              </span>
-              <Badge variant="success" size="sm">+4 new</Badge>
+            <div className="dashboard-grid">
+              <SkeletonCard height="320px" />
+              <SkeletonCard height="320px" />
             </div>
-            <p className="font-small" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-              94% highest student match score
-            </p>
-          </Card.Content>
-        </Card>
-
-        <Card variant="raised" className="animate-fade-up" style={{ animationDelay: '0.1s' }}>
-          <Card.Content style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
-              <span className="font-caption" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                Active Applications
-              </span>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--secondary-subtle)',
-                  color: 'var(--secondary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Layers size={18} />
-              </div>
+          </div>
+        ) : (
+          <>
+            {/* 1. Key Metrics 4-Grid */}
+            <div className="metrics-grid">
+              <StatTile
+                label="Opportunities Available"
+                value={totalOppsCount}
+                icon={<Briefcase size={20} />}
+                subtext="Verified student roles"
+              />
+              <StatTile
+                label="Active Applications"
+                value={appliedCount}
+                icon={<Layers size={20} />}
+                subtext="In active pipeline"
+              />
+              <StatTile
+                label="Profile Completion"
+                value={`${completionPercentage}%`}
+                icon={<CheckCircle2 size={20} />}
+                subtext={completionPercentage >= 80 ? 'Profile verified' : 'Action items pending'}
+              />
+              <StatTile
+                label="Target Role Readiness"
+                value={readinessScore ? `${readinessScore}%` : 'Building'}
+                icon={<TrendingUp size={20} />}
+                subtext={targetRoleTitle}
+              />
             </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <span style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                {activeApplications.length}
-              </span>
-              <Badge variant="accent" size="sm">1 Offer</Badge>
-            </div>
-            <p className="font-small" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-              1 Interview • 1 Assessment in flight
-            </p>
-          </Card.Content>
-        </Card>
 
-        <Card variant="raised" className="animate-fade-up" style={{ animationDelay: '0.15s' }}>
-          <Card.Content style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
-              <span className="font-caption" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                Upcoming Deadlines
-              </span>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--warning-bg)',
-                  color: 'var(--warning)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Clock size={18} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <span style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                2
-              </span>
-              <Badge variant="warning" size="sm">&lt; 7 Days</Badge>
-            </div>
-            <p className="font-small" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-              Stripe closes in 4 days
-            </p>
-          </Card.Content>
-        </Card>
-
-        <Card variant="raised" className="animate-fade-up" style={{ animationDelay: '0.2s' }}>
-          <Card.Content style={{ padding: '1.25rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
-              <span className="font-caption" style={{ color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                Profile Readiness
-              </span>
-              <div
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--success-bg)',
-                  color: 'var(--success)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Award size={18} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <span style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
-                88%
-              </span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Verified</span>
-            </div>
-            <p className="font-small" style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-              Resume ATS Score: 88/100
-            </p>
-          </Card.Content>
-        </Card>
-      </div>
-
-      {/* 3. Main Dashboard Body: Left Column (Recommended Opps + Pipeline) & Right Column (Skill Gap & Deadlines) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: '1.5rem', alignItems: 'start' }} className="dashboard-main-grid">
-        {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Section: Recommended Opportunities */}
-          <Card variant="default">
-            <Card.Header>
-              <div>
-                <h3 className="font-h3" style={{ color: 'var(--text-primary)' }}>
-                  Recommended For You
-                </h3>
-                <p className="font-small" style={{ color: 'var(--text-secondary)' }}>
-                  Tailored based on your extracted skills, verified CGPA, and graduation year
-                </p>
-              </div>
-              <Link to="/opportunities">
-                <Button variant="ghost" size="sm" iconRight={<ArrowRight size={14} />}>
-                  View all 18
-                </Button>
-              </Link>
-            </Card.Header>
-
-            <Card.Content style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-              {topOpportunities.map((opp) => {
-                const isSaved = savedOpportunities.has(opp.id);
-
-                return (
-                  <div
-                    key={opp.id}
-                    style={{
-                      padding: '1.25rem',
-                      borderRadius: 'var(--radius-lg)',
-                      backgroundColor: 'var(--surface-raised)',
-                      border: '1px solid var(--border)',
-                      boxShadow: 'var(--shadow-sm)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.85rem',
-                      transition: 'all var(--transition-fast)',
-                    }}
-                    className="hover-lift"
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
-                      <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
-                        <div
-                          style={{
-                            width: '42px',
-                            height: '42px',
-                            borderRadius: 'var(--radius-md)',
-                            backgroundColor: 'var(--bg-secondary)',
-                            border: '1px solid var(--border)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontWeight: 800,
-                            color: 'var(--primary)',
-                            fontSize: '1rem',
-                            flexShrink: 0,
-                          }}
-                        >
-                          {opp.company.charAt(0)}
-                        </div>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                              {opp.company}
-                            </span>
-                            <Badge variant="primary" size="sm">{opp.type}</Badge>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>• {opp.location}</span>
-                          </div>
-                          <h4 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>
-                            {opp.title}
-                          </h4>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => toggleSave(opp.id, opp.company)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          color: isSaved ? 'var(--primary)' : 'var(--text-muted)',
-                          padding: '4px',
-                        }}
-                        title={isSaved ? 'Remove from saved' : 'Save opportunity'}
-                      >
-                        <Bookmark size={18} fill={isSaved ? 'currentColor' : 'none'} />
-                      </button>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <MatchBadge score={opp.matchScore} size="sm" />
-                        <EligibilityBadge eligible={opp.eligibility.isEligible} size="sm" />
-                        <span style={{ fontSize: '0.75rem', color: 'var(--warning)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <Clock size={12} />
-                          {opp.daysLeft} days left
+            {/* 2. Main Two-Column Layout */}
+            <div className="dashboard-grid">
+              {/* Left Column (Primary Content) */}
+              <div className="dashboard-main-col">
+                {/* Profile Progress Card */}
+                <Card variant="raised" style={{ marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
+                  <Card.Content style={{ padding: '1.25rem 1.4rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Profile</span>
+                        <span style={{ color: 'var(--text-muted)' }}>•</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--primary)' }}>
+                          {completionPercentage}% complete
                         </span>
                       </div>
-
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => navigate(`/opportunities?selected=${opp.id}`)}
-                        >
-                          View Details
+                      <Link to="/profile" style={{ textDecoration: 'none' }}>
+                        <Button variant="ghost" size="sm" iconRight={<ArrowRight size={14} />}>
+                          Complete Profile
                         </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => {
-                            toast.success(`Started application process for ${opp.company}!`);
-                            navigate('/applications');
-                          }}
-                        >
-                          Quick Apply
-                        </Button>
+                      </Link>
+                    </div>
+                    <ProgressBar value={completionPercentage} variant="primary" showPercentage={false} size="sm" />
+                    <div style={{ fontSize: '0.825rem', color: 'var(--text-secondary)', marginTop: '0.6rem' }}>
+                      {missingItem}
+                    </div>
+                  </Card.Content>
+                </Card>
+
+                {/* Latest Opportunities */}
+                <DigestSection title="Latest Opportunities">
+                  {oppsError ? (
+                    <RetryNote message="Could not load opportunities." onRetry={refetchOpps} />
+                  ) : recentOpportunities.length === 0 ? (
+                    <EmptyState
+                      title="No opportunities found"
+                      description="Check back soon for freshly discovered student roles."
+                      actionLabel="Explore opportunities"
+                      onAction={() => navigate('/opportunities')}
+                      style={{ padding: '1.75rem 1rem', maxWidth: '100%' }}
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                      {recentOpportunities.map((opp) => {
+                        const isSaved = savedOppIds.includes(opp.id);
+                        return (
+                          <div key={opp.id} className="digest-opp-card">
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.15rem' }}>
+                                {opp.company}
+                              </div>
+                              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.45rem', fontWeight: 500 }}>
+                                {opp.title}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                                <OpportunityTypeBadge type={opp.type} size="sm" />
+                                <span>•</span>
+                                <span>{opp.locationString || opp.location || 'Remote'}</span>
+                                {opp.workMode && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{opp.workMode}</span>
+                                  </>
+                                )}
+                                {opp.deadline && (
+                                  <span style={{ color: 'var(--warning-dark)', fontWeight: 600 }}>
+                                    • Deadline: {formatShortDate(opp.deadline)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                              <button
+                                type="button"
+                                onClick={(e) => toggleSaveOpp(opp.id, e)}
+                                className="save-btn"
+                                title={isSaved ? 'Saved to bookmarks' : 'Save opportunity'}
+                                aria-label="Save opportunity"
+                              >
+                                {isSaved ? <BookmarkCheck size={18} color="var(--primary)" /> : <Bookmark size={18} />}
+                              </button>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => navigate(`/opportunities?selected=${opp.id}`)}
+                              >
+                                View
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div style={{ marginTop: '0.75rem', textAlign: 'center' }}>
+                        <Link to="/opportunities" style={{ textDecoration: 'none' }}>
+                          <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} style={{ width: '100%' }}>
+                            View All Opportunities ({totalOppsCount})
+                          </Button>
+                        </Link>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </Card.Content>
-          </Card>
+                  )}
+                </DigestSection>
 
-          {/* Section: Application Pipeline Progress */}
-          <Card variant="default">
-            <Card.Header>
-              <div>
-                <h3 className="font-h3" style={{ color: 'var(--text-primary)' }}>
-                  Application Pipeline Tracker
-                </h3>
-                <p className="font-small" style={{ color: 'var(--text-secondary)' }}>
-                  Real-time status of your active submissions and upcoming interview milestones
-                </p>
-              </div>
-              <Link to="/applications">
-                <Button variant="ghost" size="sm" iconRight={<ArrowRight size={14} />}>
-                  Open Kanban Board
-                </Button>
-              </Link>
-            </Card.Header>
-
-            <Card.Content style={{ padding: '1.25rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {activeApplications.map((app) => (
-                  <div
-                    key={app.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '1rem',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--surface-raised)',
-                      border: '1px solid var(--border)',
-                      flexWrap: 'wrap',
-                      gap: '0.75rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div
-                        style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: 'var(--radius-sm)',
-                          backgroundColor: 'var(--bg-secondary)',
-                          color: 'var(--primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 800,
-                        }}
-                      >
-                        {app.company.charAt(0)}
+                {/* Applications Pipeline */}
+                <DigestSection title="My Applications Tracker">
+                  {appsError ? (
+                    <RetryNote message="Could not load applications." onRetry={refetchApps} />
+                  ) : (
+                    <>
+                      <div className="digest-pipeline">
+                        <PipelineStat label="Saved" value={pipeline.saved} />
+                        <PipelineStat label="Applied" value={pipeline.applied} />
+                        <PipelineStat label="Interview" value={pipeline.interview} />
+                        <PipelineStat label="Offer" value={pipeline.offer} />
                       </div>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                            {app.company}
-                          </span>
-                          <StatusBadge status={app.status} size="sm" />
+                      <div style={{ marginTop: '0.85rem' }}>
+                        <Link to="/applications" style={{ textDecoration: 'none' }}>
+                          <Button variant="ghost" size="sm" iconRight={<ArrowRight size={14} />}>
+                            Open Application Tracker
+                          </Button>
+                        </Link>
+                      </div>
+                    </>
+                  )}
+                </DigestSection>
+              </div>
+
+              {/* Right Column (Sidebar Widgets) */}
+              <div className="dashboard-sidebar-col">
+                {/* Upcoming Deadlines */}
+                {upcomingDeadlines.length > 0 && (
+                  <DigestSection title="Upcoming Deadlines">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                      {upcomingDeadlines.map((item) => (
+                        <div key={item.id} className="digest-deadline-row">
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {item.company}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {item.role}
+                            </div>
+                          </div>
+                          <Badge variant="warning" size="sm" dot style={{ flexShrink: 0 }}>
+                            {formatShortDate(item.deadline)}
+                          </Badge>
                         </div>
-                        <div style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)' }}>
-                          {app.role}
+                      ))}
+                    </div>
+                  </DigestSection>
+                )}
+
+                {/* Skills to Improve */}
+                <DigestSection title="Skills to Improve">
+                  {skillsError ? (
+                    <RetryNote message="Could not load your skill plan." onRetry={refetchSkills} />
+                  ) : skillsToImprove.length === 0 ? (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                      No high-priority skill gaps for your current target role.
+                    </p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                      {skillsToImprove.map((skill) => (
+                        <div key={skill.name} className="digest-skill-row">
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem' }}>{skill.name}</span>
+                          <PriorityBadge priority={skill.priority} size="sm" />
                         </div>
+                      ))}
+                      <div style={{ marginTop: '0.5rem' }}>
+                        <Link to="/skill-gap" style={{ textDecoration: 'none' }}>
+                          <Button variant="outline" size="sm" iconRight={<ArrowRight size={14} />} style={{ width: '100%' }}>
+                            View Personalized Roadmap
+                          </Button>
+                        </Link>
                       </div>
                     </div>
+                  )}
+                </DigestSection>
 
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)' }}>
-                        {app.nextAction}
+                {/* Quick Career Actions */}
+                <DigestSection title="Quick Career Actions">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    <Link to="/resume" style={{ textDecoration: 'none' }}>
+                      <div className="quick-action-card">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div className="quick-action-icon"><Sparkles size={16} /></div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>Analyze Resume</div>
+                            <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Scan and extract ATS skills</div>
+                          </div>
+                        </div>
+                        <ArrowRight size={14} color="var(--primary)" />
                       </div>
-                      <div style={{ fontSize: '0.71875rem', color: 'var(--text-muted)' }}>
-                        Target: {app.nextActionDate}
+                    </Link>
+                    <Link to="/ai-advisor" style={{ textDecoration: 'none' }}>
+                      <div className="quick-action-card">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div className="quick-action-icon"><Briefcase size={16} /></div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>AI Career Advisor</div>
+                            <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Interview prep & mentorship</div>
+                          </div>
+                        </div>
+                        <ArrowRight size={14} color="var(--primary)" />
                       </div>
-                    </div>
+                    </Link>
                   </div>
-                ))}
+                </DigestSection>
               </div>
-            </Card.Content>
-          </Card>
-        </div>
-
-        {/* Right Column: Skill Gap Snapshot & AI Advisor Quick Launcher */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Target Role & Skill Gap Snapshot */}
-          <Card variant="raised">
-            <Card.Header>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Target size={18} className="text-primary" />
-                <h3 className="font-h3" style={{ fontSize: '1.05rem', color: 'var(--text-primary)' }}>
-                  Skill Gap Snapshot
-                </h3>
-              </div>
-              <Link to="/skill-gap">
-                <Button variant="ghost" size="sm">
-                  Roadmap
-                </Button>
-              </Link>
-            </Card.Header>
-
-            <Card.Content style={{ padding: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                    Target Specialization
-                  </div>
-                  <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {targetRole.title}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
-                    {targetRole.currentFit}%
-                  </span>
-                  <div style={{ fontSize: '0.71875rem', color: 'var(--text-muted)' }}>Alignment</div>
-                </div>
-              </div>
-
-              <ProgressBar value={targetRole.currentFit} variant="primary" size="sm" showPercentage={false} style={{ marginBottom: '1.25rem' }} />
-
-              <div style={{ fontSize: '0.78125rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                High-Impact Missing Skills:
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {missingSkills.slice(0, 3).map((skill) => (
-                  <div
-                    key={skill.name}
-                    style={{
-                      padding: '0.65rem 0.85rem',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--bg-secondary)',
-                      border: '1px solid var(--border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '0.78125rem',
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{skill.name}</span>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{skill.demand}</div>
-                    </div>
-                    <Badge variant="warning" size="sm">High Priority</Badge>
-                  </div>
-                ))}
-              </div>
-
-              <Link to="/skill-gap" style={{ textDecoration: 'none', display: 'block', marginTop: '1rem' }}>
-                <Button variant="outline" size="sm" style={{ width: '100%' }} iconRight={<ChevronRight size={14} />}>
-                  View Tailored Learning Roadmap
-                </Button>
-              </Link>
-            </Card.Content>
-          </Card>
-
-          {/* AI Career Advisor Prompt Shortcut */}
-          <Card
-            variant="default"
-            style={{
-              background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface-raised) 100%)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <Card.Content style={{ padding: '1.25rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' }}>
-                <div
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--secondary-subtle)',
-                    color: 'var(--secondary)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Sparkles size={17} />
-                </div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Ask AI Career Advisor
-                </h4>
-              </div>
-
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '1rem' }}>
-                Prepare for technical interviews, analyze resume match for any job link, or generate targeted prep notes.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                {[
-                  'What skills should I learn for an SDE role?',
-                  'How can I improve my resume for ATS?',
-                  'Prepare me for a React & Python interview'
-                ].map((promptText) => (
-                  <button
-                    key={promptText}
-                    type="button"
-                    onClick={() => navigate(`/ai-advisor?prompt=${encodeURIComponent(promptText)}`)}
-                    style={{
-                      textAlign: 'left',
-                      padding: '0.55rem 0.75rem',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                      fontSize: '0.78125rem',
-                      color: 'var(--text-secondary)',
-                      cursor: 'pointer',
-                      transition: 'all var(--transition-fast)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--primary)';
-                      e.currentTarget.style.color = 'var(--primary)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--border)';
-                      e.currentTarget.style.color = 'var(--text-secondary)';
-                    }}
-                  >
-                    "{promptText}"
-                  </button>
-                ))}
-              </div>
-            </Card.Content>
-          </Card>
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       <style>{`
-        @media (max-width: 980px) {
-          .dashboard-main-grid {
-            grid-template-columns: 1fr !important;
+        .dashboard-container {
+          width: 100%;
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+        .dashboard-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          margin-bottom: 1.75rem;
+          flex-wrap: wrap;
+        }
+        .metrics-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 1.15rem;
+          margin-bottom: 1.75rem;
+        }
+        @media (max-width: 1100px) {
+          .metrics-grid {
+            grid-template-columns: repeat(2, 1fr);
           }
+        }
+        @media (max-width: 540px) {
+          .metrics-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .dashboard-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 360px;
+          gap: 1.5rem;
+          align-items: start;
+        }
+        @media (max-width: 1024px) {
+          .dashboard-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+        .digest-section {
+          margin-bottom: 1.25rem;
+          border: 1px solid var(--border);
+        }
+        .digest-section-title {
+          font-size: 0.75rem;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+          margin-bottom: 0.85rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--border);
+        }
+        .digest-opp-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 0.9rem 1rem;
+          border-radius: var(--radius-md);
+          background: var(--surface);
+          border: 1px solid var(--border);
+          transition: all var(--transition-fast);
+        }
+        .digest-opp-card:hover {
+          border-color: var(--primary);
+          box-shadow: var(--shadow-sm);
+        }
+        .save-btn {
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: var(--radius-md);
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text-muted);
+          cursor: pointer;
+          transition: all var(--transition-fast);
+        }
+        .save-btn:hover {
+          color: var(--primary);
+          border-color: var(--primary);
+          background: var(--primary-subtle);
+        }
+        .digest-deadline-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.75rem 0.9rem;
+          border-radius: var(--radius-md);
+          background: var(--bg-secondary);
+          border: 1px solid var(--border);
+        }
+        .digest-skill-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.65rem 0.85rem;
+          border-radius: var(--radius-md);
+          background: var(--bg-secondary);
+          border: 1px solid var(--border);
+        }
+        .digest-pipeline {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 0.65rem;
+        }
+        @media (max-width: 540px) {
+          .digest-pipeline {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        .quick-action-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.75rem 0.9rem;
+          border-radius: var(--radius-md);
+          background: var(--bg-secondary);
+          border: 1px solid var(--border);
+          transition: all var(--transition-fast);
+        }
+        .quick-action-card:hover {
+          background: var(--surface);
+          border-color: var(--primary);
+          transform: translateX(2px);
+        }
+        .quick-action-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: var(--radius-sm);
+          background: var(--primary-subtle);
+          color: var(--primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
       `}</style>
     </PageContainer>
+  );
+}
+
+function StatTile({ label, value, icon, subtext }) {
+  return (
+    <Card variant="raised" style={{ border: '1px solid var(--border)' }}>
+      <Card.Content style={{ padding: '1.1rem 1.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+          <div style={{ fontSize: '1.65rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
+            {value}
+          </div>
+          {icon && <span style={{ color: 'var(--primary)', opacity: 0.85 }}>{icon}</span>}
+        </div>
+        <div style={{ color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 700 }}>
+          {label}
+        </div>
+        {subtext && (
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.2rem' }}>
+            {subtext}
+          </div>
+        )}
+      </Card.Content>
+    </Card>
+  );
+}
+
+function DigestSection({ title, children }) {
+  return (
+    <Card variant="default" className="digest-section">
+      <Card.Content style={{ padding: '1.15rem 1.25rem 1.25rem' }}>
+        <div className="digest-section-title">{title}</div>
+        {children}
+      </Card.Content>
+    </Card>
+  );
+}
+
+function PipelineStat({ label, value }) {
+  return (
+    <div
+      style={{
+        padding: '0.75rem 0.85rem',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border)',
+        textAlign: 'center',
+      }}
+    >
+      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>{label}</div>
+      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.1rem' }}>{value}</div>
+    </div>
+  );
+}
+
+function RetryNote({ message, onRetry }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>{message}</span>
+      <Button variant="ghost" size="sm" onClick={onRetry}>
+        Retry
+      </Button>
+    </div>
   );
 }

@@ -180,10 +180,13 @@ export default function SettingsPage() {
 
         {/* Tab Strip */}
         <div
+          className="no-scrollbar"
           style={{
             display: 'flex',
+            flexWrap: 'nowrap',
             gap: '0.5rem',
             overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch',
             paddingBottom: '0.5rem',
             marginBottom: '1.5rem',
             borderBottom: '1px solid var(--border-subtle)',
@@ -196,7 +199,7 @@ export default function SettingsPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.5rem',
                   padding: '0.65rem 1.15rem',
@@ -205,6 +208,8 @@ export default function SettingsPage() {
                   fontSize: '0.9rem',
                   cursor: 'pointer',
                   border: 'none',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                   transition: 'all var(--transition-fast)',
                   backgroundColor: isActive ? 'var(--color-primary-600)' : 'transparent',
                   color: isActive ? '#ffffff' : 'var(--color-text-muted)',

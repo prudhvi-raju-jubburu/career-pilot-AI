@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import PublicLayout from './components/layout/PublicLayout';
 import LandingPage from './pages/LandingPage';
@@ -7,33 +7,34 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPlaceholder from './pages/DashboardPlaceholder';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
-
-import ResumeUploadPage from './pages/ResumeUploadPage';
-import ProfileReviewPage from './pages/ProfileReviewPage';
-import ProfilePage from './pages/ProfilePage';
-import OpportunitiesPage from './pages/OpportunitiesPage';
-import ApplicationsPage from './pages/ApplicationsPage';
-import SkillGapPage from './pages/SkillGapPage';
-import AICareerAdvisorPage from './pages/AICareerAdvisorPage';
-import NotificationsPage from './pages/NotificationsPage';
-import SettingsPage from './pages/SettingsPage';
+import { PageSkeleton } from './components/ui/Skeleton';
 import FloatingAICareerAdvisor from './components/FloatingAICareerAdvisor';
+
+// Lazy-loaded routes for performance & smooth skeleton transitions
+const ResumeUploadPage = lazy(() => import('./pages/ResumeUploadPage'));
+const ProfileReviewPage = lazy(() => import('./pages/ProfileReviewPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const OpportunitiesPage = lazy(() => import('./pages/OpportunitiesPage'));
+const ApplicationsPage = lazy(() => import('./pages/ApplicationsPage'));
+const SkillGapPage = lazy(() => import('./pages/SkillGapPage'));
+const AICareerAdvisorPage = lazy(() => import('./pages/AICareerAdvisorPage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
           <FloatingAICareerAdvisor />
-          <Routes>
-            {/* Public Routes with Navbar and Footer */}
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-            </Route>
+          <Suspense fallback={<PageSkeleton />}>
+            <Routes>
+              {/* Public Routes with Navbar and Footer */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+              </Route>
 
             {/* Authenticated Routes with Dedicated Sidebar + Topbar */}
             <Route
@@ -128,8 +129,8 @@ export default function App() {
             {/* Catch-all redirect to /dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+        </Suspense>
+      </AuthProvider>
+    </ToastProvider>
   );
 }

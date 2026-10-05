@@ -134,38 +134,29 @@ export default function LandingPage() {
           <h1
             className="scroll-reveal stagger-1"
             style={{
-              fontSize: 'clamp(2.4rem, 5vw, 3.4rem)',
+              fontSize: 'clamp(2.1rem, 4.5vw, 3rem)',
               fontWeight: 800,
-              lineHeight: 1.15,
-              letterSpacing: '-0.03em',
+              lineHeight: 1.2,
+              letterSpacing: '-0.025em',
               color: 'var(--color-text)',
-              maxWidth: '860px',
-              margin: '0 auto 1.5rem',
+              maxWidth: '720px',
+              margin: '0 auto 1rem',
             }}
           >
-            Discover High-Match Career Opportunities{' '}
-            <span
-              style={{
-                background: 'linear-gradient(135deg, var(--color-primary-600), var(--color-accent-600))',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              Before Deadlines Pass
-            </span>
+            Build your career with AI.
           </h1>
 
           <p
             className="scroll-reveal stagger-2"
             style={{
               fontSize: '1.15rem',
-              lineHeight: 1.6,
+              lineHeight: 1.55,
               color: 'var(--color-text-muted)',
-              maxWidth: '720px',
-              margin: '0 auto 2.5rem',
+              maxWidth: '620px',
+              margin: '0 auto 2.25rem',
             }}
           >
-            CareerPilot AI is the personal career co-pilot for college students. We discover verified internships, full-time roles, scholarships, and hackathons, automatically verify your eligibility, and calculate precision match scores.
+            Find relevant opportunities, improve your skills, and track your applications.
           </p>
 
           <div
@@ -176,17 +167,17 @@ export default function LandingPage() {
               alignItems: 'center',
               gap: '1rem',
               flexWrap: 'wrap',
-              marginBottom: '4rem',
+              marginBottom: '3.5rem',
             }}
           >
-            <Link to="/register" style={{ textDecoration: 'none' }}>
+            <Link to="/opportunities" style={{ textDecoration: 'none' }}>
               <Button variant="primary" size="lg" iconRight={<ArrowRight size={18} />}>
-                Get Started Free
+                Explore Opportunities
               </Button>
             </Link>
-            <Link to="/dashboard" style={{ textDecoration: 'none' }}>
+            <Link to="/register" style={{ textDecoration: 'none' }}>
               <Button variant="secondary" size="lg" icon={<Sparkles size={18} color="var(--color-primary-600)" />}>
-                Explore Live Dashboard
+                Build My Profile
               </Button>
             </Link>
           </div>
@@ -387,18 +378,18 @@ export default function LandingPage() {
       </section>
 
       {/* =====================================================================
-          3. HOW CAREERPILOT WORKS (5-STEP ROADMAP)
+          3. HOW IT WORKS (5-STEP ROADMAP)
           ===================================================================== */}
-      <section style={{ padding: '5rem 1.5rem', maxWidth: '1100px', margin: '0 auto' }}>
-        <div className="scroll-reveal" style={{ textAlign: 'center', marginBottom: '3rem' }}>
-          <Badge variant="purple" size="sm" style={{ marginBottom: '0.5rem' }}>
-            Streamlined Process
+      <section style={{ padding: '4.5rem 1.5rem', maxWidth: '1100px', margin: '0 auto' }}>
+        <div className="scroll-reveal" style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+          <Badge variant="primary" size="sm" style={{ marginBottom: '0.5rem' }}>
+            5 Simple Steps
           </Badge>
-          <h2 style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--color-text)', margin: '0.25rem 0 0.75rem' }}>
-            How CareerPilot AI Accelerates Your Journey
+          <h2 style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.25rem)', fontWeight: 800, color: 'var(--color-text)', margin: '0.25rem 0 0.5rem' }}>
+            How It Works
           </h2>
-          <p style={{ fontSize: '1.05rem', color: 'var(--color-text-muted)', maxWidth: '650px', margin: '0 auto' }}>
-            From profile onboarding to offer letter: a unified, automated intelligent pipeline.
+          <p style={{ fontSize: '1rem', color: 'var(--color-text-muted)', maxWidth: '560px', margin: '0 auto' }}>
+            From uploading your resume to accepting your offer, follow your personal career roadmap.
           </p>
         </div>
 
@@ -408,19 +399,19 @@ export default function LandingPage() {
       </section>
 
       {/* =====================================================================
-          4. AI MATCHING SHOWCASE SECTION
+          4. MATCH SCORE & ELIGIBILITY SECTION
           ===================================================================== */}
-      <section style={{ padding: '5rem 1.5rem', backgroundColor: 'var(--color-surface)', borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
+      <section style={{ padding: '4.5rem 1.5rem', backgroundColor: 'var(--color-surface)', borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-          <div className="scroll-reveal" style={{ textAlign: 'center', marginBottom: '3rem' }}>
-            <Badge variant="purple" size="sm" style={{ marginBottom: '0.5rem' }}>
-              Precision Matching Engine
+          <div className="scroll-reveal" style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+            <Badge variant="primary" size="sm" style={{ marginBottom: '0.5rem' }}>
+              Precision Matching
             </Badge>
-            <h2 style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--color-text)', margin: '0.25rem 0 0.75rem' }}>
-              Deterministic Eligibility + Semantic AI Matching
+            <h2 style={{ fontSize: 'clamp(1.75rem, 3.5vw, 2.25rem)', fontWeight: 800, color: 'var(--color-text)', margin: '0.25rem 0 0.5rem' }}>
+              Match Scores &amp; Eligibility
             </h2>
-            <p style={{ fontSize: '1.05rem', color: 'var(--color-text-muted)', maxWidth: '650px', margin: '0 auto' }}>
-              No guesswork. You see exactly why you match, where you qualify, and what is missing.
+            <p style={{ fontSize: '1rem', color: 'var(--color-text-muted)', maxWidth: '580px', margin: '0 auto' }}>
+              No guesswork. Instantly see why you qualify, your match percentage, and which skills to improve.
             </p>
           </div>
 

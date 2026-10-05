@@ -9,6 +9,42 @@
 
 export const mockOpportunities = [
   {
+    id: 'opp-google-sde-intern',
+    company: 'Google',
+    companyLogo: 'https://images.unsplash.com/photo-1572021335469-31706a17aaef?w=100&auto=format&fit=crop&q=80',
+    title: 'Software Engineer Intern',
+    type: 'Internship',
+    workMode: 'Hybrid',
+    location: 'Bengaluru, India',
+    stipend: '₹1,20,000 / month',
+    matchScore: 91,
+    eligibility: {
+      isEligible: true,
+      cgpaCutoff: 7.0,
+      studentCgpa: 8.4,
+      allowedBranches: ['Computer Science', 'Information Technology', 'Electronics'],
+      graduationYears: [2025, 2026],
+      reason: 'Meets CGPA cutoff, branch criteria, and graduation year (2026).'
+    },
+    deadline: '2026-10-12',
+    daysLeft: 9,
+    skills: ['Python', 'Data Structures', 'Algorithms', 'Java', 'System Design'],
+    matchingSkills: ['Python', 'Data Structures', 'Algorithms'],
+    missingSkills: ['Java', 'System Design'],
+    description: `Join Google as a Software Engineer Intern to build reliable, high-scale products used by billions of people. You will work with a host team on production code, design reviews, and intern project milestones.`,
+    responsibilities: [
+      'Ship production-quality features with a Google engineering mentor',
+      'Write tests, review code, and participate in design discussions',
+      'Present intern project outcomes to the host team'
+    ],
+    requirements: [
+      'Currently enrolled in a B.Tech / M.Tech in CS or equivalent with graduation in 2025 or 2026',
+      'Strong grasp of data structures, algorithms, and coding interviews',
+      'Experience with Python, Java, C++, or Go'
+    ],
+    whyMatches: 'Your verified CS fundamentals and internship-ready project work align with 91% of this intern role.'
+  },
+  {
     id: 'opp-stripe-sde',
     company: 'Stripe',
     companyLogo: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&auto=format&fit=crop&q=80',

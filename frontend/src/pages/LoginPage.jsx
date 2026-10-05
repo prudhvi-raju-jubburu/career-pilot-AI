@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, Compass, AlertCircle, Sparkles, Mail, Lock } from 'lucide-react';
+import { LogIn, Compass, AlertCircle, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../context/ToastContext';
 import Button from '../components/ui/Button';
@@ -35,11 +35,6 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemoFill = () => {
-    setEmail('prudhvi@student.edu');
-    setPassword('SecurePass123!');
   };
 
   return (
@@ -139,20 +134,6 @@ export default function LoginPage() {
               Sign In
             </Button>
           </form>
-
-          {/* Demo account quick fill button */}
-          <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleDemoFill}
-              icon={<Sparkles size={14} className="text-primary" />}
-              style={{ width: '100%', fontSize: '0.8125rem' }}
-            >
-              Auto-fill Demo Credentials
-            </Button>
-          </div>
         </Card>
 
         {/* Footer Link */}

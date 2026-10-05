@@ -27,6 +27,7 @@ export default function ResumeUploadPage() {
   const [statusStage, setStatusStage] = useState('idle'); // 'idle' | 'uploading' | 'reading' | 'extracting' | 'completed' | 'error'
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [analysisResults, setAnalysisResults] = useState(null);
 
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
@@ -103,16 +104,36 @@ export default function ResumeUploadPage() {
 
       // Step 3: AI Extraction
       setStatusStage('extracting');
-      setStatusMessage('Analyzing education, skills, projects & experience...');
-      await analyzeResume();
+      setStatusMessage('Analyzing your resume...');
+      const res = await analyzeResume();
+      const prof = res?.data || {};
+
+      let skillsCount = 0;
+      if (prof.skills) {
+        Object.values(prof.skills).forEach((cat) => {
+          const list = Array.isArray(cat) ? cat : Array.isArray(cat?.value) ? cat.value : [];
+          skillsCount += list.length;
+        });
+      }
+      const projectsCount = Array.isArray(prof.projects) ? prof.projects.length : 0;
+      const certificationsCount = Array.isArray(prof.certifications) ? prof.certifications.length : 0;
+      const edu = prof.education || {};
+      const hasEdu = Boolean(
+        edu.college?.value || edu.college ||
+        edu.degree?.value || edu.degree ||
+        edu.branch?.value || edu.branch
+      );
+
+      setAnalysisResults({
+        skillsCount,
+        projectsCount,
+        educationCount: hasEdu ? 1 : 0,
+        certificationsCount,
+      });
 
       // Step 4: Completed
       setStatusStage('completed');
-      setStatusMessage('Resume analyzed successfully! Preparing your profile review...');
-      setTimeout(() => {
-        navigate('/profile/review');
-      }, 1000);
-
+      setStatusMessage('Resume analyzed successfully.');
     } catch (err) {
       setStatusStage('error');
       setErrorMessage(err.message || 'Failed to process resume. Please try another PDF.');
@@ -127,14 +148,35 @@ export default function ResumeUploadPage() {
       await new Promise((r) => setTimeout(r, 400));
 
       setStatusStage('extracting');
-      setStatusMessage('Analyzing education, skills, projects & experience...');
-      await analyzeResume();
+      setStatusMessage('Analyzing your resume...');
+      const res = await analyzeResume();
+      const prof = res?.data || {};
+
+      let skillsCount = 0;
+      if (prof.skills) {
+        Object.values(prof.skills).forEach((cat) => {
+          const list = Array.isArray(cat) ? cat : Array.isArray(cat?.value) ? cat.value : [];
+          skillsCount += list.length;
+        });
+      }
+      const projectsCount = Array.isArray(prof.projects) ? prof.projects.length : 0;
+      const certificationsCount = Array.isArray(prof.certifications) ? prof.certifications.length : 0;
+      const edu = prof.education || {};
+      const hasEdu = Boolean(
+        edu.college?.value || edu.college ||
+        edu.degree?.value || edu.degree ||
+        edu.branch?.value || edu.branch
+      );
+
+      setAnalysisResults({
+        skillsCount,
+        projectsCount,
+        educationCount: hasEdu ? 1 : 0,
+        certificationsCount,
+      });
 
       setStatusStage('completed');
-      setStatusMessage('Resume analyzed successfully! Preparing your profile review...');
-      setTimeout(() => {
-        navigate('/profile/review');
-      }, 1000);
+      setStatusMessage('Resume analyzed successfully.');
     } catch (err) {
       setStatusStage('error');
       setErrorMessage(err.message || 'Failed to analyze existing resume.');
@@ -399,7 +441,7 @@ export default function ResumeUploadPage() {
                   </p>
                 )}
 
-                <div style={{ maxWidth: '480px', margin: '0 auto 2rem' }}>
+                <div style={{ maxWidth: '480px', margin: '0 auto 1.5rem' }}>
                   <ProgressBar
                     value={getStageProgress()}
                     variant={statusStage === 'completed' ? 'success' : statusStage === 'error' ? 'danger' : 'primary'}
@@ -407,6 +449,69 @@ export default function ResumeUploadPage() {
                     showPercentage={statusStage !== 'error'}
                   />
                 </div>
+
+                {statusStage === 'completed' && (
+                  <div
+                    style={{
+                      maxWidth: '440px',
+                      margin: '0 auto 1.5rem',
+                      textAlign: 'left',
+                      padding: '1.25rem 1.4rem',
+                      backgroundColor: 'var(--bg-secondary)',
+                      borderRadius: 'var(--radius-lg)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
+                      Resume Analyzed
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CheckCircle2 size={16} color="var(--success)" />
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Skills found</span>
+                        </div>
+                        <span style={{ color: 'var(--color-primary-600)', fontWeight: 700, fontSize: '0.9rem' }}>
+                          {analysisResults?.skillsCount ?? 0}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CheckCircle2 size={16} color="var(--success)" />
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Projects found</span>
+                        </div>
+                        <span style={{ color: 'var(--color-primary-600)', fontWeight: 700, fontSize: '0.9rem' }}>
+                          {analysisResults?.projectsCount ?? 0}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CheckCircle2 size={16} color="var(--success)" />
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Education found</span>
+                        </div>
+                        <span style={{ color: 'var(--color-primary-600)', fontWeight: 700, fontSize: '0.9rem' }}>
+                          {analysisResults?.educationCount ?? 0}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <CheckCircle2 size={16} color="var(--success)" />
+                          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Certifications found</span>
+                        </div>
+                        <span style={{ color: 'var(--color-primary-600)', fontWeight: 700, fontSize: '0.9rem' }}>
+                          {analysisResults?.certificationsCount ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '1.25rem' }}>
+                      <Link to="/profile/review" style={{ textDecoration: 'none' }}>
+                        <Button variant="primary" size="md" iconRight={<ArrowRight size={16} />} style={{ width: '100%' }}>
+                          Review Profile
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 {statusStage === 'error' && (
                   <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>

@@ -12,17 +12,13 @@ import {
   Layers,
   FileText,
   TrendingUp,
-  Sparkles,
-  Sun,
-  Moon
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../context/ThemeContext';
 import Button from './ui/Button';
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -97,13 +93,14 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Nav Links */}
-        <nav className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <nav className="nav-links desktop-only" style={{ alignItems: 'center', gap: '1.5rem' }}>
           <NavLink
             to="/"
             style={({ isActive }) => ({
               textDecoration: 'none',
               fontWeight: 600,
               fontSize: '0.875rem',
+              whiteSpace: 'nowrap',
               color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
               transition: 'color var(--transition-fast)',
             })}
@@ -118,6 +115,7 @@ export default function Navbar() {
                   textDecoration: 'none',
                   fontWeight: 600,
                   fontSize: '0.875rem',
+                  whiteSpace: 'nowrap',
                   color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
                   transition: 'color var(--transition-fast)',
                 })}
@@ -130,6 +128,7 @@ export default function Navbar() {
                   textDecoration: 'none',
                   fontWeight: 600,
                   fontSize: '0.875rem',
+                  whiteSpace: 'nowrap',
                   color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
                   transition: 'color var(--transition-fast)',
                 })}
@@ -142,6 +141,7 @@ export default function Navbar() {
                   textDecoration: 'none',
                   fontWeight: 600,
                   fontSize: '0.875rem',
+                  whiteSpace: 'nowrap',
                   color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
                   transition: 'color var(--transition-fast)',
                 })}
@@ -157,6 +157,7 @@ export default function Navbar() {
                   textDecoration: 'none',
                   fontWeight: 600,
                   fontSize: '0.875rem',
+                  whiteSpace: 'nowrap',
                   color: 'var(--text-secondary)',
                   transition: 'color var(--transition-fast)',
                 }}
@@ -169,6 +170,7 @@ export default function Navbar() {
                   textDecoration: 'none',
                   fontWeight: 600,
                   fontSize: '0.875rem',
+                  whiteSpace: 'nowrap',
                   color: 'var(--text-secondary)',
                   transition: 'color var(--transition-fast)',
                 }}
@@ -181,20 +183,6 @@ export default function Navbar() {
 
         {/* Header Actions */}
         <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          {/* Theme Switcher Button */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="topbar-icon-btn"
-            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-            aria-label="Toggle Theme"
-          >
-            {theme === 'dark' ? (
-              <Sun size={17} className="text-warning animate-scale-in" />
-            ) : (
-              <Moon size={17} className="text-primary animate-scale-in" />
-            )}
-          </button>
 
           {isAuthenticated ? (
             <Link

@@ -14,6 +14,7 @@ export {
   EligibilityBadge,
   OpportunityTypeBadge,
   SkillBadge,
+  PriorityBadge,
 } from './Badge';
 export { default as ProgressBar, CircularProgress } from './ProgressBar';
 export { default as Modal, ConfirmationDialog } from './Modal';

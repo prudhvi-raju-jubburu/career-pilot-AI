@@ -6,189 +6,93 @@
    1. Root Tokens & Centralized Design Token System
    -------------------------------------------------------------------------- */
 
-:root,
-[data-theme="dark"] {
-  /* Brand Palette (Deep Navy / Midnight Blue + Royal Indigo + Teal / Cyan) */
-  --bg-primary: #070b14;
-  --bg-secondary: #0d1322;
-  --bg-sunken: #05080f;
+:root {
+  /* ==========================================================================
+     CareerPilot AI — Single Production Visual Identity
+     Palette: Deep Indigo / Navy + Royal Blue + Teal / Cyan + Soft Violet + Fresh Green + Warm Amber
+     ========================================================================== */
 
-  --surface: #0f172a;
-  --surface-raised: #15203b;
-  --surface-hover: #1c2a4c;
-  --surface-active: #22345e;
-  --surface-glass: rgba(15, 23, 42, 0.82);
-
-  --primary: #3b82f6;
-  --primary-hover: #60a5fa;
-  --primary-active: #2563eb;
-  --primary-subtle: rgba(59, 130, 246, 0.15);
-
-  --secondary: #6366f1;
-  --secondary-hover: #818cf8;
-  --secondary-active: #4f46e5;
-  --secondary-subtle: rgba(99, 102, 241, 0.15);
-
-  --accent: #06b6d4;
-  --accent-hover: #22d3ee;
-  --accent-active: #0891b2;
-  --accent-subtle: rgba(6, 182, 212, 0.15);
-
-  --highlight: #f59e0b;
-  --highlight-subtle: rgba(245, 158, 11, 0.15);
-
-  --success: #10b981;
-  --success-dark: #059669;
-  --success-bg: rgba(16, 185, 129, 0.12);
-  --success-border: rgba(16, 185, 129, 0.35);
-
-  --warning: #f59e0b;
-  --warning-dark: #d97706;
-  --warning-bg: rgba(245, 158, 11, 0.12);
-  --warning-border: rgba(245, 158, 11, 0.35);
-
-  --danger: #ef4444;
-  --danger-dark: #dc2626;
-  --danger-bg: rgba(239, 68, 68, 0.12);
-  --danger-border: rgba(239, 68, 68, 0.35);
-
-  --info: #0ea5e9;
-  --info-bg: rgba(14, 165, 233, 0.12);
-  --info-border: rgba(14, 165, 233, 0.35);
-
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-subtle: #475569;
-  --text-inverse: #070b14;
-
-  --border: #1e293b;
-  --border-hover: #334155;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-control: #334155;
-  --border-control-hover: #475569;
-  --border-card: #1e293b;
-  --border-focus: #3b82f6;
-
-  /* Modern Skeuomorphic Highlights & Depth */
-  --highlight-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.35), var(--highlight-top);
-  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.45), var(--highlight-top);
-  --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.55), var(--highlight-top);
-  --shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.45);
-
-  --shadow-card: 0 2px 8px 0 rgba(0, 0, 0, 0.4), var(--highlight-top);
-  --shadow-raised: 0 6px 18px -2px rgba(0, 0, 0, 0.5), var(--highlight-top);
-  --shadow-raised-hover: 0 12px 28px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(59, 130, 246, 0.25), var(--highlight-top);
-  --shadow-floating: 0 20px 40px -6px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--border);
-
-  --shadow-sunken: inset 0 2px 4px 0 rgba(0, 0, 0, 0.5), inset 0 1px 1px 0 rgba(0, 0, 0, 0.3);
-  --shadow-pressed: inset 0 3px 6px 0 rgba(0, 0, 0, 0.6);
-
-  --shadow-btn-primary: 0 2px 4px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  --shadow-btn-primary-hover: 0 4px 8px rgba(0, 0, 0, 0.35), 0 8px 20px rgba(59, 130, 246, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  --shadow-btn-primary-active: inset 0 2px 4px rgba(0, 0, 0, 0.5);
-
-  --shadow-btn-secondary: 0 1px 2px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --shadow-btn-secondary-hover: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  --shadow-btn-secondary-active: inset 0 1px 3px rgba(0, 0, 0, 0.4);
-
-  /* Backward Compatibility Aliases */
-  --color-bg: var(--bg-primary);
-  --color-bg-alt: var(--bg-secondary);
-  --color-bg-sunken: var(--bg-sunken);
-  --color-surface: var(--surface);
-  --color-surface-raised: var(--surface-raised);
-  --color-surface-hover: var(--surface-hover);
-  --color-surface-active: var(--surface-active);
-  --color-text: var(--text-primary);
-  --color-text-muted: var(--text-secondary);
-  --color-text-subtle: var(--text-muted);
-  --color-text-inverse: var(--text-inverse);
-
-  --color-primary-900: #070b14;
-  --color-primary-800: #0d1322;
-  --color-primary-700: #1d4ed8;
-  --color-primary-600: #2563eb;
-  --color-primary-500: #3b82f6;
-  --color-primary-400: #60a5fa;
-  --color-primary-100: rgba(59, 130, 246, 0.2);
-  --color-primary-50: rgba(59, 130, 246, 0.1);
-
-  --color-accent-700: #4338ca;
-  --color-accent-600: #4f46e5;
-  --color-accent-500: #6366f1;
-  --color-accent-100: rgba(99, 102, 241, 0.2);
-  --color-accent-50: rgba(99, 102, 241, 0.1);
-
-  --color-purple-600: #8b5cf6;
-  --color-purple-100: rgba(139, 92, 246, 0.2);
-  --color-purple-50: rgba(139, 92, 246, 0.1);
-}
-
-/* Light Mode Overrides */
-[data-theme="light"] {
+  /* Neutral Backgrounds (Soft Cool Blue-Tinted Palette) */
   --bg-primary: #f8fafc;
   --bg-secondary: #f1f5f9;
   --bg-sunken: #e2e8f0;
 
+  /* Clean Educational Surfaces */
   --surface: #ffffff;
   --surface-raised: #ffffff;
   --surface-hover: #f8fafc;
   --surface-active: #f1f5f9;
-  --surface-glass: rgba(255, 255, 255, 0.9);
+  --surface-glass: rgba(255, 255, 255, 0.94);
 
+  /* Primary Brand: Deep Indigo / Navy (Navigation & Authority) */
+  --brand-navy: #0f172a;
+  --brand-indigo: #1e1b4b;
+  --brand-slate: #1e293b;
+
+  /* Supporting: Royal Blue (Key Actions & Information) */
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-active: #1e40af;
   --primary-subtle: #eff6ff;
 
+  /* Secondary: Indigo (Structure & Secondary CTAs) */
   --secondary: #4f46e5;
   --secondary-hover: #4338ca;
   --secondary-active: #3730a3;
   --secondary-subtle: #eef2ff;
 
+  /* Technology & AI Accent: Teal / Cyan */
   --accent: #0891b2;
   --accent-hover: #0e7490;
   --accent-active: #155e75;
   --accent-subtle: #ecfeff;
 
-  --highlight: #d97706;
-  --highlight-subtle: #fffbeb;
+  /* Learning & Skills Accent: Soft Violet */
+  --learning: #7c3aed;
+  --learning-hover: #6d28d9;
+  --learning-subtle: #f5f3ff;
+  --learning-border: #ddd6fe;
 
+  /* Progress & Success Accent: Fresh Green */
   --success: #10b981;
   --success-dark: #047857;
   --success-bg: #ecfdf5;
   --success-border: #a7f3d0;
 
+  /* Attention & Deadlines: Warm Amber */
   --warning: #f59e0b;
   --warning-dark: #b45309;
   --warning-bg: #fffbeb;
   --warning-border: #fde68a;
 
+  /* Critical & Danger */
   --danger: #ef4444;
   --danger-dark: #b91c1c;
   --danger-bg: #fef2f2;
   --danger-border: #fecaca;
 
+  /* Informational Blue */
   --info: #0284c7;
   --info-bg: #f0f9ff;
   --info-border: #bae6fd;
 
+  /* High-Contrast Readable Typography */
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
   --text-subtle: #94a3b8;
   --text-inverse: #ffffff;
 
+  /* Crisp Educational Borders */
   --border: #e2e8f0;
   --border-hover: #cbd5e1;
   --border-subtle: #f1f5f9;
   --border-control: #cbd5e1;
   --border-control-hover: #94a3b8;
   --border-card: #e2e8f0;
-  --border-focus: #3b82f6;
+  --border-focus: #2563eb;
 
+  /* Subtle Skeuomorphic Depth & Soft Elevation */
   --highlight-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
   --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05), var(--highlight-top);
   --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.07), var(--highlight-top);
@@ -263,47 +167,57 @@
   --transition-normal: 260ms var(--ease-spring);
   --transition-slow: 420ms var(--ease-spring);
 
-  /* Dimensions */
+  /* Breakpoints (for reference and inline calculations) */
+  --breakpoint-sm: 480px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1440px;
+
+  /* Safe Area & Mobile Dimensions */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --bottom-nav-height: 62px;
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 76px;
   --topbar-height: 64px;
-  --container-max-width: 1240px;
+  --container-max-width: 1280px;
 }
 
 /* --------------------------------------------------------------------------
-   2. Typography System
+   2. Responsive Typography System (Mobile-First clamp())
    -------------------------------------------------------------------------- */
 
 .font-display {
-  font-size: 2.5rem;
+  font-size: clamp(1.85rem, 5vw, 2.75rem);
   line-height: 1.15;
   font-weight: 800;
   letter-spacing: -0.035em;
 }
 
 .font-h1 {
-  font-size: 2rem;
+  font-size: clamp(1.45rem, 4vw, 2.15rem);
   line-height: 1.25;
   font-weight: 800;
   letter-spacing: -0.025em;
 }
 
 .font-h2 {
-  font-size: 1.5rem;
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
   line-height: 1.3;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
 .font-h3 {
-  font-size: 1.25rem;
+  font-size: clamp(1.05rem, 2.5vw, 1.3rem);
   line-height: 1.35;
   font-weight: 700;
   letter-spacing: -0.015em;
 }
 
 .font-h4 {
-  font-size: 1.1rem;
+  font-size: clamp(0.95rem, 2vw, 1.1rem);
   line-height: 1.4;
   font-weight: 600;
 }
@@ -754,22 +668,58 @@ input, select, textarea {
   width: var(--sidebar-collapsed-width);
 }
 
+.app-sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 0;
+}
+
+.app-sidebar.collapsed .sidebar-brand {
+  justify-content: center;
+  gap: 0;
+}
+
 .app-sidebar.collapsed .sidebar-brand span,
 .app-sidebar.collapsed .sidebar-section-title,
-.app-sidebar.collapsed .sidebar-nav-item span,
+.app-sidebar.collapsed .sidebar-nav-label,
 .app-sidebar.collapsed .sidebar-user-info,
 .app-sidebar.collapsed .sidebar-brand-badge {
   display: none !important;
 }
 
-.app-sidebar.collapsed .sidebar-nav-item {
-  justify-content: center;
-  padding: 0.75rem 0;
+.app-sidebar.collapsed .sidebar-nav {
+  padding: 1.25rem 0.35rem;
+  align-items: center;
 }
 
-.app-sidebar.collapsed .sidebar-header {
+.app-sidebar.collapsed .sidebar-nav-item {
   justify-content: center;
   padding: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  margin: 0 auto;
+}
+
+.app-sidebar.collapsed .sidebar-nav-icon {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.app-sidebar.collapsed .sidebar-footer {
+  padding: 0.75rem 0.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+.app-sidebar.collapsed .sidebar-user-card {
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  justify-content: center;
+  width: auto !important;
 }
 
 .sidebar-header {
@@ -913,13 +863,15 @@ input, select, textarea {
   flex-shrink: 0;
 }
 
-.topbar-mobile-toggle {
-  display: none;
+.topbar-mobile-toggle,
+.topbar-icon-btn.topbar-mobile-toggle {
+  display: none !important;
 }
 
 @media (max-width: 1024px) {
-  .topbar-mobile-toggle {
-    display: flex;
+  .topbar-mobile-toggle,
+  .topbar-icon-btn.topbar-mobile-toggle {
+    display: flex !important;
   }
 }
 
@@ -1005,7 +957,28 @@ input, select, textarea {
   }
   .page-container {
     padding: 1rem;
+    padding-bottom: calc(var(--bottom-nav-height, 62px) + var(--safe-area-bottom, 0px) + 1.5rem);
   }
+}
+
+/* Responsive Content Protection & Safe Sizing */
+p, li {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+button, .badge, .btn, .nav-link, .tab-item {
+  white-space: nowrap;
+}
+
+img, video, canvas, svg {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Mobile Sidebar Drawer */
@@ -1017,11 +990,123 @@ input, select, textarea {
     bottom: 0;
     transform: translateX(-100%);
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+    z-index: 1050;
   }
 
   .app-sidebar.mobile-open {
     transform: translateX(0);
   }
+}
+
+/* Mobile Bottom Navigation Bar */
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--bottom-nav-height, 62px) + var(--safe-area-bottom, 0px));
+    padding-bottom: var(--safe-area-bottom, 0px);
+    background-color: var(--surface-glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+    z-index: 999;
+    align-items: center;
+    justify-content: space-around;
+  }
+
+  .mobile-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    gap: 3px;
+    transition: all var(--transition-fast);
+    text-decoration: none;
+    user-select: none;
+  }
+
+  .mobile-bottom-nav-item.active {
+    color: var(--primary);
+  }
+
+  .mobile-bottom-nav-item.active .mobile-nav-icon-wrapper {
+    background-color: var(--primary-subtle);
+    color: var(--primary);
+  }
+
+  .mobile-nav-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+  }
+
+  /* Reposition floating AI button above mobile bottom nav */
+  .floating-advisor-button-wrapper {
+    bottom: calc(var(--bottom-nav-height, 62px) + var(--safe-area-bottom, 0px) + 14px) !important;
+    right: 16px !important;
+  }
+
+  .floating-advisor-drawer {
+    right: 12px !important;
+    left: 12px !important;
+    width: auto !important;
+    max-width: 100vw !important;
+    bottom: calc(var(--bottom-nav-height, 62px) + var(--safe-area-bottom, 0px) + 80px) !important;
+    height: calc(100vh - 160px) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .floating-advisor-pill {
+    display: none !important;
+  }
+  .floating-advisor-btn {
+    width: 50px !important;
+    height: 50px !important;
+  }
+}
+
+/* Offline / Online Network Status Toast */
+.network-status-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  padding: 0.45rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: transform 0.3s ease;
+}
+.network-status-banner.offline {
+  background-color: var(--danger);
+  color: #ffffff;
+}
+.network-status-banner.online {
+  background-color: var(--success);
+  color: #ffffff;
 }
 
 .mobile-overlay {
@@ -1031,6 +1116,74 @@ input, select, textarea {
   backdrop-filter: blur(4px);
   z-index: 39;
   animation: fadeIn 0.2s ease-out;
+}
+
+/* Responsive visibility utilities */
+.mobile-only {
+  display: none !important;
+}
+.desktop-only {
+  display: flex !important;
+}
+@media (max-width: 768px) {
+  .mobile-only {
+    display: flex !important;
+  }
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* Touch friendly target sizes */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Animated Shimmer Skeleton */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.shimmer-active {
+  background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--border-subtle) 50%, var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-active {
+    animation: none !important;
+    background: var(--bg-secondary) !important;
+  }
+}
+
+/* Chat Typing Indicator */
+@keyframes typingPulse {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.35;
+  }
+  40% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+.typing-dot {
+  display: inline-block;
+  animation: typingPulse 1.3s infinite ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot {
+    animation: none !important;
+    opacity: 0.75 !important;
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -1082,6 +1235,12 @@ input, select, textarea {
   display: flex;
   align-items: center;
   gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .nav-links {
+    display: none !important;
+  }
 }
 
 .nav-link {

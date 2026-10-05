@@ -114,10 +114,10 @@ export default function Sidebar({
             className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
             title={collapsed ? item.name : undefined}
           >
-            <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <span className="sidebar-nav-icon">
               {item.icon}
             </span>
-            <span>{item.name}</span>
+            <span className="sidebar-nav-label">{item.name}</span>
           </NavLink>
         ))}
 
@@ -130,7 +130,7 @@ export default function Sidebar({
             className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
             title={collapsed ? item.name : undefined}
           >
-            <span style={{ display: 'flex', alignItems: 'center', flexShrink: 0, position: 'relative' }}>
+            <span className="sidebar-nav-icon" style={{ position: 'relative' }}>
               {item.icon}
               {item.badge && collapsed && (
                 <span
@@ -146,7 +146,7 @@ export default function Sidebar({
                 />
               )}
             </span>
-            <span>{item.name}</span>
+            <span className="sidebar-nav-label">{item.name}</span>
             {item.badge && !collapsed && (
               <span
                 style={{

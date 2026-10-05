@@ -20,10 +20,10 @@ import { getProfile } from '../services/api';
 import { formatMarkdown } from '../utils/formatMarkdown';
 
 const PROMPT_SUGGESTIONS = [
-  'How can I improve my resume project bullet points using the STAR method?',
-  'What are the top technical interview questions for Full Stack & React roles?',
-  'Evaluate my eligibility for Google and Microsoft 2025 internships',
-  'What open-source projects can I contribute to with my React & Python skills?',
+  'What should I learn next?',
+  'Which jobs fit my profile?',
+  'How can I improve my resume?',
+  'Help me prepare for an interview.',
 ];
 
 export default function AICareerAdvisorPage() {
@@ -92,16 +92,16 @@ export default function AICareerAdvisorPage() {
       let aiResponseText = '';
       const lower = text.toLowerCase();
 
-      if (lower.includes('star') || lower.includes('resume') || lower.includes('bullet')) {
-        aiResponseText = `Here is how to optimize your project bullets using the **STAR formula** (Situation, Task, Action, Result):\n\n❌ *Weak:* "Built a web app using React and Node.js for users to buy products."\n\n✅ *Strong (STAR):* "Architected an end-to-end full stack e-commerce web platform using React, Node.js, and MongoDB, designing 12+ RESTful API endpoints and reducing average query latency by 35% using indexing."\n\n💡 **Key Tip for Your Profile:** Highlight your quantifiable achievements in Python and React, such as API throughput, database efficiency, or specific user engagement metrics!`;
-      } else if (lower.includes('interview') || lower.includes('questions')) {
-        aiResponseText = `Based on your technical profile in **React & Python**, here are the top 4 questions you will be asked in tech rounds:\n\n1. **React State & Lifecycle:** Explain how the Virtual DOM works and compare 'useMemo' vs 'useCallback' with real performance examples.\n2. **Python Memory & Concurrency:** What is the Global Interpreter Lock (GIL) and when would you use multiprocessing versus threading or asyncio?\n3. **Database Indexing:** You listed MongoDB and MySQL. Explain B-Tree vs Hash indexes and how you analyze slow queries using EXPLAIN.\n4. **System Design:** How would you design a scalable notification service for real-time deadline alerts?`;
-      } else if (lower.includes('google') || lower.includes('microsoft') || lower.includes('internship') || lower.includes('eligibility')) {
-        aiResponseText = `Great news! With your **8.9 CGPA** in **Computer Science and Engineering**, you strictly exceed the standard 8.0 CGPA cutoff for both **Google Summer Internships** and **Microsoft SDE Internships**.\n\n📌 **Recommendations to stand out:**\n1. Solidify Data Structures & Algorithms: Practice medium LeetCode problems on Graphs, Dynamic Programming, and Heaps.\n2. Ensure your GitHub contains clean READMEs with architecture diagrams and live demo links.\n3. Apply as early as possible—roles with rolling deadlines review applications in batches!`;
-      } else if (lower.includes('open source') || lower.includes('projects')) {
-        aiResponseText = `Given your stack in **React, Python, and Node.js**, here are 3 high-impact open-source directions:\n\n1. **FastAPI & LangChain Ecosystems:** Contribute integrations, documentation, and sample apps for AI workflows.\n2. **React Component Libraries:** Look at repositories like Chakra UI or Mantine for "good first issue" tags.\n3. **Postman / REST Tooling:** Build public Postman workspaces demonstrating API testing and CI integration to showcase on your LinkedIn.`;
+      if (lower.includes('learn next') || lower.includes('skills')) {
+        aiResponseText = `Based on your target role (**Full Stack Developer**) and your verified skills (Python, React, MongoDB):\n\n1. **Docker & Containers** (High priority): Learn how to containerize your Node and Python backends and write clean Dockerfiles.\n2. **Cloud Fundamentals** (Medium priority): Deploy a containerized full-stack project to AWS (EC2/S3) or Render.\n3. **System Design Basics**: Focus on database caching with Redis and REST API optimization.\n\nCheck out the **Skill Gap** tab for your full interactive roadmap with courses and practice projects!`;
+      } else if (lower.includes('jobs fit') || lower.includes('profile') || lower.includes('fit my profile')) {
+        aiResponseText = `With your **8.9 CGPA** in Information Technology/CSE and foundation in React, Node, and Python, here are top roles that match your profile right now:\n\n• **Google Software Engineering Intern** (91% Match — fully eligible)\n• **Stripe Core Platform Intern** (94% Match — excellent backend alignment)\n• **Microsoft SDE Intern** (88% Match — good match for your full-stack projects)\n\nTip: You can view full requirements, check eligibility, and save them directly from the **Opportunities** page!`;
+      } else if (lower.includes('resume') || lower.includes('improve my resume')) {
+        aiResponseText = `Here are 3 quick improvements you can make to your resume right now:\n\n1. **Quantify Your Impact**: Use the STAR method. Instead of "built React app", write: *"Engineered full-stack app with React & Node.js, reducing API response times by 35% using indexing."*\n2. **Highlight Your Core Stack**: Ensure Python, React, MongoDB, and REST APIs are prominently listed under Skills.\n3. **Add Project Links**: Include GitHub links and live demos for your top 2 portfolio projects.`;
+      } else if (lower.includes('interview') || lower.includes('prepare for an interview')) {
+        aiResponseText = `Here is a 3-step technical interview preparation plan for tech roles:\n\n1. **Core CS Foundations**: Review Data Structures (Arrays, Trees, HashMaps, Graphs) and practice medium LeetCode questions.\n2. **Framework Fundamentals**: Be ready to explain React lifecycle, hooks (useMemo, useCallback), and Node.js event-loop mechanics.\n3. **Behavioral STAR Stories**: Prepare 2-3 concise stories about a technical bug you solved and how you collaborated with teammates.`;
       } else {
-        aiResponseText = `I have analyzed your query with respect to your career trajectory. Since you have strong foundations in full stack engineering (React, Node, Python, SQL/NoSQL), your best leverage point is to build high-complexity portfolio systems and showcase direct measurable outcomes in your resume.\n\nWould you like me to generate a tailored study plan or draft a targeted outreach email to recruiter connections?`;
+        aiResponseText = `I have analyzed your query with respect to your career trajectory. Since you have strong foundations in full stack engineering (React, Node, Python, MongoDB), your best leverage point is to build high-complexity portfolio systems and showcase direct measurable outcomes in your resume.\n\nWould you like me to recommend specific practice projects or help you optimize a resume bullet point?`;
       }
 
       setMessages((prev) => [
@@ -114,7 +114,7 @@ export default function AICareerAdvisorPage() {
         },
       ]);
       setIsTyping(false);
-    }, 900);
+    }, 800);
   };
 
   const handleKeyDown = (e) => {
@@ -126,17 +126,17 @@ export default function AICareerAdvisorPage() {
 
   return (
     <PageContainer>
-      <div style={{ maxWidth: '960px', margin: '0 auto', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 140px)' }}>
+      <div className="advisor-chat-wrapper">
         {/* Header */}
         <div style={{ marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-            <Badge variant="purple" size="sm" dot>
-              AI Career Copilot
+            <Badge variant="primary" size="sm" dot>
+              AI Career Advisor
             </Badge>
           </div>
-          <h1 className="text-h1" style={{ fontSize: '1.65rem' }}>AI Career Advisor Workspace</h1>
-          <p className="text-small" style={{ fontSize: '0.9rem' }}>
-            Personalized guidance grounded in your verified academic credentials and career targets.
+          <h1 className="text-h1" style={{ fontSize: '1.65rem', marginBottom: '0.25rem' }}>AI Career Advisor</h1>
+          <p className="text-small" style={{ fontSize: '0.925rem', color: 'var(--text-secondary)' }}>
+            Ask me about your career, skills, resume, or interviews.
           </p>
         </div>
 
@@ -235,37 +235,39 @@ export default function AICareerAdvisorPage() {
             })}
 
             {isTyping && (
-              <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', margin: '0.25rem 0' }} className="animate-fade-in">
                 <div
                   style={{
-                    width: '36px',
-                    height: '36px',
+                    width: '32px',
+                    height: '32px',
                     borderRadius: '50%',
-                    backgroundColor: 'var(--color-primary-600)',
+                    backgroundColor: 'var(--primary)',
                     color: '#ffffff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
+                    boxShadow: 'var(--shadow-sm)',
                   }}
                 >
-                  <Sparkles size={18} />
+                  <Sparkles size={16} />
                 </div>
                 <div
                   style={{
-                    backgroundColor: 'var(--color-bg)',
-                    padding: '0.85rem 1.25rem',
+                    backgroundColor: 'var(--surface-raised)',
+                    padding: '0.75rem 1.15rem',
                     borderRadius: 'var(--radius-lg)',
-                    border: '1px solid var(--border-control)',
-                    fontSize: '0.875rem',
-                    color: 'var(--color-text-muted)',
-                    display: 'flex',
+                    border: '1px solid var(--border)',
+                    boxShadow: 'var(--shadow-sm)',
+                    display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
+                    gap: '6px',
                   }}
+                  aria-label="CareerPilot AI is typing"
                 >
-                  <RefreshCw size={14} className="spin" />
-                  <span>CareerPilot AI is thinking...</span>
+                  <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary)' }} />
+                  <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary)', animationDelay: '0.2s' }} />
+                  <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary)', animationDelay: '0.4s' }} />
                 </div>
               </div>
             )}
@@ -274,30 +276,35 @@ export default function AICareerAdvisorPage() {
 
           {/* Quick Prompt Chips */}
           <div
+            className="no-scrollbar"
             style={{
-              padding: '0.75rem 1.5rem',
-              backgroundColor: 'var(--color-bg)',
-              borderTop: '1px solid var(--border-subtle)',
+              padding: '0.65rem 1rem',
+              backgroundColor: 'var(--surface)',
+              borderTop: '1px solid var(--border)',
               display: 'flex',
               gap: '0.5rem',
               overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              flexWrap: 'nowrap',
             }}
           >
             {PROMPT_SUGGESTIONS.map((sug, i) => (
               <button
                 key={i}
+                type="button"
                 onClick={() => handleSendMessage(sug)}
                 style={{
-                  padding: '0.4rem 0.85rem',
+                  padding: '0.45rem 0.85rem',
                   borderRadius: 'var(--radius-full)',
-                  border: '1px solid var(--border-control)',
-                  backgroundColor: 'var(--color-surface)',
-                  color: 'var(--color-text)',
-                  fontSize: '0.775rem',
-                  fontWeight: 500,
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface-raised)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
-                  boxShadow: 'var(--shadow-raised-sm)',
+                  flexShrink: 0,
+                  boxShadow: 'var(--shadow-sm)',
                   transition: 'all var(--transition-fast)',
                 }}
               >
@@ -308,12 +315,13 @@ export default function AICareerAdvisorPage() {
 
           {/* Message Input Footer */}
           <div
+            className="advisor-input-bar"
             style={{
-              padding: '1.25rem 1.5rem',
-              borderTop: '1px solid var(--border-subtle)',
-              backgroundColor: 'var(--color-surface)',
+              padding: '1rem 1.25rem',
+              borderTop: '1px solid var(--border)',
+              backgroundColor: 'var(--surface)',
               display: 'flex',
-              gap: '0.75rem',
+              gap: '0.65rem',
               alignItems: 'center',
             }}
           >
@@ -322,16 +330,17 @@ export default function AICareerAdvisorPage() {
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask for resume optimization, interview questions, or eligibility..."
+              placeholder="Ask for resume feedback, interview prep, or eligibility..."
               style={{
                 flex: 1,
                 padding: '0.75rem 1rem',
                 borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-control)',
-                backgroundColor: 'var(--color-bg)',
-                color: 'var(--color-text)',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
                 fontSize: '0.9rem',
                 outline: 'none',
+                minHeight: '44px',
               }}
             />
             <Button
@@ -339,12 +348,28 @@ export default function AICareerAdvisorPage() {
               icon={<Send size={16} />}
               onClick={() => handleSendMessage()}
               disabled={!inputPrompt.trim() || isTyping}
+              className="touch-target"
             >
               Send
             </Button>
           </div>
         </Card>
       </div>
+
+      <style>{`
+        .advisor-chat-wrapper {
+          max-width: 960px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          height: calc(100vh - 140px);
+        }
+        @media (max-width: 768px) {
+          .advisor-chat-wrapper {
+            height: calc(100dvh - 75px - var(--bottom-nav-height, 62px) - var(--safe-area-bottom, 0px)) !important;
+          }
+        }
+      `}</style>
     </PageContainer>
   );
 }

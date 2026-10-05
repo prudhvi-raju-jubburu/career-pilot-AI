@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import MobileBottomNav from './MobileBottomNav';
+import NetworkStatusBanner from '../NetworkStatusBanner';
 
 export default function AppLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -16,8 +18,27 @@ export default function AppLayout({ children }) {
     });
   };
 
+  // Close mobile drawer on Escape key and prevent background scroll
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && mobileOpen) {
+        setMobileOpen(false);
+      }
+    };
+    if (mobileOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [mobileOpen]);
+
   return (
     <div className="app-layout">
+      <NetworkStatusBanner />
+
       {/* Mobile Drawer Overlay */}
       {mobileOpen && (
         <div
@@ -38,10 +59,13 @@ export default function AppLayout({ children }) {
       {/* Main App Workspace Area */}
       <div className="app-main-wrapper">
         <Topbar onToggleMobile={() => setMobileOpen((prev) => !prev)} />
-        <main className="animate-fade-in" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <main className="animate-fade-in" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {children}
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation for quick thumb reach */}
+      <MobileBottomNav />
     </div>
   );
 }

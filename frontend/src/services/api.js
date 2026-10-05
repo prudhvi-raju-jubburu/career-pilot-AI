@@ -86,4 +86,54 @@ export const getProfileCompletion = async () => {
   return await api.get('/api/profile/completion');
 };
 
+// Skill Gap & Learning Roadmap Services
+export const getSkillGap = async (targetRole) => {
+  const url = targetRole ? `/api/skill-gap?targetRole=${encodeURIComponent(targetRole)}` : '/api/skill-gap';
+  return await api.get(url);
+};
+
+export const analyzeSkillGap = async (payload) => {
+  return await api.post('/api/skill-gap/analyze', payload);
+};
+
+export const getSkillRoadmap = async (targetRole) => {
+  const url = targetRole ? `/api/skill-gap/roadmap?targetRole=${encodeURIComponent(targetRole)}` : '/api/skill-gap/roadmap';
+  return await api.get(url);
+};
+
+export const getSupportedRoles = async () => {
+  return await api.get('/api/skill-gap/roles');
+};
+
+export const getLearningResources = async (skill) => {
+  const url = skill ? `/api/skill-gap/resources/${encodeURIComponent(skill)}` : '/api/skill-gap/resources';
+  return await api.get(url);
+};
+
+export const getLearningProgress = async () => {
+  return await api.get('/api/skill-gap/progress');
+};
+
+export const updateLearningProgress = async (skill, progressData) => {
+  return await api.put(`/api/skill-gap/progress/${encodeURIComponent(skill)}`, progressData);
+};
+
+// Opportunity Discovery Services
+export const getOpportunities = async (params = {}) => {
+  return await api.get('/api/opportunities', { params });
+};
+
+export const getOpportunityById = async (id) => {
+  return await api.get(`/api/opportunities/${id}`);
+};
+
+export const getOpportunityCategories = async () => {
+  return await api.get('/api/opportunities/categories');
+};
+
+export const getOpportunityFilters = async () => {
+  return await api.get('/api/opportunities/filters');
+};
+
 export default api;
+
