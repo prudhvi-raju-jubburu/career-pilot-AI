@@ -251,27 +251,44 @@ export default function ProfileReviewPage() {
         {/* Review Top Banner */}
         <div
           style={{
-            background: 'linear-gradient(135deg, var(--color-primary-900) 0%, #1e1b4b 100%)',
+            background: 'var(--surface-raised)',
+            border: '1px solid var(--border-card, var(--border))',
             borderRadius: 'var(--radius-xl)',
             padding: '2rem 2.25rem',
-            color: 'white',
+            color: 'var(--text-primary)',
             marginBottom: '2rem',
             boxShadow: 'var(--shadow-raised)',
+            position: 'relative',
+            overflow: 'hidden',
           }}
           className="animate-slide-up"
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          {/* Subtle atmospheric ambient glow */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '-40px',
+              right: '-40px',
+              width: '280px',
+              height: '280px',
+              background: 'radial-gradient(circle, var(--primary-subtle) 0%, transparent 70%)',
+              pointerEvents: 'none',
+              opacity: 0.7,
+            }}
+          />
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', position: 'relative', zIndex: 1 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
                 <Badge variant="purple" size="sm" dot>
                   AI Extraction Review
                 </Badge>
-                <span style={{ fontSize: '0.8rem', opacity: 0.8 }}>Status: Needs Student Review</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Status: Needs Student Review</span>
               </div>
-              <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: '0.4rem' }}>
+              <h1 style={{ fontSize: '1.85rem', fontWeight: 800, marginBottom: '0.4rem', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                 Review &amp; Verify Your Profile
               </h1>
-              <p style={{ opacity: 0.85, fontSize: '0.95rem', maxWidth: '650px' }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', maxWidth: '650px', lineHeight: 1.5, margin: 0 }}>
                 We extracted the following career information from your resume. Review and refine any field below before final verification.
               </p>
             </div>
@@ -311,7 +328,7 @@ export default function ProfileReviewPage() {
         <Card variant="raised" style={{ marginBottom: '1.75rem' }}>
           <Card.Header>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <User size={18} color="var(--color-primary-600)" />
+              <User size={18} color="var(--primary)" />
               <Card.Title>Personal &amp; Contact Details</Card.Title>
             </div>
           </Card.Header>
@@ -372,7 +389,7 @@ export default function ProfileReviewPage() {
         <Card variant="raised" style={{ marginBottom: '1.75rem' }}>
           <Card.Header>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <GraduationCap size={18} color="var(--color-primary-600)" />
+              <GraduationCap size={18} color="var(--primary)" />
               <Card.Title>Academic Identity</Card.Title>
             </div>
           </Card.Header>
@@ -448,7 +465,7 @@ export default function ProfileReviewPage() {
         <Card variant="raised" style={{ marginBottom: '1.75rem' }}>
           <Card.Header>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-              <Code size={18} color="var(--color-primary-600)" />
+              <Code size={18} color="var(--primary)" />
               <Card.Title>Categorized Technical Skills</Card.Title>
             </div>
           </Card.Header>
@@ -556,11 +573,11 @@ export default function ProfileReviewPage() {
         </Card>
 
         {/* Section 4: Missing Information & Career Preferences */}
-        <Card variant="raised" style={{ marginBottom: '2.5rem', borderLeft: '4px solid var(--color-accent-600)' }}>
+        <Card variant="raised" style={{ marginBottom: '2.5rem', borderLeft: '4px solid var(--secondary)' }}>
           <Card.Header>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                <Briefcase size={18} color="var(--color-accent-600)" />
+                <Briefcase size={18} color="var(--secondary)" />
                 <Card.Title>Career Preferences (Required for Opportunity Matching)</Card.Title>
               </div>
               <p className="text-small">

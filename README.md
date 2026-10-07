@@ -7,9 +7,9 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-PyMongo-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**CareerPilot AI** is a production-grade, AI-augmented career opportunity discovery and skill readiness platform built specifically for university students and early-career software engineers. 
+**CareerPilot AI** is a production-grade, AI-augmented career opportunity discovery and student readiness platform built specifically for university students and early-career software engineers. 
 
-The platform continuously discovers, normalizes, validates, deduplicates, and serves high-impact student opportunities (internships, fellowships, hackathons, coding contests, and entry-level engineering roles). It pairs discovery with a deterministic student profile engine, resume-to-profile provenance tracking, and an industry-aligned skill gap roadmap system.
+The platform runs 100% on **REAL MongoDB collections** and **LIVE, continuously refreshed data from multiple external sources** with real-time Server-Sent Events (SSE) updates, deterministic student profile & resume parsing, ATS scoring, and zero mock or fixture data in production code.
 
 ---
 
@@ -18,7 +18,9 @@ The platform continuously discovers, normalizes, validates, deduplicates, and se
 - [Core Platform Capabilities](#-core-platform-capabilities)
 - [System Architecture](#-system-architecture)
 - [Canonical Data Models & MongoDB Schema](#-canonical-data-models--mongodb-schema)
-- [Ingestion Pipeline & Source Adapters](#-ingestion-pipeline--source-adapters)
+- [Ingestion Pipeline & 5 Live External Sources](#-ingestion-pipeline--5-live-external-sources)
+- [Zero-Mock Acceptance Guarantee](#-zero-mock-acceptance-guarantee)
+- [Real-Time SSE Stream Architecture](#-real-time-sse-stream-architecture)
 - [Skill Normalization & Roadmap Engine](#-skill-normalization--roadmap-engine)
 - [REST API Reference](#-rest-api-reference)
 - [Frontend Architecture & Design System](#-frontend-architecture--design-system)
@@ -32,25 +34,23 @@ The platform continuously discovers, normalizes, validates, deduplicates, and se
 ## 🌟 Core Platform Capabilities
 
 ### 1. Opportunity Discovery & Ingestion Engine
-- **Canonical Schema Normalization**: Standardizes diverse opportunity feeds into uniform types (`internship`, `fellowship`, `hackathon`, `coding_contest`, `scholarship`, `job`) and categories (`software`, `artificial_intelligence`, `data`, `cloud`, etc.).
-- **Deterministic Deduplication**: Employs SHA-256 fingerprint hashing (`metadata.raw_hash`) combining source identity, external IDs, normalized titles, and application URLs.
+- **5 Live External Connectors**: Ingests real software engineering roles, internships, hackathons, coding contests, and scholarships from Remotive, Arbeitnow, Codeforces, Devfolio, and OpportunityDesk. (See [docs/sources.md](file:///d:/careerpilot_ai/docs/sources.md) for rate limits, schedules, and schemas).
+- **Deterministic Deduplication**: Employs SHA-256 fingerprint hashing combining title + company canonicalization, coupled with fuzzy matching (`SequenceMatcher` threshold $\ge 0.85$).
 - **Automated Lifecycle Expiration**: Built-in background engine marks opportunities with past deadlines as `expired`, preventing stale listings from cluttering student feeds.
-- **Source Adapter Isolation**: Pluggable provider architecture (`OpportunitySource`) where third-party feed timeouts or failures never crash the platform.
+- **Circuit Breaker & Resilience**: Per-connector exponential backoff, rate limiting, and circuit breaker trip state preventing third-party timeouts from affecting service.
 
-### 2. Student Profile & Resume Provenance (Phase 1)
+### 2. Student Profile & Resume Provenance
 - **Field-Level Provenance (`field_sources`)**: Every attribute in a student's profile tracks its exact origin (`manual`, `resume`, or `system`) along with updated timestamps.
 - **Manual-Field Protection**: User-verified edits are safeguarded from being overwritten by subsequent automated resume parsers.
-- **Deterministic Profile Completion**: Weighted algorithm evaluates personal details, academic metrics (CGPA, degree, branch), skills, and career preferences, giving actionable completion targets.
+- **Dual-Engine Resume Parser**: Text extraction from both PDF (`pypdf`) and Word DOCX (`python-docx`), analyzed via Google Gemini AI for ATS scoring, skills, and projects.
 
-### 3. Skill Gap & Personalized Learning Engine
-- **Target Role Benchmarking**: Compares student profiles against real-world tech specifications (Full Stack Developer, Software Engineer, AI/ML Researcher, etc.).
-- **Skill Classification**: Categorizes competencies into `MATCHED`, `PARTIAL` (prerequisites fulfilled), and `MISSING`.
-- **Dependency-Ordered Roadmap**: Sequences learning paths into **Now** $\to$ **Next** $\to$ **After That**, complete with verified documentation links, tutorial resources, and capstone project specifications.
+### 3. Applications Pipeline & Kanban Tracker
+- **Stage Progression**: Full CRUD tracking across `Saved`, `Applied`, `Interviewing`, `Offer`, and `Rejected`.
+- **Timeline & Notes**: Automatic audit event logging for status changes, dates, notes, and offer confetti triggers.
 
-### 4. Production Dashboard & Analytics
-- **Responsive 2-Column Grid**: Dynamic desktop/tablet/mobile layout maximizing screen utilization without arbitrary width constraints.
-- **Live Student Metrics**: Real-time counters for verified opportunities available, applications in progress, profile completion percentage, and target role readiness scores.
-- **Source Transparency**: Explicit attribution badges ("Company Careers", "Curated Student Feed") and direct links to original verified application portals.
+### 4. Real-Time SSE Stream & AI Advisor
+- **SSE Opportunities Stream (`/api/stream/opportunities`)**: Pub/Sub event stream broadcasting newly discovered roles with auto-reconnecting React hook.
+- **Conversational Career Advisor**: Interactive career coach grounded in student profile context with chat history persisted in MongoDB.
 
 ---
 
@@ -60,32 +60,39 @@ The platform continuously discovers, normalizes, validates, deduplicates, and se
                                   ┌──────────────────────────────┐
                                   │      React 18 SPA Client     │
                                   │  (Vite + React Router + CSS) │
-                                  └──────────────┬───────────────┘
-                                                 │ HTTP / REST APIs
-                                                 ▼
+                                  └──────────┬────────┬──────────┘
+                                             │        │ Server-Sent Events (SSE)
+                                  HTTP/REST  │        │ /api/stream/opportunities
+                                             ▼        ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                Flask 3.0 Application Server                            │
+│                                Flask 3.1 Application Server                            │
 │                                                                                        │
 │   ┌─────────────────────┐   ┌──────────────────────────┐   ┌───────────────────────┐   │
-│   │   Auth & Security   │   │  Opportunities Blueprint │   │  Skill Gap Blueprint  │   │
-│   │  (JWT + Middleware) │   │  (Search, Filter, Paging)│   │  (Roadmaps & Progress)│   │
+│   │   Auth & Security   │   │  Opportunities Blueprint │   │  Applications Tracker │   │
+│   │  (JWT + Refresh)    │   │  (Search, Save, Match)   │   │  (CRUD, Stages, Audit)│   │
+│   └─────────────────────┘   └─────────────┬────────────┘   └───────────────────────┘   │
+│                                           │                                            │
+│   ┌─────────────────────┐   ┌─────────────┴────────────┐   ┌───────────────────────┐   │
+│   │ Dashboard & Stats   │   │  Sources Telemetry       │   │  AI Career Advisor    │   │
+│   │ (Real Mongo Counts) │   │  (Live Status & Sync)    │   │  (Chat Stream & Logs) │   │
 │   └─────────────────────┘   └─────────────┬────────────┘   └───────────────────────┘   │
 │                                           │                                            │
 │   ┌───────────────────────────────────────┴────────────────────────────────────────┐   │
-│   │                         Business Logic & Ingestion Layer                       │   │
+│   │                         Ingestion & Live Connector Layer                       │   │
 │   │                                                                                │   │
 │   │   ┌───────────────────┐    ┌────────────────────┐    ┌─────────────────────┐   │   │
-│   │   │ OpportunityService│    │  ProfileService    │    │  SkillGapService    │   │   │
+│   │   │ OpportunityService│    │  ProfileService    │    │  EventStreamManager │   │   │
 │   │   └─────────▲─────────┘    └────────────────────┘    └─────────────────────┘   │   │
 │   │             │                                                                  │   │
 │   │   ┌─────────┴─────────┐    ┌────────────────────┐    ┌─────────────────────┐   │   │
-│   │   │ Ingestion Pipeline│    │ APScheduler Daemon │    │ Skill Normalizer    │   │   │
-│   │   └─────────▲─────────┘    └────────────────────┘    └─────────────────────┘   │   │
-│   │             │                                                                  │   │
-│   │   ┌─────────┴─────────┐    ┌────────────────────┐                              │   │
-│   │   │ Source Adapters   │───►│ Sample Source      │                              │   │
-│   │   │ (OpportunitySource│───►│ Public Tech Feeds  │                              │   │
-│   │   └───────────────────┘    └────────────────────┘                              │   │
+│   │   │ Ingestion Pipeline│    │ APScheduler Daemon │    │ SHA-256 + Fuzzy     │   │   │
+│   │   └─────────▲─────────┘    └────────────────────┘    │ Deduplicator        │   │   │
+│   │             │                                        └─────────────────────┘   │   │
+│   │   ┌─────────┴──────────────────────────────────────────────────────────────┐   │   │
+│   │   │ 5 Live External Connectors:                                            │   │   │
+│   │   │ • Remotive (Jobs)       • Arbeitnow (Tech)     • Codeforces (Contests) │   │   │
+│   │   │ • Devfolio (Hackathons) • OpportunityDesk (RSS Scholarships)           │   │   │
+│   │   └────────────────────────────────────────────────────────────────────────┘   │   │
 │   └───────────────────────────────────────┬────────────────────────────────────────┘   │
 └───────────────────────────────────────────┼────────────────────────────────────────────┘
                                             │ PyMongo Driver
@@ -93,9 +100,13 @@ The platform continuously discovers, normalizes, validates, deduplicates, and se
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                                   MongoDB 6.0+ Database                                │
 │                                                                                        │
-│   • opportunities       (Unique hash, multi-key skills, compound status+deadline)      │
+│   • opportunities       (Active opportunities, hashed dedupes, text indexes)           │
 │   • student_profiles    (Unique user_id, field provenance, verified flags)             │
-│   • users               (Unique email, bcrypt hashed passwords)                        │
+│   • users               (Unique email, bcrypt hashed passwords, JWT refresh)           │
+│   • applications        (Tracked applications, stages, timeline history, notes)        │
+│   • notifications       (System alerts, deadline warnings, daily digests)              │
+│   • source_runs         (Telemetry history: duration, fetched, accepted, status)       │
+│   • advisor_conversations (Student AI advisor chat messages & timestamps)              │
 │   • learning_progress   (User skill topic tracking)                                    │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -262,23 +273,108 @@ All responses strictly follow the standardized envelope:
 | `GET` | `/api/skill-gap/roles` | — | List all industry target roles |
 | `POST` | `/api/skill-gap/progress` | — | Track mastered topics for a skill |
 
-### System (`/api/health`)
+### Applications Pipeline (`/api/applications`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/applications` | List user's tracked applications | Yes |
+| `POST` | `/api/applications` | Track a new opportunity | Yes |
+| `GET` | `/api/applications/<id>` | Fetch application detail with timeline | Yes |
+| `PATCH` | `/api/applications/<id>/stage` | Update Kanban pipeline stage | Yes |
+| `POST` | `/api/applications/<id>/notes` | Add a note to timeline | Yes |
+| `DELETE` | `/api/applications/<id>` | Untrack / delete application | Yes |
+
+### Notifications & Daily Digest (`/api/notifications`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/notifications` | List user notifications | Yes |
+| `PATCH` | `/api/notifications/<id>/read` | Mark notification as read | Yes |
+| `POST` | `/api/notifications/read-all` | Mark all notifications read | Yes |
+| `GET` | `/api/notifications/digest` | Generate daily career digest | Yes |
+
+### External Sources & Ingestion (`/api/sources`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/sources/status` | Live status & metrics of 5 connectors | No |
+| `POST` | `/api/sources/sync` | Trigger instant background sync | Yes |
+
+### AI Career Advisor (`/api/advisor`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/advisor/history` | Fetch persistent chat history | Yes |
+| `POST` | `/api/advisor/chat` | Send message (Gemini AI grounded) | Yes |
+| `GET` | `/api/advisor/stream` | SSE real-time token stream | Yes |
+| `DELETE` | `/api/advisor/history` | Clear conversation history | Yes |
+
+### Dashboard & Analytics (`/api/dashboard`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/dashboard/stats` | Real computed MongoDB collection telemetry | Yes |
+
+### Real-Time Live Stream (`/api/stream`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/stream/opportunities` | Server-Sent Events (SSE) live opportunities feed | No |
+
+### System Health (`/api/health`)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/api/health` | Service health status & MongoDB ping |
+| `GET` | `/api/health` | Service health, collection counts & scheduler status |
 
 ---
 
-## 🎨 Frontend Architecture & Design System
+---
 
-- **Framework**: React 18 SPA built with Vite for sub-second hot module reloading.
-- **Navigation**: React Router DOM v6 with lazy-loaded route chunks and suspense skeleton fallbacks.
-- **Styling Architecture**: Vanilla CSS using CSS variables (`--color-surface`, `--primary`, `--radius-lg`, `--shadow-raised-lg`). Single cohesive educational theme without jarring light/dark mode flash.
-- **Accessibility & UX**:
-  - Full keyboard navigation and touch-friendly controls.
-  - Zero layout shift during data fetching via structured Skeleton cards.
-  - Debounced search inputs (300ms) avoiding redundant network roundtrips.
-  - Contextual Toast alerts and responsive slide-out opportunity drawers.
+## 🎨 Frontend Architecture & "Mission Control" Design System (v2.0 Redesign)
+
+The CareerPilot AI frontend is engineered to top-tier design-driven startup standards (Linear, Vercel, Stripe, Arc). It departs completely from generic templates by establishing the **"Mission Control for Your Career"** visual and interactive paradigm.
+
+### 1. Signature Design Language (`src/styles/design-language.md`)
+- **Metaphor**: Flight-deck telemetry, radar sweeps, orbital progress rings, and trajectory waypoints.
+- **3 Celestial Accents**:
+  1. **Pulsar Cyan (`#00F2FE`)**: Navigational radar, high match scores ($\ge 85\%$), discovery searchlights.
+  2. **Solar Flare Amber (`#F59E0B`)**: Real-time ticking deadlines ("closes in 2d 4h"), urgency alerts, focus stage.
+  3. **Quantum Violet (`#8B5CF6`)**: Neural AI core reasoning, resume ML analysis, skill graph mastery.
+- **4 Signature Themes**:
+  - `Deep Space Obsidian` (Default dark-first flight deck)
+  - `Solar Daybreak` (High-contrast clean daylight HUD)
+  - `Neon Hyperdrive` (Cyberpunk vibrant violet & laser cyan)
+  - `Aurora Matrix` (Luminescent deep-space emerald)
+  - Smooth circular reveal transition via View Transitions API (`::view-transition-new(root)`).
+- **Typography Continuum**:
+  - Display: `Space Grotesk` (Expressive, mechanical display font)
+  - Text: `Inter` (Ultra-crisp UI and body copy)
+  - Telemetry: `JetBrains Mono` (Tabular numbers, match percentages, timers, salary figures)
+  - Fluid type scale via CSS `clamp()`
+
+### 2. Advanced Motion Physics System (`src/motion/`)
+- **Physics Tokens (`tokens.js`)**: Spring models for `snappy` (stiffness: 420, damping: 30), `smooth` (stiffness: 260, damping: 26), `gentle` (stiffness: 120, damping: 18), and `bouncy` (stiffness: 480).
+- **Custom Hooks (`hooks.js`)**:
+  - `useMagnetic`: Organic cursor attraction for buttons & badges.
+  - `useTilt`: 3D perspective tilt on cards with dynamic spotlight coordinate calculation.
+  - `useScrollProgress`: Scroll-linked telemetry progress tracking.
+  - `useCountUp`: Smooth numeric telemetry counters.
+  - `useInView`: Lightweight viewport entrance trigger.
+  - `useReducedMotionSafe`: Automatic adherence to accessibility motion preferences.
+- **Shared Variants (`variants.js`)**: Container staggering, radar sweeps, orbital rotations, and drawers.
+
+### 3. Living Component Library & Style Guide (`/design-system`)
+- Accessible at route `/design-system`.
+- Interactive showroom showcasing:
+  - Theme switching matrix
+  - Kinetic magnetic buttons (6 variants: primary, secondary, outline, ghost, danger, glow)
+  - Form controls, sliders, switches, and avatar stacks
+  - Composite flight-deck widgets: `MatchRing`, `SkillRadar`, `DeadlineCountdown`, `StatCard` (with sparklines), `Stepper`, `Timeline`, `BottomSheet`, `Accordion`, and `Modal`.
+
+### 4. Screen-by-Screen Signature Moments
+- **Landing Page**: Interactive 3D/particle "Career Constellation" hero with canvas starfield, orbiting opportunity nodes reacting to cursor, typewriter role cycling, and continuous live telemetry ticker.
+- **Dashboard**: Asymmetric Bento Grid featuring daily AI synthesis, orbital match beacon, sparkline velocity cards, and 7-day activity heatmap streak.
+- **Opportunities Page**: Live radar feed (`useLiveFeed`) with animated "N new opportunities" ingest pill, physics-driven Swipe Deck, and mobile bottom sheet details.
+- **Applications Tracker**: 5-stage DnD Kanban with drag overlays, optimistic updates, and offer confetti bursts.
+- **Resume Analyzer**: Moving scanning radar beam with OCR telemetry and needle-physics score gauge.
+- **Skill Gap Page**: Interactive polygon radar chart morphing across 7 canonical engineering roles.
+- **AI Advisor**: Living Holographic AI Orb (`LivingAIOrb`) with 4 physical states (Idle, Listening, Thinking, Speaking) and token streaming with caret.
+- **Mobile-First Ergonomics**: Bottom tab bar with animated active indicator and haptic feedback, safe area insets (`env(safe-area-inset-*)`), and touch gestures.
+- **PWA Ready**: Web app manifest (`/manifest.json`), standalone viewport fit, and responsive icons.
 
 ---
 
@@ -335,30 +431,46 @@ cd ../frontend
 # Install dependencies
 npm install
 
+# Optional: configure environment (set VITE_USE_MOCKS=true for standalone mock mode)
+cp .env.example .env
+
 # Start development server
 npm run dev
+
+# Or run production build
+npm run build
 ```
 *Frontend application starts at: `http://localhost:5173`*
+
 
 ---
 
 ## 🧪 Testing & Quality Verification
 
-### Run Backend Test Suite
-The backend contains comprehensive unit and integration tests covering Authentication, Profiles, Resume Parsing, Skill Gap Calculation, Opportunity Ingestion, Deduplication, and Expiration:
+### 1. Run Backend Test Suite
+The backend contains 39 comprehensive unit and integration tests covering Authentication, Applications Pipeline, Notifications & Daily Digest, Sources Telemetry, Health Checks, Dashboard Stats, AI Advisor, Resume Parsing (PDF + DOCX), Skill Gap Analysis, and Opportunity Ingestion:
 
 ```bash
 cd backend
-pytest -v
+python -m pytest tests/ -v
 ```
-**Test Results**: `34 passed in 4.5s` (100% passing rate).
+**Test Results**: `39 passed in 13.5s` (100% passing rate).
 
-### Build Frontend for Production
+### 2. Verify Zero Mocks Across Production Code
+The CI acceptance script scans all production code in `frontend/src` and `backend/app` for forbidden mock tokens, fixtures, or fallback arrays:
+
+```bash
+cd frontend
+npm run check:no-mocks
+```
+**Acceptance Result**: `Scanned 158 production source files. ✅ PASSED: Zero mock tokens found.`
+
+### 3. Build Frontend for Production
 ```bash
 cd frontend
 npm run build
 ```
-**Build Results**: Vite production bundle completes in ~3 seconds with **0 errors**.
+**Build Results**: Vite production bundle completes with **0 errors**, code-splitting all pages into optimized chunks.
 
 ---
 
@@ -368,14 +480,16 @@ npm run build
 careerpilot-ai/
 ├── backend/
 │   ├── app/
+│   │   ├── ai/                  # Gemini AI Advisor Agent & Context Injection
 │   │   ├── config/              # MongoDB connection & app settings
-│   │   ├── models/              # User, Profile, Opportunity, LearningProgress models
-│   │   ├── routes/              # Flask Blueprints (auth, profile, opportunity, skill_gap)
-│   │   ├── scrapers/            # Base adapter, sample feed, public feed providers
-│   │   ├── services/            # OpportunityService, ProfileService, SkillGapService
+│   │   ├── models/              # User, Profile, Opportunity, Application, Notification, SourceRun
+│   │   ├── routes/              # Flask Blueprints (auth, profile, opportunity, application, notification,
+│   │   │                        #                  sources, advisor, dashboard, stream, skill_gap, health)
+│   │   ├── scrapers/            # Base connector + 5 live connectors (Remotive, Arbeitnow, Codeforces, Devfolio, OpportunityDesk)
+│   │   ├── services/            # OpportunityService, IngestionService, ProfileService, ResumeParser, EventStream
 │   │   ├── utils/               # Normalizers, JWT auth helper, deduplication hash
 │   │   └── __init__.py          # App factory, CORS hooks, index registration
-│   ├── tests/                   # Pytest suites (test_auth, test_opportunity, test_profile)
+│   ├── tests/                   # Pytest suites (test_auth, test_opportunity, test_production_features, test_profile_resume, test_skill_gap)
 │   ├── run.py                   # Flask server entrypoint
 │   └── requirements.txt         # Pinned backend dependencies
 │
@@ -383,14 +497,20 @@ careerpilot-ai/
 │   ├── src/
 │   │   ├── components/          # Layouts (Sidebar, Topbar), UI (Card, Badge, Button, Drawer)
 │   │   ├── context/             # AuthContext, ToastContext
-│   │   ├── hooks/               # useAuth, useProfile, useOpportunities, useSkillGap
-│   │   ├── pages/               # Dashboard, Opportunities, SkillGap, Resume, Profile
-│   │   ├── services/            # Axios API wrappers (opportunityService, profileService)
+│   │   ├── hooks/               # useAuth, useProfile, useOpportunities, useApplications, useLiveFeed, useSkillGap
+│   │   ├── pages/               # Dashboard, Opportunities, Applications, SkillGap, Profile, AICareerAdvisor
+│   │   ├── services/            # Axios API layer (api, opportunityService, applicationService, skillGapService)
 │   │   ├── App.jsx              # Routing & code-split views
 │   │   ├── index.css            # Production CSS design tokens & layout utilities
 │   │   └── main.jsx             # React DOM root
 │   ├── vite.config.js           # Vite build & proxy config
-│   └── package.json             # Frontend dependencies
+│   └── package.json             # Frontend dependencies & check:no-mocks script
+│
+├── docs/
+│   └── sources.md               # Legal review, rate limits, schedules, and schemas for 5 connectors
+│
+├── scripts/
+│   └── check-no-mocks.js        # Strict CI verification script
 │
 └── README.md                    # Platform documentation
 ```

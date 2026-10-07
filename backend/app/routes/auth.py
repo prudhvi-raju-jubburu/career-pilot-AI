@@ -123,3 +123,26 @@ def get_current_user_profile(current_user):
             "user": UserModel.to_dict(current_user)
         }
     }), 200
+
+@auth_bp.route("/refresh", methods=["POST"])
+@token_required
+def refresh_token(current_user):
+    """Refreshes active JWT session token."""
+    new_token = generate_token(user_id=str(current_user["_id"]), email=current_user["email"])
+    return jsonify({
+        "success": True,
+        "message": "Token refreshed successfully",
+        "data": {
+            "token": new_token,
+            "user": UserModel.to_dict(current_user)
+        }
+    }), 200
+
+@auth_bp.route("/logout", methods=["POST"])
+def logout():
+    """Client session logout endpoint."""
+    return jsonify({
+        "success": True,
+        "message": "Logged out successfully"
+    }), 200
+

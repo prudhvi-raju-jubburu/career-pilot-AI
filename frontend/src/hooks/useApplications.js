@@ -21,6 +21,19 @@ export function useApplications() {
 
   useEffect(() => {
     fetchApplications();
+    const handleUpdate = () => {
+      fetchApplications();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('careerpilot_applications_updated', handleUpdate);
+      window.addEventListener('storage', handleUpdate);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('careerpilot_applications_updated', handleUpdate);
+        window.removeEventListener('storage', handleUpdate);
+      }
+    };
   }, [fetchApplications]);
 
   const addApplication = async (appData) => {

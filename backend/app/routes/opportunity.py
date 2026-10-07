@@ -167,3 +167,81 @@ def trigger_ingestion(current_user):
             "message": f"Ingestion failed: {str(e)}",
             "error": "INGESTION_ERROR"
         }), 500
+
+@opportunity_bp.route("/<opp_id>/save", methods=["POST"])
+@token_required
+def save_opportunity(current_user, opp_id):
+    """Bookmarks an opportunity in the student profile."""
+    user_id = str(current_user["_id"])
+    OpportunityService.save_opportunity(user_id, opp_id)
+    return jsonify({
+        "success": True,
+        "message": "Opportunity saved to bookmarks",
+        "data": {"opp_id": opp_id, "saved": True}
+    }), 200
+
+@opportunity_bp.route("/<opp_id>/unsave", methods=["POST", "DELETE"])
+@token_required
+def unsave_opportunity(current_user, opp_id):
+    """Removes an opportunity bookmark."""
+    user_id = str(current_user["_id"])
+    OpportunityService.unsave_opportunity(user_id, opp_id)
+    return jsonify({
+        "success": True,
+        "message": "Opportunity removed from bookmarks",
+        "data": {"opp_id": opp_id, "saved": False}
+    }), 200
+
+@opportunity_bp.route("/saved", methods=["GET"])
+@token_required
+def get_saved_opportunities(current_user):
+    """Retrieves all bookmarked opportunities for the authenticated student."""
+    user_id = str(current_user["_id"])
+    saved_ids = OpportunityService.get_saved_opportunity_ids(user_id)
+    items = []
+    for sid in saved_ids:
+        opp = OpportunityService.get_opportunity_by_id(sid)
+        if opp:
+            items.append(opp)
+    return jsonify({
+        "success": True,
+        "message": "Saved opportunities retrieved",
+        "data": items
+    }), 200
+
+@opportunity_bp.route("/<opp_id>/eligibility", methods=["GET"])
+@token_required
+def get_opportunity_eligibility(current_user, opp_id):
+    """Evaluates authenticated student profile against opportunity requirements."""
+    user_id = str(current_user["_id"])
+    opp = OpportunityService.get_opportunity_by_id(opp_id)
+    if not opp:
+        return jsonify({"success": False, "message": "Opportunity not found"}), 404
+
+    from app.services.profile_service import ProfileService
+    profile = ProfileService.get_profile_by_user_id(user_id) or {}
+    result = OpportunityService.check_eligibility(opp, profile)
+    return jsonify({
+        "success": True,
+        "message": "Eligibility evaluated successfully",
+        "data": result
+    }), 200
+
+@opportunity_bp.route("/<opp_id>/match", methods=["GET"])
+@token_required
+def get_opportunity_match(current_user, opp_id):
+    """Computes explainable match score and skill gaps for this opportunity."""
+    user_id = str(current_user["_id"])
+    opp = OpportunityService.get_opportunity_by_id(opp_id)
+    if not opp:
+        return jsonify({"success": False, "message": "Opportunity not found"}), 404
+
+    from app.services.profile_service import ProfileService
+    profile = ProfileService.get_profile_by_user_id(user_id) or {}
+    match_result = OpportunityService.compute_match(opp, profile)
+    return jsonify({
+        "success": True,
+        "message": "Match analysis computed successfully",
+        "data": match_result
+    }), 200
+

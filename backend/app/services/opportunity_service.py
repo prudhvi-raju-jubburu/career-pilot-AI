@@ -432,3 +432,182 @@ class OpportunityService:
         if res.modified_count > 0:
             logger.info("Marked %d opportunities as expired.", res.modified_count)
         return res.modified_count
+
+    @classmethod
+    def check_eligibility(cls, opp: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Deterministic eligibility engine evaluating student profile against opportunity requirements.
+        Returns overall pass/fail, percentage eligibility, and rule-by-rule audit trail with reasons.
+        """
+        rules = []
+        edu_req = opp.get("education_requirements") or {}
+        dates = opp.get("dates") or {}
+        deadline = dates.get("deadline")
+
+        # 1. Deadline Rule
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if deadline and deadline < now_iso:
+            rules.append({
+                "rule": "Deadline",
+                "passed": False,
+                "reason": f"Application deadline closed on {deadline[:10]}"
+            })
+        else:
+            rules.append({
+                "rule": "Deadline",
+                "passed": True,
+                "reason": f"Active listing (deadline: {deadline[:10] if deadline else 'Rolling / Open'})"
+            })
+
+        # 2. CGPA Rule
+        min_cgpa = edu_req.get("cgpa_min")
+        student_edu = profile.get("education") or {}
+        student_cgpa_raw = student_edu.get("cgpa")
+        try:
+            student_cgpa = float(student_cgpa_raw) if student_cgpa_raw is not None else None
+        except (ValueError, TypeError):
+            student_cgpa = None
+
+        if min_cgpa is not None:
+            if student_cgpa is not None:
+                passed = student_cgpa >= float(min_cgpa)
+                rules.append({
+                    "rule": "CGPA",
+                    "passed": passed,
+                    "reason": f"Your CGPA is {student_cgpa}; minimum requirement is {min_cgpa}" if passed else f"Your CGPA ({student_cgpa}) is below required {min_cgpa}"
+                })
+            else:
+                rules.append({
+                    "rule": "CGPA",
+                    "passed": True,
+                    "reason": f"Requires {min_cgpa} CGPA (unverified in profile)"
+                })
+        else:
+            rules.append({
+                "rule": "CGPA",
+                "passed": True,
+                "reason": "No minimum CGPA required"
+            })
+
+        # 3. Graduation Year Rule
+        allowed_years = edu_req.get("graduation_years") or []
+        student_year_raw = student_edu.get("graduationYear") or student_edu.get("graduation_year")
+        try:
+            student_year = int(student_year_raw) if student_year_raw else None
+        except (ValueError, TypeError):
+            student_year = None
+
+        if allowed_years and student_year:
+            passed = student_year in allowed_years
+            rules.append({
+                "rule": "Graduation Year",
+                "passed": passed,
+                "reason": f"Your graduation batch ({student_year}) is eligible" if passed else f"Targeting batches {allowed_years}; your profile lists {student_year}"
+            })
+        else:
+            rules.append({
+                "rule": "Graduation Year",
+                "passed": True,
+                "reason": "Open to all current university batches"
+            })
+
+        # 4. Academic Branch Rule
+        branches = edu_req.get("branches") or []
+        student_branch = (student_edu.get("branch") or "").strip().lower()
+        if branches and student_branch:
+            passed = any(b.lower() in student_branch or student_branch in b.lower() for b in branches) or "engineering" in student_branch
+            rules.append({
+                "rule": "Academic Discipline",
+                "passed": passed,
+                "reason": f"Branch '{student_branch.title()}' meets discipline criteria" if passed else f"Prefers branches: {', '.join(branches[:3])}"
+            })
+        else:
+            rules.append({
+                "rule": "Academic Discipline",
+                "passed": True,
+                "reason": "Open to all disciplines"
+            })
+
+        passed_rules = sum(1 for r in rules if r["passed"])
+        is_eligible = all(r["passed"] for r in rules)
+        score = int((passed_rules / len(rules)) * 100) if rules else 100
+
+        return {
+            "is_eligible": is_eligible,
+            "eligibility_score": score,
+            "rules": rules
+        }
+
+    @classmethod
+    def compute_match(cls, opp: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Computes explainable match score with matched/missing skills breakdown.
+        """
+        opp_skills = [s.lower().strip() for s in (opp.get("skills") or []) if s]
+
+        # Extract student skills
+        student_skills = []
+        skills_raw = profile.get("skills") or []
+        if isinstance(skills_raw, list):
+            student_skills = [str(s).lower().strip() for s in skills_raw]
+        elif isinstance(skills_raw, dict):
+            for v in skills_raw.values():
+                if isinstance(v, list):
+                    student_skills.extend([str(s).lower().strip() for s in v])
+                elif isinstance(v, dict) and "value" in v and isinstance(v["value"], list):
+                    student_skills.extend([str(s).lower().strip() for s in v["value"]])
+
+        student_skills_set = set(student_skills)
+        matched = [s for s in opp.get("skills", []) if s.lower().strip() in student_skills_set]
+        missing = [s for s in opp.get("skills", []) if s.lower().strip() not in student_skills_set]
+
+        # Skill overlap ratio
+        overlap_score = (len(matched) / len(opp_skills) * 100) if opp_skills else 80
+        # Blend with base eligibility
+        eligibility = cls.check_eligibility(opp, profile)
+        match_score = int(min(98, max(45, (overlap_score * 0.7) + (eligibility["eligibility_score"] * 0.3))))
+
+        # Explainability
+        if matched:
+            explanation = f"Matches your background in {', '.join(matched[:3])}. Aligning with your career preferences."
+        else:
+            explanation = f"Good entry-point opportunity in {opp.get('category', 'tech')}. Consider preparing: {', '.join(missing[:3])}."
+
+        return {
+            "match_score": match_score,
+            "matched_skills": matched,
+            "missing_skills": missing,
+            "explanation": explanation,
+            "eligibility": eligibility
+        }
+
+    @classmethod
+    def save_opportunity(cls, user_id: str, opp_id: str) -> bool:
+        """Saves opportunity to user's saved bookmarks."""
+        from app.models.profile import ProfileModel
+        col = ProfileModel.get_collection()
+        col.update_one(
+            {"user_id": str(user_id)},
+            {"$addToSet": {"saved_opportunities": str(opp_id)}}
+        )
+        return True
+
+    @classmethod
+    def unsave_opportunity(cls, user_id: str, opp_id: str) -> bool:
+        """Removes opportunity from user's saved bookmarks."""
+        from app.models.profile import ProfileModel
+        col = ProfileModel.get_collection()
+        col.update_one(
+            {"user_id": str(user_id)},
+            {"$pull": {"saved_opportunities": str(opp_id)}}
+        )
+        return True
+
+    @classmethod
+    def get_saved_opportunity_ids(cls, user_id: str) -> List[str]:
+        """Retrieves list of saved opportunity IDs for a user."""
+        from app.models.profile import ProfileModel
+        col = ProfileModel.get_collection()
+        doc = col.find_one({"user_id": str(user_id)}, {"saved_opportunities": 1})
+        return doc.get("saved_opportunities", []) if doc else []
+

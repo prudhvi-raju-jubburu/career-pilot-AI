@@ -1,17 +1,17 @@
 import axios from 'axios';
 
-// Base URL configured from environment variable or defaulting to proxy/localhost:5000
+// Base URL configured from environment variable or defaulting to localhost:5000
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor for attaching JWT token in future phases
+// Request interceptor for attaching JWT token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -52,6 +52,14 @@ export const loginUser = async (credentials) => {
 
 export const getCurrentUser = async () => {
   return await api.get('/api/auth/me');
+};
+
+export const refreshToken = async () => {
+  return await api.post('/api/auth/refresh');
+};
+
+export const logoutUser = async () => {
+  return await api.post('/api/auth/logout');
 };
 
 // Resume Services
@@ -135,5 +143,93 @@ export const getOpportunityFilters = async () => {
   return await api.get('/api/opportunities/filters');
 };
 
-export default api;
+export const saveOpportunity = async (oppId) => {
+  return await api.post(`/api/opportunities/${oppId}/save`);
+};
 
+export const unsaveOpportunity = async (oppId) => {
+  return await api.post(`/api/opportunities/${oppId}/unsave`);
+};
+
+export const getSavedOpportunities = async () => {
+  return await api.get('/api/opportunities/saved');
+};
+
+export const getOpportunityEligibility = async (oppId) => {
+  return await api.get(`/api/opportunities/${oppId}/eligibility`);
+};
+
+export const getOpportunityMatch = async (oppId) => {
+  return await api.get(`/api/opportunities/${oppId}/match`);
+};
+
+// Applications Services (Real MongoDB CRUD)
+export const getApplications = async (params = {}) => {
+  return await api.get('/api/applications', { params });
+};
+
+export const createApplication = async (appData) => {
+  return await api.post('/api/applications', appData);
+};
+
+export const getApplicationById = async (id) => {
+  return await api.get(`/api/applications/${id}`);
+};
+
+export const updateApplication = async (id, appData) => {
+  return await api.put(`/api/applications/${id}`, appData);
+};
+
+export const updateApplicationStage = async (id, status, note = null) => {
+  return await api.patch(`/api/applications/${id}/stage`, { status, note });
+};
+
+export const deleteApplication = async (id) => {
+  return await api.delete(`/api/applications/${id}`);
+};
+
+// Dashboard Services (Real Computed Telemetry)
+export const getDashboardStats = async () => {
+  return await api.get('/api/dashboard/stats');
+};
+
+// Notifications & Daily Digest Services
+export const getNotifications = async () => {
+  return await api.get('/api/notifications');
+};
+
+export const markNotificationRead = async (id) => {
+  return await api.patch(`/api/notifications/${id}/read`);
+};
+
+export const markAllNotificationsRead = async () => {
+  return await api.post('/api/notifications/read-all');
+};
+
+export const getDailyDigest = async () => {
+  return await api.get('/api/notifications/digest');
+};
+
+// AI Career Advisor Services
+export const getAdvisorHistory = async () => {
+  return await api.get('/api/advisor/history');
+};
+
+export const sendAdvisorMessage = async (message) => {
+  return await api.post('/api/advisor/chat', { message });
+};
+
+export const clearAdvisorHistory = async () => {
+  return await api.delete('/api/advisor/history');
+};
+
+// Data Sources & Ingestion Status
+export const getSourcesStatus = async () => {
+  return await api.get('/api/sources/status');
+};
+
+export const triggerSourcesSync = async () => {
+  return await api.post('/api/sources/sync');
+};
+
+export default api;

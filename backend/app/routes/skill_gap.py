@@ -52,9 +52,9 @@ def get_skill_gap(current_user):
         target_role = target_roles[0] if target_roles else "Software Engineer"
 
     student_skills = _extract_all_skills_from_profile(profile)
-    # Default skills fallback if student has not yet entered profile skills
+    # If student has not yet entered profile skills, pass empty list so gap shows all required skills
     if not student_skills:
-        student_skills = ["Python", "C++", "SQL", "React", "Flask", "MongoDB", "Git"]
+        student_skills = []
 
     analysis = SkillGapService.analyze(
         student_skills=student_skills,
@@ -92,7 +92,7 @@ def analyze_skill_gap(current_user):
     else:
         student_skills = _extract_all_skills_from_profile(profile)
         if not student_skills:
-            student_skills = ["Python", "C++", "SQL", "React", "Flask", "MongoDB", "Git"]
+            student_skills = []
 
     analysis = SkillGapService.analyze(
         student_skills=student_skills,

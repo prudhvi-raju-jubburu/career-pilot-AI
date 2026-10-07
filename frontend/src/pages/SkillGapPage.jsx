@@ -45,6 +45,9 @@ import {
   PRACTICAL_PROJECTS,
   TOPIC_SEQUENCES
 } from '../services/skillCatalog';
+import SkillRadarChart from '../components/skillgap/SkillRadarChart';
+import InteractiveLearningTimeline from '../components/skillgap/InteractiveLearningTimeline';
+
 
 export default function SkillGapPage() {
   const toast = useToast();
@@ -348,6 +351,58 @@ export default function SkillGapPage() {
 
   const studentSkillsList = extractSkillsFromProfile(profile);
 
+  const timelineItems = React.useMemo(() => {
+    if (!analysisData?.roadmap) return [];
+    const items = [];
+    ['now', 'next', 'afterThat'].forEach((stage) => {
+      (analysisData.roadmap[stage] || []).forEach((sk) => {
+        items.push({
+          skillName: sk.name,
+          priority: sk.priority ? sk.priority.toLowerCase() : (stage === 'now' ? 'high' : 'medium'),
+          difficulty: stage === 'now' ? 'Foundational' : stage === 'next' ? 'Intermediate' : 'Advanced',
+          whyImportant: sk.whyMatters || sk.whyLearn,
+          estimatedHours: sk.estimatedHours || (stage === 'now' ? '12-16' : '20-25'),
+          topics: TOPIC_SEQUENCES[sk.name]?.map((t) => t.title) || [
+            `${sk.name} Core Architecture & Syntax`,
+            `${sk.name} Practical Project Implementation`,
+            `${sk.name} Performance & Production Deployment`,
+          ],
+        });
+      });
+    });
+    return items;
+  }, [analysisData]);
+
+  const handleToggleTimelineTopic = (skillName, topicTitle) => {
+    const current = learningProgress[skillName] || { status: 'learning', progress: 20, completedTopics: [] };
+    const alreadyDone = (current.completedTopics || []).includes(topicTitle);
+    const updatedTopics = alreadyDone
+      ? current.completedTopics.filter((t) => t !== topicTitle)
+      : [...(current.completedTopics || []), topicTitle];
+
+    const totalTopics = (TOPIC_SEQUENCES[skillName]?.length) || 3;
+    const newProgress = Math.min(100, Math.round((updatedTopics.length / totalTopics) * 100));
+    const newStatus = newProgress === 100 ? 'completed' : newProgress > 0 ? 'learning' : 'not_started';
+
+    const updatedData = {
+      ...current,
+      status: newStatus,
+      progress: newProgress,
+      completedTopics: updatedTopics,
+    };
+
+    setLearningProgress((prev) => {
+      const next = { ...prev, [skillName]: updatedData };
+      try {
+        localStorage.setItem('careerpilot_skill_progress', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+
+    updateLearningProgress(skillName, updatedData).catch(() => {});
+  };
+
+
   return (
     <PageContainer style={{ maxWidth: '1440px' }}>
       {/* =====================================================================
@@ -499,30 +554,30 @@ export default function SkillGapPage() {
       </div>
 
       {/* =====================================================================
-          2. SKILL OVERVIEW & READINESS METER
+          2. SKILL OVERVIEW & COMPETENCY RADAR (RECHARTS)
           ===================================================================== */}
       {analysisData && (
-        <Card variant="raised" style={{ marginBottom: '2rem', borderTop: '4px solid var(--primary)' }}>
-          <CardContent style={{ padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '2rem' }}>
-              <div style={{ flex: '1 1 360px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                  <Badge variant={analysisData.readinessScore >= 80 ? 'success' : analysisData.readinessScore >= 60 ? 'primary' : 'warning'} size="sm">
-                    {analysisData.readinessTier}
-                  </Badge>
-                  <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                    Based on verified profile &amp; market benchmarks
-                  </span>
-                </div>
-                <h2 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.2rem 0' }}>
-                  {analysisData.targetRole} Readiness: {analysisData.readinessScore}%
-                </h2>
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0.4rem 0 1.25rem', maxWidth: '580px' }}>
-                  {analysisData.roleDescription}
-                </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <Card variant="raised" style={{ borderTop: '4px solid var(--primary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <CardContent style={{ padding: '1.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                <Badge variant={analysisData.readinessScore >= 80 ? 'success' : analysisData.readinessScore >= 60 ? 'primary' : 'warning'} size="sm">
+                  {analysisData.readinessTier}
+                </Badge>
+                <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                  Market Benchmark Fit
+                </span>
+              </div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.2rem 0' }}>
+                {analysisData.targetRole} Readiness: {analysisData.readinessScore}%
+              </h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0.4rem 0 1.25rem' }}>
+                {analysisData.roleDescription}
+              </p>
 
-                {/* Counter statistics */}
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+              {/* Counter statistics & gauge */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', marginTop: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
                   <div>
                     <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--success)' }}>
                       {analysisData.stats.matchedCount}
@@ -542,24 +597,30 @@ export default function SkillGapPage() {
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Required Skills</div>
                   </div>
                 </div>
-              </div>
 
-              {/* Circular Gauge */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0.5rem 1rem' }}>
-                <CircularProgress
-                  value={analysisData.readinessScore}
-                  size={120}
-                  strokeWidth={10}
-                  variant={analysisData.readinessScore >= 80 ? 'success' : analysisData.readinessScore >= 60 ? 'primary' : 'warning'}
-                />
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '0.65rem' }}>
-                  ROLE READINESS
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <CircularProgress
+                    value={analysisData.readinessScore}
+                    size={100}
+                    strokeWidth={9}
+                    variant={analysisData.readinessScore >= 80 ? 'success' : analysisData.readinessScore >= 60 ? 'primary' : 'warning'}
+                  />
+                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '0.45rem' }}>
+                    BENCHMARK
+                  </span>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {/* Recharts Radar Chart */}
+          <SkillRadarChart
+            targetRole={targetRole}
+            studentSkills={studentSkillsList}
+          />
+        </div>
       )}
+
 
       {/* =====================================================================
           3. SKILL GAP COMPARISON (MATCHED vs MISSING)
@@ -708,256 +769,52 @@ export default function SkillGapPage() {
       )}
 
       {/* =====================================================================
-          5. PERSONALIZED LEARNING ROADMAP (NOW -> NEXT -> AFTER THAT -> PROJECT)
+          5. PERSONALIZED LEARNING ROADMAP (INTERACTIVE TIMELINE & MILESTONES)
           ===================================================================== */}
       {analysisData?.roadmap && (
         <div style={{ marginBottom: '3rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-            <Compass size={20} color="var(--primary)" />
-            <div>
-              <h3 className="text-h3" style={{ margin: 0, fontSize: '1.25rem' }}>
-                Personalized Learning Sequence
-              </h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0' }}>
-                Follow this dependency-ordered progression to build foundational capabilities before tackling advanced architecture.
-              </p>
-            </div>
-          </div>
+          <InteractiveLearningTimeline
+            roadmap={timelineItems}
+            learningProgress={learningProgress}
+            onToggleTopic={handleToggleTimelineTopic}
+            onOpenSkillDrawer={(skName) => {
+              const matched = analysisData.missingSkills.find((s) => s.name === skName) || { name: skName };
+              handleOpenSkillDetail(matched);
+            }}
+          />
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* Visual Timeline Diagram */}
-            <Card variant="raised" style={{ padding: '1.25rem 1.5rem', marginBottom: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                  Learning Progression
-                </div>
-                {/* Legend: ✓ Completed ● Learning ○ Not started */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', fontSize: '0.8125rem' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--success-dark)', fontWeight: 600 }}>
-                    <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--success-bg)', color: 'var(--success-dark)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>✓</span> Completed
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary)', fontWeight: 600 }}>
-                    <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--primary-subtle)', color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem' }}>●</span> Learning
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                    <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', border: '1px solid var(--border)' }}>○</span> Not started
+          {/* Step 4: CAPSTONE PRACTICAL PROJECT */}
+          {analysisData.roadmap.capstoneProject && (
+            <Card variant="raised" style={{ borderLeft: '4px solid var(--success)', marginTop: '1.5rem' }}>
+              <CardContent style={{ padding: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <Badge variant="success" size="sm">STAGE 4: CAPSTONE PRACTICE PROJECT</Badge>
+                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    Tie all newly learned skills into a portfolio deliverable
                   </span>
                 </div>
-              </div>
-
-              {/* Timeline Sequence */}
-              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                {[
-                  { name: 'Python Core', status: 'completed' },
-                  { name: 'SQL & Databases', status: 'completed' },
-                  { name: 'Docker & Containers', status: 'learning' },
-                  { name: 'AWS & Cloud Deployment', status: 'not_started' },
-                  { name: 'Capstone Deployment Project', status: 'not_started' },
-                ].map((item, i, arr) => (
-                  <React.Fragment key={item.name}>
-                    <div
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.55rem 0.85rem',
-                        borderRadius: 'var(--radius-md)',
-                        backgroundColor:
-                          item.status === 'completed'
-                            ? 'var(--success-bg)'
-                            : item.status === 'learning'
-                            ? 'var(--primary-subtle)'
-                            : 'var(--surface-raised)',
-                        border: `1px solid ${
-                          item.status === 'completed'
-                            ? 'var(--success-border)'
-                            : item.status === 'learning'
-                            ? 'var(--primary)'
-                            : 'var(--border)'
-                        }`,
-                        color:
-                          item.status === 'completed'
-                            ? 'var(--success-dark)'
-                            : item.status === 'learning'
-                            ? 'var(--primary)'
-                            : 'var(--text-secondary)',
-                        fontWeight: 700,
-                        fontSize: '0.84375rem',
-                      }}
-                    >
-                      <span>
-                        {item.status === 'completed' ? '✓' : item.status === 'learning' ? '●' : '○'}
-                      </span>
-                      <span>{item.name}</span>
-                    </div>
-                    {i < arr.length - 1 && (
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 700, padding: '0 0.15rem' }}>
-                        →
-                      </span>
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
+                <div style={{ marginTop: '0.75rem' }}>
+                  <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.35rem' }}>
+                    {analysisData.roadmap.capstoneProject.title}
+                  </h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 0.75rem', lineHeight: 1.5 }}>
+                    {analysisData.roadmap.capstoneProject.description}
+                  </p>
+                  <div style={{ fontSize: '0.78125rem', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.35rem' }}>
+                    Key Technical Deliverables:
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.78125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                    {analysisData.roadmap.capstoneProject.requirements?.map((req, rIdx) => (
+                      <li key={rIdx}>{req}</li>
+                    ))}
+                  </ul>
+                </div>
+              </CardContent>
             </Card>
-
-            {/* Step 1: NOW */}
-            {analysisData.roadmap.now?.length > 0 && (
-              <Card variant="raised" style={{ borderLeft: '4px solid var(--danger)' }}>
-                <CardContent style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Badge variant="danger" size="sm">STAGE 1: NOW</Badge>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      Immediate Core Prerequisites (Start this week)
-                    </span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginTop: '0.75rem' }}>
-                    {analysisData.roadmap.now.map((skill) => (
-                      <div
-                        key={skill.name}
-                        onClick={() => handleOpenSkillDetail(skill)}
-                        style={{
-                          padding: '1rem',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: 'var(--surface-raised)',
-                          border: '1px solid var(--border)',
-                          cursor: 'pointer',
-                        }}
-                        className="hover-lift"
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                          <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{skill.name}</strong>
-                          <PriorityBadge priority={skill.priority} size="sm" />
-                        </div>
-                        <p style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)', margin: '0 0 0.5rem', lineHeight: 1.4 }}>
-                          {skill.whyMatters}
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.71875rem', color: 'var(--text-muted)' }}>
-                          <span>⏱ {skill.estimatedEffort || '3–5 days'}</span>
-                          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Open Guide →</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 2: NEXT */}
-            {analysisData.roadmap.next?.length > 0 && (
-              <Card variant="raised" style={{ borderLeft: '4px solid var(--primary)' }}>
-                <CardContent style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Badge variant="primary" size="sm">STAGE 2: NEXT</Badge>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      Core Development Skills (Build upon Stage 1)
-                    </span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginTop: '0.75rem' }}>
-                    {analysisData.roadmap.next.map((skill) => (
-                      <div
-                        key={skill.name}
-                        onClick={() => handleOpenSkillDetail(skill)}
-                        style={{
-                          padding: '1rem',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: 'var(--surface-raised)',
-                          border: '1px solid var(--border)',
-                          cursor: 'pointer',
-                        }}
-                        className="hover-lift"
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                          <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{skill.name}</strong>
-                          <PriorityBadge priority={skill.priority} size="sm" />
-                        </div>
-                        <p style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)', margin: '0 0 0.5rem', lineHeight: 1.4 }}>
-                          {skill.whyMatters}
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.71875rem', color: 'var(--text-muted)' }}>
-                          <span>⏱ {skill.estimatedEffort || '1–2 weeks'}</span>
-                          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Open Guide →</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 3: AFTER THAT */}
-            {analysisData.roadmap.afterThat?.length > 0 && (
-              <Card variant="raised" style={{ borderLeft: '4px solid var(--secondary)' }}>
-                <CardContent style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Badge variant="secondary" size="sm">STAGE 3: AFTER THAT</Badge>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      Production Engineering &amp; Scale
-                    </span>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginTop: '0.75rem' }}>
-                    {analysisData.roadmap.afterThat.map((skill) => (
-                      <div
-                        key={skill.name}
-                        onClick={() => handleOpenSkillDetail(skill)}
-                        style={{
-                          padding: '1rem',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: 'var(--surface-raised)',
-                          border: '1px solid var(--border)',
-                          cursor: 'pointer',
-                        }}
-                        className="hover-lift"
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                          <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>{skill.name}</strong>
-                          <PriorityBadge priority={skill.priority} size="sm" />
-                        </div>
-                        <p style={{ fontSize: '0.78125rem', color: 'var(--text-secondary)', margin: '0 0 0.5rem', lineHeight: 1.4 }}>
-                          {skill.whyLearn}
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.71875rem', color: 'var(--text-muted)' }}>
-                          <span>⏱ {skill.estimatedEffort || '2–3 weeks'}</span>
-                          <span style={{ color: 'var(--primary)', fontWeight: 600 }}>Open Guide →</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 4: CAPSTONE PRACTICAL PROJECT */}
-            {analysisData.roadmap.capstoneProject && (
-              <Card variant="raised" style={{ borderLeft: '4px solid var(--success)' }}>
-                <CardContent style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <Badge variant="success" size="sm">STAGE 4: CAPSTONE PRACTICE PROJECT</Badge>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      Tie all newly learned skills into a portfolio deliverable
-                    </span>
-                  </div>
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.35rem' }}>
-                      {analysisData.roadmap.capstoneProject.title}
-                    </h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 0.75rem', lineHeight: 1.5 }}>
-                      {analysisData.roadmap.capstoneProject.description}
-                    </p>
-                    <div style={{ fontSize: '0.78125rem', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.35rem' }}>
-                      Key Technical Deliverables:
-                    </div>
-                    <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.78125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                      {analysisData.roadmap.capstoneProject.requirements?.map((req, rIdx) => (
-                        <li key={rIdx}>{req}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          )}
         </div>
       )}
+
 
       {/* =====================================================================
           6. RECOMMENDED VERIFIED RESOURCES

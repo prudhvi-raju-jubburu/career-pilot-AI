@@ -320,15 +320,3 @@ export const TOPIC_SEQUENCES = {
   ],
 };
 
-export const mockSupportedRoles = CANONICAL_ROLES;
-
-const FALLBACK_GAP_SKILLS = [
-  { name: 'Docker', priority: 'High' },
-  { name: 'AWS', priority: 'Medium' },
-  { name: 'TypeScript', priority: 'High' },
-  { name: 'System Design', priority: 'Medium' },
-];
-
-export const mockSkillRequirements = Object.fromEntries(
-  CANONICAL_ROLES.map((role) => [role, { skills: FALLBACK_GAP_SKILLS }])
-);

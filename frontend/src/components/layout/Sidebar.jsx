@@ -39,7 +39,6 @@ export default function Sidebar({
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
     { name: 'Opportunities', path: '/opportunities', icon: <Briefcase size={18} /> },
     { name: 'Applications', path: '/applications', icon: <Layers size={18} /> },
-    { name: 'Resume', path: '/resume', icon: <FileText size={18} /> },
     { name: 'Skill Gap', path: '/skill-gap', icon: <TrendingUp size={18} /> },
     { name: 'AI Career Advisor', path: '/ai-advisor', icon: <Sparkles size={18} /> },
   ];

@@ -10,10 +10,20 @@ from app.routes.profile import profile_bp
 from app.routes.resume import resume_bp
 from app.routes.skill_gap import skill_gap_bp
 from app.routes.opportunity import opportunity_bp
+from app.routes.application import application_bp
+from app.routes.dashboard import dashboard_bp
+from app.routes.notification import notification_bp
+from app.routes.sources import sources_bp
+from app.routes.stream import stream_bp
+from app.routes.advisor import advisor_bp
+
 from app.models.user import UserModel
 from app.models.profile import ProfileModel
 from app.models.opportunity import OpportunityModel
 from app.models.learning_progress import LearningProgressModel
+from app.models.application import ApplicationModel
+from app.models.notification import NotificationModel
+from app.models.source_run import SourceRunModel
 from app.services.scheduler import init_scheduler
 
 def create_app(config_class=Config):
@@ -68,6 +78,9 @@ def create_app(config_class=Config):
     ProfileModel.ensure_indexes()
     OpportunityModel.ensure_indexes()
     LearningProgressModel.ensure_indexes()
+    ApplicationModel.ensure_indexes()
+    NotificationModel.ensure_indexes()
+    SourceRunModel.ensure_indexes()
 
     # Register Blueprints
     app.register_blueprint(health_bp, url_prefix="/api")
@@ -76,14 +89,12 @@ def create_app(config_class=Config):
     app.register_blueprint(resume_bp, url_prefix="/api/resume")
     app.register_blueprint(skill_gap_bp, url_prefix="/api/skill-gap")
     app.register_blueprint(opportunity_bp, url_prefix="/api/opportunities")
-
-    # Placeholder for Phase 5 Applications endpoint
-    @app.route("/api/applications", methods=["GET"])
-    def get_applications_stub():
-        return jsonify({
-            "success": True,
-            "data": []
-        }), 200
+    app.register_blueprint(application_bp, url_prefix="/api/applications")
+    app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
+    app.register_blueprint(notification_bp, url_prefix="/api/notifications")
+    app.register_blueprint(sources_bp, url_prefix="/api/sources")
+    app.register_blueprint(stream_bp, url_prefix="/api/stream")
+    app.register_blueprint(advisor_bp, url_prefix="/api/advisor")
 
     # Initialize Background Scheduler if not in testing mode
     if not app.config.get("TESTING") and not os.environ.get("PYTEST_CURRENT_TEST"):

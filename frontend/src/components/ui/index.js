@@ -30,3 +30,23 @@ export {
 } from './Skeleton';
 export { default as EmptyState } from './EmptyState';
 export { default as ErrorState } from './ErrorState';
+export { default as ProgressRing } from './ProgressRing';
+export { default as Gauge } from './Gauge';
+export { default as CommandPalette } from './CommandPalette';
+export { default as CountUp } from './CountUp';
+
+// New Advanced Primitives & Composites
+export { default as IconButton } from './IconButton';
+export { default as Tabs } from './Tabs';
+export { default as BottomSheet } from './BottomSheet';
+export { default as Accordion } from './Accordion';
+export { default as Tooltip } from './Tooltip';
+export { default as AvatarStack } from './AvatarStack';
+export { default as Slider } from './Slider';
+export { default as Stepper } from './Stepper';
+export { default as Timeline } from './Timeline';
+export { default as MatchRing } from './MatchRing';
+export { default as DeadlineCountdown } from './DeadlineCountdown';
+export { default as StatCard } from './StatCard';
+export { default as SkillRadar } from './SkillRadar';
+

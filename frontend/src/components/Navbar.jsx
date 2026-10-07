@@ -305,19 +305,7 @@ export default function Navbar() {
               >
                 Application Tracker
               </NavLink>
-              <NavLink
-                to="/resume"
-                onClick={closeMobile}
-                style={{
-                  padding: '0.65rem 0.85rem',
-                  borderRadius: 'var(--radius-md)',
-                  fontWeight: 600,
-                  fontSize: '0.9rem',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                Resume Workspace
-              </NavLink>
+
               <NavLink
                 to="/skill-gap"
                 onClick={closeMobile}

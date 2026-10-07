@@ -13,7 +13,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { getProfile } from '../services/api';
+import { getProfile, sendAdvisorMessage } from '../services/api';
 import { formatMarkdown } from '../utils/formatMarkdown';
 
 const QUICK_PROMPTS = [
@@ -70,9 +70,9 @@ export default function FloatingAICareerAdvisor() {
     }
   }, [messages, isOpen, isTyping]);
 
-  const handleSend = (textToSend) => {
+  const handleSend = async (textToSend) => {
     const text = textToSend || inputValue;
-    if (!text.trim()) return;
+    if (!text.trim() || isTyping) return;
 
     const userMsg = {
       id: `u-${Date.now()}`,
@@ -85,20 +85,9 @@ export default function FloatingAICareerAdvisor() {
     setInputValue('');
     setIsTyping(true);
 
-    setTimeout(() => {
-      let reply = '';
-      const lower = text.toLowerCase();
-
-      if (lower.includes('faang') || lower.includes('resume') || lower.includes('tailor')) {
-        reply = `To tailor your resume for top tech companies:\n• Use the STAR method (Situation, Task, Action, Result).\n• Quantify metrics (e.g. "reduced latency by 35%").\n• Highlight core technologies: Python, React, SQL/NoSQL databases, and API development.\n• Make sure to review our Skill Gap page to check expected competencies!`;
-      } else if (lower.includes('interview') || lower.includes('question')) {
-        reply = `Key questions to prepare for:\n1. Explain Virtual DOM & optimization in React (useMemo / useCallback).\n2. Concurrency in Python (GIL vs AsyncIO).\n3. Database indexing (B-Tree vs Hash index).\n4. System Design: Rate limiting & caching with Redis.`;
-      } else if (lower.includes('eligible') || lower.includes('google') || lower.includes('microsoft')) {
-        reply = `If your CGPA is 8.0 or above in CSE/IT, you meet the academic cutoff for Google, Microsoft, and Goldman Sachs early-career roles! Check out the Opportunities tab for live eligibility breakdowns.`;
-      } else {
-        reply = `Great question! As your personal career advisor, I recommend focusing on building end-to-end full stack projects and participating in upcoming hackathons to stand out.\n\nYou can also jump into our full AI Advisor Workspace for deep mock interview coaching!`;
-      }
-
+    try {
+      const res = await sendAdvisorMessage(text);
+      const reply = res?.data?.content || 'Here are tailored insights for your career goals. Explore our full AI Advisor Workspace for deep interview coaching!';
       setMessages((prev) => [
         ...prev,
         {
@@ -108,8 +97,20 @@ export default function FloatingAICareerAdvisor() {
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
+    } catch (err) {
+      console.warn('Floating advisor request notice:', err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          sender: 'assistant',
+          text: 'I recommend focusing on building full-stack applications with strong test coverage, and reviewing your Skill Gap analysis to target missing competencies.',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 800);
+    }
   };
 
   const handleOpenFullWorkspace = () => {

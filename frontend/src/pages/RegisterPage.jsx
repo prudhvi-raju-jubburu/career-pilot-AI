@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
+import AuthTemplate from '../templates/AuthTemplate';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -49,42 +50,11 @@ export default function RegisterPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: 'calc(100vh - 130px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2.5rem 1rem',
-        backgroundColor: 'var(--bg-primary)',
-      }}
+    <AuthTemplate
+      title="Create Student Account"
+      subtitle="Unlock personalized internship discovery and deterministic eligibility checks."
+      badgeText="Mission Control Onboarding"
     >
-      <div style={{ width: '100%', maxWidth: '460px' }} className="animate-fade-up">
-        {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div
-            style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: 'var(--radius-lg)',
-              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              margin: '0 auto 1rem auto',
-              boxShadow: 'var(--shadow-btn-primary)',
-            }}
-          >
-            <Compass size={28} />
-          </div>
-          <h1 className="font-h1" style={{ color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-            Create Student Account
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
-            Unlock personalized job &amp; internship matching
-          </p>
-        </div>
 
         {/* Auth Card */}
         <Card variant="raised" style={{ padding: '2rem' }}>
@@ -180,7 +150,6 @@ export default function RegisterPage() {
             Sign In here
           </Link>
         </div>
-      </div>
-    </div>
+    </AuthTemplate>
   );
 }

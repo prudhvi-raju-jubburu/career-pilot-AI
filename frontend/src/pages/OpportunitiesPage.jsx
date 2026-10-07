@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import {
   Briefcase,
   Search,
@@ -22,7 +22,9 @@ import {
   ChevronRight,
   TrendingUp,
   Globe,
-  DollarSign
+  DollarSign,
+  Send,
+  ArrowRight
 } from 'lucide-react';
 import PageContainer from '../components/layout/PageContainer';
 import Card from '../components/ui/Card';
@@ -30,15 +32,28 @@ import Button from '../components/ui/Button';
 import SearchInput from '../components/ui/SearchInput';
 import Badge, { StatusBadge, OpportunityTypeBadge } from '../components/ui/Badge';
 import Drawer from '../components/ui/Drawer';
+import BottomSheet from '../components/ui/BottomSheet';
 import EmptyState from '../components/ui/EmptyState';
 import { SkeletonOpportunity } from '../components/ui/Skeleton';
 import { useToast } from '../context/ToastContext';
 import opportunityService from '../services/opportunityService';
+import OpportunityCard from '../components/opportunities/OpportunityCard';
+import OpportunitySwipeDeck from '../components/opportunities/OpportunitySwipeDeck';
+import RichJobDescription from '../components/opportunities/RichJobDescription';
+import { useLiveFeed } from '../hooks/useLiveFeed';
+import { useApplications } from '../hooks/useApplications';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function OpportunitiesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const { hasNewAlert, newCount, ingestNewItems } = useLiveFeed();
+  const {
+    applications,
+    addApplication: trackApplication,
+    updateStage: updateAppStage
+  } = useApplications();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,11 +63,12 @@ export default function OpportunitiesPage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
 
-  const [activeType, setActiveType] = useState('All');
-  const [activeMode, setActiveMode] = useState('All');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+  const [activeType, setActiveType] = useState(() => searchParams.get('type') || 'All');
+  const [activeMode, setActiveMode] = useState(() => searchParams.get('workMode') || 'All');
+  const [viewMode, setViewMode] = useState(() => searchParams.get('view') || 'grid'); // 'grid' | 'list' | 'deck'
   const [selectedOpp, setSelectedOpp] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const observerTarget = useRef(null);
 
   const [savedOppIds, setSavedOppIds] = useState(() => {
     try {
@@ -132,6 +148,34 @@ export default function OpportunitiesPage() {
     fetchOpportunities(false);
   }, [debouncedSearch, activeType, activeMode]);
 
+  // Sync filters and search to URL query params
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (activeType !== 'All') params.set('type', activeType);
+    if (activeMode !== 'All') params.set('workMode', activeMode);
+    if (viewMode !== 'grid') params.set('view', viewMode);
+    setSearchParams(params, { replace: true });
+  }, [debouncedSearch, activeType, activeMode, viewMode, setSearchParams]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const target = observerTarget.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && !loading && pagination.page < pagination.pages) {
+          fetchOpportunities(true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loading, pagination.page, pagination.pages, fetchOpportunities]);
+
   const loadOpportunityDetail = async (id) => {
     setLoadingDetail(true);
     try {
@@ -161,13 +205,99 @@ export default function OpportunitiesPage() {
     });
   };
 
-  const handleApply = (opp) => {
+  // Map applications by opportunity ID or normalized company-role
+  const applicationsByOppId = useMemo(() => {
+    const map = new Map();
+    (applications || []).forEach((app) => {
+      if (app.opportunityId) {
+        map.set(app.opportunityId, app);
+      }
+      const key = `${(app.company || '').toLowerCase().trim()}::${(app.role || app.title || '').toLowerCase().trim()}`;
+      if (!map.has(key)) {
+        map.set(key, app);
+      }
+    });
+    return map;
+  }, [applications]);
+
+  const getOppApplication = useCallback(
+    (opp) => {
+      if (!opp) return null;
+      if (applicationsByOppId.has(opp.id)) return applicationsByOppId.get(opp.id);
+      const key = `${(opp.company || '').toLowerCase().trim()}::${(opp.title || '').toLowerCase().trim()}`;
+      return applicationsByOppId.get(key) || null;
+    },
+    [applicationsByOppId]
+  );
+
+  const handleTrackOpportunity = async (opp, status = 'Saved') => {
+    try {
+      const existing = getOppApplication(opp);
+      if (existing) {
+        await updateAppStage(existing.id, status);
+        toast.success(`Updated ${opp.company} stage in Applications to "${status}"!`);
+        return;
+      }
+
+      await trackApplication({
+        opportunityId: opp.id,
+        company: opp.company,
+        role: opp.title,
+        type: opp.type === 'internship' ? 'Internship' : 'Full-Time',
+        status,
+        appliedDate: status === 'Applied' ? new Date().toISOString().split('T')[0] : null,
+        matchScore: opp.matchScore || 88,
+        nextAction: status === 'Applied' ? 'Awaiting recruiter screening' : 'Review requirements & prepare resume',
+        nextActionDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+        notes: `Tracked from CareerPilot Opportunity Radar. Source: ${opp.source?.name || 'Verified Feed'}.`,
+      });
+
+      toast.success(
+        status === 'Applied'
+          ? `Tracked application to ${opp.company} as "Applied"!`
+          : `Saved ${opp.company} to your Application Pipeline!`
+      );
+    } catch (err) {
+      toast.error('Could not track application: ' + err.message);
+    }
+  };
+
+  const handleApply = async (opp) => {
     const url = opp.applicationUrl || opp.application_url;
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');
-      toast.success(`Opening verified application page for ${opp.company}`);
     } else {
       toast.info(`Application link not provided. View opportunity details for submission instructions.`);
+      return;
+    }
+
+    // Auto-record or advance application status in pipeline
+    const existing = getOppApplication(opp);
+    if (!existing) {
+      try {
+        await trackApplication({
+          opportunityId: opp.id,
+          company: opp.company,
+          role: opp.title,
+          type: opp.type === 'internship' ? 'Internship' : 'Full-Time',
+          status: 'Applied',
+          appliedDate: new Date().toISOString().split('T')[0],
+          matchScore: opp.matchScore || 88,
+          nextAction: 'Submitted application — awaiting recruiter screening',
+          nextActionDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+          notes: `Applied via official listing link on ${new Date().toLocaleDateString()}. Tracked automatically.`,
+        });
+        toast.success(`Application site opened & tracked as "Applied" in your Pipeline!`);
+      } catch (err) {
+        console.warn('Auto-track failed:', err);
+      }
+    } else if (existing.status === 'Saved') {
+      try {
+        await updateAppStage(existing.id, 'Applied');
+        toast.success(`Moved ${opp.company} in Applications Pipeline to "Applied"!`);
+      } catch (err) {}
+    } else {
+      toast.success(`Opening verified application page for ${opp.company}`);
     }
   };
 
@@ -211,8 +341,20 @@ export default function OpportunitiesPage() {
           </p>
         </div>
 
-        {/* View Toggle (Grid / List) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: 'var(--surface)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+        {/* View Toggle & Applications Pipeline Quick Link */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <Link to="/applications" style={{ textDecoration: 'none' }}>
+            <Button
+              variant="secondary"
+              size="md"
+              icon={<Layers size={16} />}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Applications Pipeline ({applications.length})
+            </Button>
+          </Link>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'var(--surface)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
           <button
             type="button"
             onClick={() => setViewMode('grid')}
@@ -255,8 +397,30 @@ export default function OpportunitiesPage() {
             <List size={15} />
             <span className="desktop-only-text">List</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('deck')}
+            style={{
+              padding: '0.4rem 0.65rem',
+              borderRadius: 'var(--radius-sm)',
+              background: viewMode === 'deck' ? 'var(--primary-subtle)' : 'transparent',
+              color: viewMode === 'deck' ? 'var(--primary)' : 'var(--text-muted)',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+            }}
+            title="Swipe Deck Mode"
+          >
+            <Layers size={15} />
+            <span className="desktop-only-text">Swipe Deck</span>
+          </button>
         </div>
       </div>
+    </div>
 
       {/* 2. Search & Filter Bar */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.75rem' }}>
@@ -345,6 +509,58 @@ export default function OpportunitiesPage() {
         </div>
       </div>
 
+      {/* Live Radar Feed Alert Pill */}
+      <AnimatePresence>
+        {hasNewAlert && (
+          <motion.div
+            initial={{ opacity: 0, y: -16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.95 }}
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginBottom: '1.5rem',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                const added = ingestNewItems();
+                setOpportunities((prev) => [...added, ...prev]);
+                toast.success(`Ingested ${added.length} new opportunities onto your radar!`);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+                padding: '0.55rem 1.35rem',
+                background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.22), rgba(99, 102, 241, 0.22))',
+                border: '1px solid var(--accent-cyan)',
+                borderRadius: '999px',
+                color: '#ffffff',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.8125rem',
+                fontWeight: 700,
+                boxShadow: '0 0 18px var(--cyan-glow)',
+                cursor: 'pointer',
+              }}
+            >
+              <span
+                style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: 'var(--accent-cyan)',
+                  boxShadow: '0 0 8px var(--cyan-glow)',
+                }}
+                className="animate-pulse"
+              />
+              <span>✦ {newCount} new opportunities detected on radar. Tap to ingest</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* 3. Opportunities Display (Loading / Error / Empty / Cards) */}
       {loading ? (
         <div className="grid-3">
@@ -372,150 +588,38 @@ export default function OpportunitiesPage() {
             setActiveMode('All');
           }}
         />
+      ) : viewMode === 'deck' ? (
+        /* Swipe-Deck Mode */
+        <OpportunitySwipeDeck
+          opportunities={opportunities}
+          onSave={(opp) => {
+            toggleSave(opp);
+            handleTrackOpportunity(opp, 'Saved');
+          }}
+          onSkip={(opp) => toast.info(`Skipped ${opp.company}`)}
+          onSelectDetail={(opp) => {
+            setSelectedOpp(opp);
+            loadOpportunityDetail(opp.id);
+          }}
+        />
       ) : viewMode === 'grid' ? (
-        /* Grid View */
+        /* Grid View with Rich OpportunityCard */
         <div className="grid-3">
-          {opportunities.map((opp) => {
-            const isSaved = savedOppIds.has(opp.id);
-            const sourceName = opp.source?.name || 'Verified Feed';
-
-            return (
-              <Card
-                key={opp.id}
-                variant="raised"
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  transition: 'all var(--transition-fast)',
-                }}
-                className="hover-lift"
-              >
-                <Card.Content style={{ padding: '1.35rem', display: 'flex', flexDirection: 'column', gap: '0.85rem', flex: 1 }}>
-                  {/* Top Bar: Company + Type + Save Button */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                      <div
-                        style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: 'var(--bg-secondary)',
-                          border: '1px solid var(--border)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontWeight: 800,
-                          color: 'var(--primary)',
-                          fontSize: '1.05rem',
-                          flexShrink: 0,
-                          boxShadow: 'var(--shadow-sm)',
-                        }}
-                      >
-                        {opp.company ? opp.company.charAt(0) : 'O'}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                          {opp.company}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px' }}>
-                          <OpportunityTypeBadge type={opp.type} size="sm" />
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>• {opp.workMode}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => toggleSave(opp)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: isSaved ? 'var(--primary)' : 'var(--text-muted)',
-                        padding: '4px',
-                      }}
-                      title={isSaved ? 'Remove from saved' : 'Save opportunity'}
-                      aria-label="Save opportunity"
-                    >
-                      <Bookmark size={18} fill={isSaved ? 'currentColor' : 'none'} />
-                    </button>
-                  </div>
-
-                  {/* Role Title */}
-                  <div>
-                    <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.4 }}>
-                      {opp.title}
-                    </h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78125rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                      <MapPin size={13} />
-                      <span>{opp.locationString || (typeof opp.location === 'string' ? opp.location : 'Remote')}</span>
-                    </div>
-                  </div>
-
-                  {/* Metadata & Source transparency */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: '0.75rem' }}>
-                    <Badge variant="neutral" size="sm">
-                      Source: {sourceName}
-                    </Badge>
-                    {opp.deadline && (
-                      <span style={{ color: 'var(--warning-dark)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px', marginLeft: 'auto' }}>
-                        <Clock size={12} />
-                        {new Date(opp.deadline).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Required Technical Skills */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: 'auto', paddingTop: '0.5rem' }}>
-                    {(opp.skills || []).slice(0, 4).map((skill) => (
-                      <span
-                        key={skill}
-                        style={{
-                          fontSize: '0.71875rem',
-                          fontWeight: 600,
-                          padding: '0.2rem 0.5rem',
-                          borderRadius: 'var(--radius-sm)',
-                          backgroundColor: 'var(--bg-secondary)',
-                          color: 'var(--text-secondary)',
-                          border: '1px solid var(--border)',
-                        }}
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                    {(opp.skills || []).length > 4 && (
-                      <span style={{ fontSize: '0.71875rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
-                        +{opp.skills.length - 4} more
-                      </span>
-                    )}
-                  </div>
-                </Card.Content>
-
-                {/* Card Footer CTAs */}
-                <Card.Footer style={{ padding: '0.85rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedOpp(opp);
-                      loadOpportunityDetail(opp.id);
-                    }}
-                  >
-                    View Details
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleApply(opp)}
-                    iconRight={<ExternalLink size={13} />}
-                  >
-                    Apply Now
-                  </Button>
-                </Card.Footer>
-              </Card>
-            );
-          })}
+          {opportunities.map((opp) => (
+            <OpportunityCard
+              key={opp.id}
+              opp={opp}
+              isSaved={savedOppIds.has(opp.id)}
+              onToggleSave={toggleSave}
+              onSelectDetail={(item) => {
+                setSelectedOpp(item);
+                loadOpportunityDetail(item.id);
+              }}
+              onApply={handleApply}
+              application={getOppApplication(opp)}
+              onTrack={handleTrackOpportunity}
+            />
+          ))}
         </div>
       ) : (
         /* List View */
@@ -573,6 +677,30 @@ export default function OpportunitiesPage() {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    {getOppApplication(opp) ? (
+                      <span
+                        onClick={() => navigate(`/applications?appId=${getOppApplication(opp).id}`)}
+                        style={{ cursor: 'pointer' }}
+                        title="Click to view in Applications tracker"
+                      >
+                        <Badge
+                          variant={
+                            getOppApplication(opp).status === 'Offered'
+                              ? 'success'
+                              : getOppApplication(opp).status === 'Interviewing'
+                              ? 'purple'
+                              : getOppApplication(opp).status === 'Applied'
+                              ? 'primary'
+                              : 'neutral'
+                          }
+                          size="sm"
+                          dot
+                        >
+                          {getOppApplication(opp).status}
+                        </Badge>
+                      </span>
+                    ) : null}
+
                     <button
                       type="button"
                       onClick={() => toggleSave(opp)}
@@ -597,6 +725,27 @@ export default function OpportunitiesPage() {
                     >
                       View Details
                     </Button>
+
+                    {getOppApplication(opp) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/applications?appId=${getOppApplication(opp).id}`)}
+                        iconRight={<ArrowRight size={13} />}
+                      >
+                        Tracker
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleTrackOpportunity(opp, 'Saved')}
+                        icon={<Bookmark size={13} />}
+                      >
+                        Track
+                      </Button>
+                    )}
+
                     <Button variant="primary" size="sm" onClick={() => handleApply(opp)} iconRight={<ExternalLink size={13} />}>
                       Apply Now
                     </Button>
@@ -608,17 +757,18 @@ export default function OpportunitiesPage() {
         </div>
       )}
 
-      {/* 4. Load More / Pagination */}
-      {!loading && pagination.page < pagination.pages && (
-        <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
+      {/* 4. Load More / Infinite Scroll Target */}
+      {pagination.page < pagination.pages && (
+        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
           <Button
             variant="secondary"
             size="md"
             onClick={handleLoadMore}
             style={{ minWidth: '220px' }}
           >
-            Load More Opportunities ({pagination.total - opportunities.length} remaining)
+            {loading ? 'Loading More...' : `Load More Opportunities (${pagination.total - opportunities.length} remaining)`}
           </Button>
+          <div ref={observerTarget} style={{ height: '20px', marginTop: '1rem' }} />
         </div>
       )}
 
@@ -647,6 +797,135 @@ export default function OpportunitiesPage() {
                 <span>{selectedOpp.locationString || (typeof selectedOpp.location === 'string' ? selectedOpp.location : 'Remote')}</span>
               </div>
             </div>
+
+            {/* Application Pipeline Sync Panel */}
+            {(() => {
+              const currentApp = selectedOpp ? getOppApplication(selectedOpp) : null;
+              if (currentApp) {
+                return (
+                  <div
+                    style={{
+                      padding: '0.9rem 1.15rem',
+                      borderRadius: 'var(--radius-lg)',
+                      backgroundColor: 'var(--surface-raised)',
+                      border: '1px solid var(--border)',
+                      boxShadow: 'var(--shadow-sm)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.75rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: 'var(--radius-md)',
+                          backgroundColor: 'var(--primary-subtle)',
+                          color: 'var(--primary)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Layers size={18} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Tracked in Application Pipeline
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '2px' }}>
+                          <StatusBadge status={currentApp.status} size="sm" />
+                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                            {currentApp.appliedDate ? `Applied ${currentApp.appliedDate}` : 'In Pipeline'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <select
+                        value={currentApp.status}
+                        onChange={(e) => updateAppStage(currentApp.id, e.target.value)}
+                        aria-label="Change pipeline stage"
+                        style={{
+                          fontSize: '0.78rem',
+                          fontWeight: 600,
+                          padding: '0.35rem 0.65rem',
+                          borderRadius: 'var(--radius-md)',
+                          backgroundColor: 'var(--surface)',
+                          color: 'var(--text-primary)',
+                          border: '1px solid var(--border-control)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="Saved">Saved</option>
+                        <option value="Applied">Applied</option>
+                        <option value="Interviewing">Interviewing</option>
+                        <option value="Offered">Offered</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedOpp(null);
+                          navigate(`/applications?appId=${currentApp.id}`);
+                        }}
+                        iconRight={<ArrowRight size={13} />}
+                      >
+                        Open Tracker
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div
+                  style={{
+                    padding: '0.85rem 1.15rem',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    border: '1px dashed var(--border-control)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <Layers size={16} color="var(--primary)" />
+                    <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
+                      Not yet in your Application Pipeline.
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleTrackOpportunity(selectedOpp, 'Saved')}
+                      icon={<Bookmark size={13} />}
+                    >
+                      Save to Pipeline
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleTrackOpportunity(selectedOpp, 'Applied')}
+                      icon={<Send size={13} />}
+                    >
+                      Mark as Applied
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Source Transparency & Original Listing Link */}
             <div
@@ -684,12 +963,10 @@ export default function OpportunitiesPage() {
 
             {/* Role Overview */}
             <div>
-              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.65rem' }}>
                 About the Opportunity
               </h4>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                {selectedOpp.description || 'No detailed description provided by the source.'}
-              </p>
+              <RichJobDescription description={selectedOpp.description} />
             </div>
 
             {/* Required Technical Skills */}
@@ -783,14 +1060,32 @@ export default function OpportunitiesPage() {
                 </div>
               </div>
 
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => handleApply(selectedOpp)}
-                iconRight={<ExternalLink size={16} />}
-              >
-                Apply on Official Site
-              </Button>
+              <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                {getOppApplication(selectedOpp) && (
+                  <Button
+                    variant="outline"
+                    size="md"
+                    onClick={() => {
+                      const app = getOppApplication(selectedOpp);
+                      setSelectedOpp(null);
+                      navigate(`/applications?appId=${app.id}`);
+                    }}
+                    iconRight={<ArrowRight size={14} />}
+                  >
+                    View in Pipeline ({getOppApplication(selectedOpp).status})
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => handleApply(selectedOpp)}
+                  iconRight={<ExternalLink size={16} />}
+                >
+                  {getOppApplication(selectedOpp) && getOppApplication(selectedOpp).status !== 'Saved'
+                    ? 'Open Application Site'
+                    : 'Apply on Official Site'}
+                </Button>
+              </div>
             </div>
           </div>
         )}

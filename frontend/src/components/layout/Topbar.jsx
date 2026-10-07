@@ -12,15 +12,17 @@ import {
   ExternalLink,
   Compass,
   Search,
-  X
+  X,
+  Command as CommandIcon
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import SearchInput from '../ui/SearchInput';
 import Badge from '../ui/Badge';
-import { mockNotifications } from '../../services/mockData';
+import { useNotifications } from '../../hooks/useNotifications';
 
-export default function Topbar({ onToggleMobile }) {
+export default function Topbar({ onToggleMobile, onOpenCmd }) {
   const { user, logout } = useAuth();
+  const { notifications, unreadCount } = useNotifications();
   const navigate = useNavigate();
 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -66,7 +68,6 @@ export default function Topbar({ onToggleMobile }) {
     }
   };
 
-  const unreadCount = mockNotifications.filter((n) => !n.read).length;
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'S';
 
   return (
@@ -175,17 +176,33 @@ export default function Topbar({ onToggleMobile }) {
             >
               <Search size={17} />
             </button>
-        {/* Status Badge */}
-        <Badge
-          variant="primary"
-          dot
-          size="sm"
-          className="desktop-only-badge"
-          style={{ display: 'none' }}
-        >
-          Telemetry Active
-        </Badge>
-
+            {/* Command Palette Trigger Button */}
+            {onOpenCmd && (
+              <button
+                type="button"
+                onClick={onOpenCmd}
+                className="topbar-icon-btn cmdk-trigger-btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.65rem',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  transition: 'all var(--transition-fast)'
+                }}
+                title="Open Command Palette (Ctrl+K / ⌘K)"
+                aria-label="Open Command Palette"
+              >
+                <CommandIcon size={14} />
+                <span className="cmdk-kbd" style={{ fontSize: '0.7rem', padding: '0.1rem 0.35rem', backgroundColor: 'var(--surface-raised)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>⌘K</span>
+              </button>
+            )}
 
         {/* Notifications Dropdown Container */}
         <div style={{ position: 'relative' }} ref={notifDropdownRef}>
@@ -247,30 +264,33 @@ export default function Topbar({ onToggleMobile }) {
               </div>
 
               <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
-                {mockNotifications.slice(0, 3).map((notif) => (
-                  <Link
-                    key={notif.id}
-                    to={notif.link}
-                    onClick={() => setNotifDropdownOpen(false)}
-                    style={{
-                      display: 'block',
-                      padding: '0.75rem 1rem',
-                      borderBottom: '1px solid var(--border-subtle)',
-                      backgroundColor: notif.read ? 'transparent' : 'var(--primary-subtle)',
-                      transition: 'background-color var(--transition-fast)',
-                    }}
-                  >
-                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
-                      {notif.title}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                      {notif.message}
-                    </div>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
-                      {notif.timeAgo}
-                    </div>
-                  </Link>
-                ))}
+                {notifications.length === 0 ? (
+                  <div style={{ padding: '1.25rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
+                    No notifications
+                  </div>
+                ) : (
+                  notifications.slice(0, 3).map((notif) => (
+                    <Link
+                      key={notif.id}
+                      to={notif.link || '/notifications'}
+                      onClick={() => setNotifDropdownOpen(false)}
+                      style={{
+                        display: 'block',
+                        padding: '0.75rem 1rem',
+                        borderBottom: '1px solid var(--border-subtle)',
+                        backgroundColor: notif.read ? 'transparent' : 'var(--primary-subtle)',
+                        transition: 'background-color var(--transition-fast)',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>
+                        {notif.title}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                        {notif.message}
+                      </div>
+                    </Link>
+                  ))
+                )}
               </div>
 
               <Link

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bell,
   CheckCircle2,
@@ -20,53 +20,81 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
 import { useToast } from '../context/ToastContext';
-import { mockNotifications } from '../services/mockData';
+import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../services/api';
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const toast = useToast();
 
   const categories = ['All', 'Opportunity', 'Application', 'Deadline', 'AI Recommendation', 'System'];
 
+  const fetchNotifs = async () => {
+    try {
+      setLoading(true);
+      const res = await getNotifications();
+      const items = res.data || [];
+      setNotifications(items);
+    } catch (err) {
+      console.warn('Failed to load notifications:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifs();
+  }, []);
+
   const filteredNotifications = notifications.filter((notif) => {
-    if (activeCategory !== 'All' && notif.category !== activeCategory) return false;
+    const category = notif.category || notif.type || 'System';
+    if (activeCategory !== 'All' && category.toLowerCase() !== activeCategory.toLowerCase()) return false;
     if (unreadOnly && notif.read) return false;
     return true;
   });
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    toast.success('All notifications marked as read');
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      toast.success('All notifications marked as read');
+    } catch (err) {
+      toast.error('Failed to mark all as read');
+    }
   };
 
   const handleClearAll = () => {
     setNotifications([]);
-    toast.info('Notifications cleared');
+    toast.info('Notifications view cleared');
   };
 
-  const handleToggleRead = (id) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
-    );
+  const handleToggleRead = async (id) => {
+    try {
+      await markNotificationRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
+      );
+    } catch (err) {
+      console.warn('Error marking notification:', err);
+    }
   };
 
   const getCategoryIcon = (category) => {
-    switch (category) {
-      case 'Opportunity':
-        return <Briefcase size={17} className="text-primary" />;
-      case 'Application':
-        return <Layers size={17} className="text-accent" />;
-      case 'Deadline':
-        return <Clock size={17} className="text-warning" />;
-      case 'AI Recommendation':
-        return <Sparkles size={17} className="text-purple-600" />;
-      case 'System':
-      default:
-        return <Info size={17} className="text-info" />;
+    const cat = String(category || '').toLowerCase();
+    if (cat.includes('opportunity')) {
+      return <Briefcase size={17} className="text-primary" />;
+    } else if (cat.includes('application')) {
+      return <Layers size={17} className="text-accent" />;
+    } else if (cat.includes('deadline')) {
+      return <Clock size={17} className="text-warning" />;
+    } else if (cat.includes('ai') || cat.includes('recommendation')) {
+      return <Sparkles size={17} className="text-purple-600" />;
+    } else {
+      return <Info size={17} className="text-info" />;
     }
   };
 
@@ -222,7 +250,7 @@ export default function NotificationsPage() {
                       boxShadow: 'var(--shadow-sm)',
                     }}
                   >
-                    {getCategoryIcon(notif.category)}
+                    {getCategoryIcon(notif.category || notif.type)}
                   </div>
 
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -243,7 +271,7 @@ export default function NotificationsPage() {
                         )}
                       </div>
                       <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                        {notif.timeAgo}
+                        {notif.created_at ? new Date(notif.created_at).toLocaleDateString() : 'Just now'}
                       </span>
                     </div>
 

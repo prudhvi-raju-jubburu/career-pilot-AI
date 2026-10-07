@@ -4,7 +4,6 @@ import PublicLayout from './components/layout/PublicLayout';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import DashboardPlaceholder from './pages/DashboardPlaceholder';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -12,7 +11,7 @@ import { PageSkeleton } from './components/ui/Skeleton';
 import FloatingAICareerAdvisor from './components/FloatingAICareerAdvisor';
 
 // Lazy-loaded routes for performance & smooth skeleton transitions
-const ResumeUploadPage = lazy(() => import('./pages/ResumeUploadPage'));
+const DashboardPlaceholder = lazy(() => import('./pages/DashboardPlaceholder'));
 const ProfileReviewPage = lazy(() => import('./pages/ProfileReviewPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const OpportunitiesPage = lazy(() => import('./pages/OpportunitiesPage'));
@@ -34,6 +33,7 @@ export default function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
+                <Route path="/design-system" element={<Navigate to="/dashboard" replace />} />
               </Route>
 
             {/* Authenticated Routes with Dedicated Sidebar + Topbar */}
@@ -71,11 +71,7 @@ export default function App() {
             />
             <Route
               path="/resume"
-              element={
-                <ProtectedRoute>
-                  <ResumeUploadPage />
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/profile?tab=resume" replace />}
             />
             <Route
               path="/skill-gap"

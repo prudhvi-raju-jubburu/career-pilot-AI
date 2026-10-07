@@ -1,20 +1,18 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
+import { useMagnetic } from '../../motion/hooks';
+import { SPRINGS } from '../../motion/tokens';
 
 /**
- * Reusable Tactile Modern Skeuomorphic Button Component
- *
- * @param {('primary'|'secondary'|'outline'|'ghost'|'danger'|'success'|'icon')} variant
- * @param {('sm'|'md'|'lg')} size
- * @param {boolean} loading
- * @param {boolean} disabled
- * @param {React.ReactNode} icon - Left icon
- * @param {React.ReactNode} iconRight - Right icon
+ * CareerPilot AI — High Performance Kinetic Button
+ * Supports 6 visual variants, magnetic cursor attraction, loading states, and tactile springs.
  */
 export default function Button({
   children,
-  variant = 'primary',
-  size = 'md',
+  variant = 'primary', // 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'glow'
+  size = 'md',         // 'sm' | 'md' | 'lg'
+  magnetic = false,
   loading = false,
   disabled = false,
   icon,
@@ -25,86 +23,126 @@ export default function Button({
   onClick,
   ...props
 }) {
-  const getVariantClass = () => {
+  const { ref: magneticRef, x, y, bind } = useMagnetic(0.25);
+
+  const getVariantStyles = () => {
     switch (variant) {
       case 'secondary':
-        return 'btn-skeuo-secondary';
+        return {
+          background: 'var(--surface-raised)',
+          color: 'var(--text-primary)',
+          border: '1px solid var(--border-control)',
+          boxShadow: 'var(--shadow-sm)',
+        };
       case 'outline':
-        return 'btn-skeuo-outline';
+        return {
+          background: 'transparent',
+          color: 'var(--text-primary)',
+          border: '1px solid var(--border-control)',
+        };
       case 'ghost':
-        return 'btn-skeuo-ghost';
+        return {
+          background: 'transparent',
+          color: 'var(--text-secondary)',
+          border: '1px solid transparent',
+        };
       case 'danger':
-        return 'btn-skeuo-danger';
-      case 'success':
-        return 'btn-skeuo-success';
-      case 'icon':
-        return 'btn-skeuo-secondary';
+        return {
+          background: 'rgba(239, 68, 68, 0.15)',
+          color: '#f87171',
+          border: '1px solid rgba(239, 68, 68, 0.35)',
+        };
+      case 'glow':
+        return {
+          background: 'linear-gradient(135deg, #00f2fe 0%, #8b5cf6 100%)',
+          color: '#ffffff',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: '0 0 24px rgba(0, 242, 254, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+          textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)',
+        };
       case 'primary':
       default:
-        return 'btn-skeuo-primary';
+        return {
+          background: 'var(--accent-gradient)',
+          color: '#ffffff',
+          border: '1px solid rgba(255, 255, 255, 0.18)',
+          boxShadow: '0 4px 16px -2px rgba(99, 102, 241, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25)',
+        };
     }
   };
 
   const getSizeStyles = () => {
-    if (variant === 'icon') {
-      switch (size) {
-        case 'sm':
-          return { width: '32px', height: '32px', padding: 0, borderRadius: 'var(--radius-sm)' };
-        case 'lg':
-          return { width: '44px', height: '44px', padding: 0, borderRadius: 'var(--radius-lg)' };
-        case 'md':
-        default:
-          return { width: '38px', height: '38px', padding: 0, borderRadius: 'var(--radius-md)' };
-      }
-    }
-
     switch (size) {
       case 'sm':
         return {
-          padding: '0.4rem 0.8rem',
+          padding: '0.4rem 0.85rem',
           fontSize: '0.8125rem',
-          gap: '0.375rem',
           borderRadius: 'var(--radius-sm)',
+          gap: '0.4rem',
         };
       case 'lg':
         return {
-          padding: '0.75rem 1.5rem',
+          padding: '0.75rem 1.6rem',
           fontSize: '1rem',
-          gap: '0.625rem',
           borderRadius: 'var(--radius-lg)',
+          gap: '0.6rem',
+          fontWeight: 600,
         };
       case 'md':
       default:
         return {
-          padding: '0.55rem 1.15rem',
+          padding: '0.55rem 1.25rem',
           fontSize: '0.875rem',
-          gap: '0.5rem',
           borderRadius: 'var(--radius-md)',
+          gap: '0.5rem',
+          fontWeight: 500,
         };
     }
   };
 
+  const Component = magnetic ? motion.button : motion.button;
+
   return (
-    <button
+    <Component
+      ref={magnetic ? magneticRef : undefined}
       type={type}
-      className={`btn-skeuo ${getVariantClass()} ${className}`}
       disabled={disabled || loading}
       onClick={onClick}
+      animate={magnetic ? { x, y } : undefined}
+      transition={SPRINGS.snappy}
+      whileHover={disabled || loading ? {} : { scale: 1.025 }}
+      whileTap={disabled || loading ? {} : { scale: 0.97 }}
+      {...(magnetic ? bind : {})}
       style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: disabled || loading ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.55 : 1,
+        userSelect: 'none',
+        whiteSpace: 'nowrap',
+        letterSpacing: '-0.01em',
+        fontFamily: 'inherit',
+        transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+        ...getVariantStyles(),
         ...getSizeStyles(),
         ...style,
       }}
+      className={`btn-kinetic ${className}`}
       {...props}
     >
       {loading ? (
-        <Loader2 size={size === 'sm' ? 14 : size === 'lg' ? 20 : 16} className="animate-spin" />
+        <>
+          <Loader2 className="animate-spin" size={size === 'sm' ? 14 : size === 'lg' ? 18 : 16} />
+          <span>Processing...</span>
+        </>
       ) : (
-        icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>
+        <>
+          {icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
+          <span>{children}</span>
+          {iconRight && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{iconRight}</span>}
+        </>
       )}
-      {children && <span>{children}</span>}
-      {!loading && iconRight && (
-        <span style={{ display: 'inline-flex', alignItems: 'center' }}>{iconRight}</span>
-      )}
-    </button>
+    </Component>
   );
 }

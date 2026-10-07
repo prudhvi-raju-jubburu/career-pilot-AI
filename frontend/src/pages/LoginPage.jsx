@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
+import AuthTemplate from '../templates/AuthTemplate';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -38,42 +39,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        minHeight: 'calc(100vh - 130px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2.5rem 1rem',
-        backgroundColor: 'var(--bg-primary)',
-      }}
+    <AuthTemplate
+      title="Welcome Back"
+      subtitle="Sign in to your CareerPilot AI student account to continue."
+      badgeText="Secure Flight Deck Login"
     >
-      <div style={{ width: '100%', maxWidth: '440px' }} className="animate-fade-up">
-        {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div
-            style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: 'var(--radius-lg)',
-              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              margin: '0 auto 1rem auto',
-              boxShadow: 'var(--shadow-btn-primary)',
-            }}
-          >
-            <Compass size={28} />
-          </div>
-          <h1 className="font-h1" style={{ color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-            Welcome Back
-          </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
-            Sign in to your CareerPilot AI student account
-          </p>
-        </div>
 
         {/* Auth Card */}
         <Card variant="raised" style={{ padding: '2rem' }}>
@@ -143,7 +113,6 @@ export default function LoginPage() {
             Create Student Account
           </Link>
         </div>
-      </div>
-    </div>
+    </AuthTemplate>
   );
 }

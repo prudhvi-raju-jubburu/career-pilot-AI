@@ -9,7 +9,7 @@ from app.ai.resume_analyzer import ResumeAnalyzerService
 
 resume_bp = Blueprint("resume", __name__)
 
-ALLOWED_EXTENSIONS = {"pdf"}
+ALLOWED_EXTENSIONS = {"pdf", "docx"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 def is_allowed_file(filename):
@@ -18,7 +18,7 @@ def is_allowed_file(filename):
 @resume_bp.route("/upload", methods=["POST"])
 @token_required
 def upload_resume(current_user):
-    """Securely uploads and saves student PDF resume."""
+    """Securely uploads and saves student PDF or DOCX resume."""
     if "resume" not in request.files:
         return jsonify({
             "success": False,
@@ -37,7 +37,7 @@ def upload_resume(current_user):
     if not is_allowed_file(file.filename):
         return jsonify({
             "success": False,
-            "message": "Only PDF resume files (.pdf) are supported",
+            "message": "Only PDF (.pdf) and DOCX (.docx) resume files are supported",
             "error": "INVALID_FILE_TYPE"
         }), 400
 
@@ -127,8 +127,8 @@ def analyze_resume(current_user):
         }), 404
 
     try:
-        # Step 1: PDF Text Extraction
-        clean_text = ResumeParserService.extract_text_from_pdf(file_path)
+        # Step 1: Text Extraction (PDF or DOCX)
+        clean_text = ResumeParserService.extract_text(file_path)
 
         # Step 2: AI Structured Extraction
         extracted_data = ResumeAnalyzerService.analyze_resume_text(clean_text)

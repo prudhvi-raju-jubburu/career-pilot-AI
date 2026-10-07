@@ -3,9 +3,11 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import MobileBottomNav from './MobileBottomNav';
 import NetworkStatusBanner from '../NetworkStatusBanner';
+import { CommandPalette } from '../ui/CommandPalette';
 
 export default function AppLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('careerpilot_sidebar_collapsed') === 'true';
   });
@@ -58,11 +60,17 @@ export default function AppLayout({ children }) {
 
       {/* Main App Workspace Area */}
       <div className="app-main-wrapper">
-        <Topbar onToggleMobile={() => setMobileOpen((prev) => !prev)} />
+        <Topbar
+          onToggleMobile={() => setMobileOpen((prev) => !prev)}
+          onOpenCmd={() => setCmdOpen(true)}
+        />
         <main className="animate-fade-in" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           {children}
         </main>
       </div>
+
+      {/* Global Command Palette */}
+      <CommandPalette isOpen={cmdOpen} setIsOpen={setCmdOpen} />
 
       {/* Mobile Bottom Navigation for quick thumb reach */}
       <MobileBottomNav />

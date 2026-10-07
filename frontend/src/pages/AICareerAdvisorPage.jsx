@@ -1,80 +1,122 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   Send,
-  User,
-  Bot,
-  Lightbulb,
-  CheckCircle2,
-  ArrowRight,
+  Square,
+  Copy,
+  Check,
+  ArrowDown,
   RefreshCw,
+  Compass,
+  Briefcase,
+  GraduationCap,
+  Layers,
   Award,
-  BookOpen,
-  Compass
+  Zap,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import PageContainer from '../components/layout/PageContainer';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import { getProfile } from '../services/api';
 import { formatMarkdown } from '../utils/formatMarkdown';
+import { useStream } from '../hooks/useStream';
+import ChatOpportunityCard from '../components/chat/ChatOpportunityCard';
+import ChatRoadmapMilestone from '../components/chat/ChatRoadmapMilestone';
+import LivingAIOrb from '../components/chat/LivingAIOrb';
+import { getOpportunities, sendAdvisorMessage, getAdvisorHistory } from '../services/api';
 
 const PROMPT_SUGGESTIONS = [
-  'What should I learn next?',
-  'Which jobs fit my profile?',
-  'How can I improve my resume?',
-  'Help me prepare for an interview.',
+  { label: 'High-Match Roles', prompt: 'Which high-match jobs and internships best fit my current profile?', icon: Briefcase },
+  { label: 'Priority Skills', prompt: 'What are the top skills I should learn next to become competitive?', icon: Zap },
+  { label: 'Resume ATS Audit', prompt: 'How can I optimize my resume bullet points for high-tier tech companies?', icon: GraduationCap },
+  { label: 'Interview Roadmap', prompt: 'Give me a structured 3-step technical interview preparation roadmap.', icon: Layers },
 ];
 
 export default function AICareerAdvisorPage() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [messages, setMessages] = useState([]);
   const [inputPrompt, setInputPrompt] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef(null);
+  const [copiedId, setCopiedId] = useState(null);
+  const [userScrolledUp, setUserScrolledUp] = useState(false);
+  const [activePendingPayload, setActivePendingPayload] = useState(null);
 
+  const messagesEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+
+  const {
+    streamedText,
+    isStreaming,
+    isThinking,
+    startStream,
+    stopStream,
+  } = useStream();
+
+  // Initial welcome greeting tailored to profile
   useEffect(() => {
+    let isMounted = true;
     const fetchStudentProfile = async () => {
       try {
         const res = await getProfile();
-        if (res?.data) {
+        if (res?.data && isMounted) {
           setProfile(res.data);
           const name = res.data.personal?.fullName?.value || 'Prudhvi';
           const cgpa = res.data.education?.cgpa?.value || '8.9';
           const branch = res.data.education?.branch?.value || 'Computer Science';
 
-          // Initial welcome greeting from AI Advisor tailored to user
           setMessages([
             {
-              id: 'msg-1',
+              id: 'msg-welcome',
               sender: 'assistant',
-              text: `Hello ${name}! 👋 I am your CareerPilot AI Advisor.\n\nI have reviewed your verified academic background (${branch}, CGPA ${cgpa}) and technical skills (Python, JavaScript, React, Node.js, MongoDB, REST APIs).\n\nHow can I help you accelerate your career preparation today? Feel free to ask about resume bullet point enhancements, mock interview prep, or closing skill gaps for top tech roles!`,
+              text: `Hello ${name}! 👋 I am your **CareerPilot AI Career Advisor**.\n\nI have reviewed your verified academic background (**${branch}**, CGPA **${cgpa}**) and technical stack (**Python, React, Node.js, MongoDB, REST APIs**).\n\nHow can I help you accelerate your career today? Feel free to ask about resume bullet point enhancements, mock interview prep, or discovering top-match opportunities!`,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             }
           ]);
         }
       } catch (err) {
-        // Fallback default greeting
-        setMessages([
-          {
-            id: 'msg-1',
-            sender: 'assistant',
-            text: 'Hello! 👋 I am your CareerPilot AI Career Advisor. Ask me anything about job hunting, resume optimization, technical interview strategies, or discovering high-match opportunities.',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          }
-        ]);
+        if (isMounted) {
+          setMessages([
+            {
+              id: 'msg-welcome',
+              sender: 'assistant',
+              text: 'Hello! 👋 I am your **CareerPilot AI Career Advisor**. Ask me anything about job hunting, resume optimization, technical interview strategies, or closing skill gaps.',
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            }
+          ]);
+        }
       }
     };
     fetchStudentProfile();
+    return () => { isMounted = false; };
   }, []);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  // Scroll detection to respect user manual scroll-up
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 60;
+    setUserScrolledUp(!isAtBottom);
+  };
 
+  const scrollToBottom = (smooth = true) => {
+    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
+    setUserScrolledUp(false);
+  };
+
+  useEffect(() => {
+    if (!userScrolledUp) {
+      scrollToBottom(false);
+    }
+  }, [messages, streamedText, isThinking, userScrolledUp]);
+
+  // Handle Send
+  // Handle Send
   const handleSendMessage = async (textToSend) => {
     const text = textToSend || inputPrompt;
-    if (!text.trim()) return;
+    if (!text.trim() || isStreaming || isThinking) return;
 
     const userMessage = {
       id: `user-${Date.now()}`,
@@ -85,36 +127,114 @@ export default function AICareerAdvisorPage() {
 
     setMessages((prev) => [...prev, userMessage]);
     setInputPrompt('');
-    setIsTyping(true);
+    setUserScrolledUp(false);
 
-    // Simulate intelligent contextual AI response
-    setTimeout(() => {
-      let aiResponseText = '';
-      const lower = text.toLowerCase();
+    // Formulate context-aware intelligent response
+    const lower = text.toLowerCase();
+    let replyText = '';
+    let richOpportunities = null;
+    let richMilestones = null;
 
-      if (lower.includes('learn next') || lower.includes('skills')) {
-        aiResponseText = `Based on your target role (**Full Stack Developer**) and your verified skills (Python, React, MongoDB):\n\n1. **Docker & Containers** (High priority): Learn how to containerize your Node and Python backends and write clean Dockerfiles.\n2. **Cloud Fundamentals** (Medium priority): Deploy a containerized full-stack project to AWS (EC2/S3) or Render.\n3. **System Design Basics**: Focus on database caching with Redis and REST API optimization.\n\nCheck out the **Skill Gap** tab for your full interactive roadmap with courses and practice projects!`;
-      } else if (lower.includes('jobs fit') || lower.includes('profile') || lower.includes('fit my profile')) {
-        aiResponseText = `With your **8.9 CGPA** in Information Technology/CSE and foundation in React, Node, and Python, here are top roles that match your profile right now:\n\n• **Google Software Engineering Intern** (91% Match — fully eligible)\n• **Stripe Core Platform Intern** (94% Match — excellent backend alignment)\n• **Microsoft SDE Intern** (88% Match — good match for your full-stack projects)\n\nTip: You can view full requirements, check eligibility, and save them directly from the **Opportunities** page!`;
-      } else if (lower.includes('resume') || lower.includes('improve my resume')) {
-        aiResponseText = `Here are 3 quick improvements you can make to your resume right now:\n\n1. **Quantify Your Impact**: Use the STAR method. Instead of "built React app", write: *"Engineered full-stack app with React & Node.js, reducing API response times by 35% using indexing."*\n2. **Highlight Your Core Stack**: Ensure Python, React, MongoDB, and REST APIs are prominently listed under Skills.\n3. **Add Project Links**: Include GitHub links and live demos for your top 2 portfolio projects.`;
-      } else if (lower.includes('interview') || lower.includes('prepare for an interview')) {
-        aiResponseText = `Here is a 3-step technical interview preparation plan for tech roles:\n\n1. **Core CS Foundations**: Review Data Structures (Arrays, Trees, HashMaps, Graphs) and practice medium LeetCode questions.\n2. **Framework Fundamentals**: Be ready to explain React lifecycle, hooks (useMemo, useCallback), and Node.js event-loop mechanics.\n3. **Behavioral STAR Stories**: Prepare 2-3 concise stories about a technical bug you solved and how you collaborated with teammates.`;
-      } else {
-        aiResponseText = `I have analyzed your query with respect to your career trajectory. Since you have strong foundations in full stack engineering (React, Node, Python, MongoDB), your best leverage point is to build high-complexity portfolio systems and showcase direct measurable outcomes in your resume.\n\nWould you like me to recommend specific practice projects or help you optimize a resume bullet point?`;
+    try {
+      const advisorRes = await sendAdvisorMessage(text);
+      if (advisorRes?.data?.content) {
+        replyText = advisorRes.data.content;
       }
+    } catch (err) {
+      console.warn('Backend advisor chat note:', err.message || err);
+    }
 
+    if (lower.includes('job') || lower.includes('intern') || lower.includes('profile') || lower.includes('fit') || lower.includes('match')) {
+      try {
+        const oppsRes = await getOpportunities({ limit: 2 });
+        richOpportunities = oppsRes?.data?.items || [];
+      } catch (err) {
+        richOpportunities = [];
+      }
+      if (!replyText) {
+        replyText = `Based on your verified academic profile and technical skills, here are high-match roles curated for you from our live discovery pipeline. Take a look at the cards below to inspect criteria or add them directly to your application tracker:`;
+      }
+    } else if (lower.includes('skill') || lower.includes('learn') || lower.includes('priority')) {
+      if (!replyText) {
+        replyText = `Based on target competencies for modern Full Stack and Cloud engineering, here is your prioritized learning sequence to eliminate critical skill gaps:`;
+      }
+      richMilestones = [
+        {
+          title: 'Docker & Containerization Architecture',
+          description: 'Learn Dockerfiles, multi-stage builds, compose files, and container networking for Node/Python backends.',
+          priority: 'High',
+          duration: '1.5 weeks',
+          skills: ['Docker', 'Containers', 'DevOps'],
+        },
+        {
+          title: 'Cloud Microservices Deployment (AWS/Render)',
+          description: 'Deploy containerized web services with secure environment variables and persistent database storage.',
+          priority: 'High',
+          duration: '2 weeks',
+          skills: ['AWS', 'CI/CD', 'Cloud'],
+        },
+        {
+          title: 'System Design & Redis In-Memory Caching',
+          description: 'Implement distributed session caching, rate limiting, and database indexing to handle 10,000+ RPS.',
+          priority: 'Medium',
+          duration: '2 weeks',
+          skills: ['Redis', 'System Design', 'Caching'],
+        }
+      ];
+    } else if (lower.includes('resume') || lower.includes('ats') || lower.includes('bullet')) {
+      replyText = `Here is your high-impact **ATS Resume Audit**:\n\n1. **STAR Impact Formula**: Replace passive phrases like *"built a dashboard"* with: *"Engineered real-time analytics dashboard with React & WebSockets, cutting page load time by 42% for 5,000+ active users."*\n2. **Prominent Stack Index**: Make sure Python, React, MongoDB, Node.js, and Git are explicitly grouped under a dedicated **Technical Skills** table.\n3. **Live Portfolio Links**: Ensure GitHub repos and deployed demo URLs are hyperlinked with clear preview badges.`;
+    } else if (lower.includes('interview') || lower.includes('prep') || lower.includes('roadmap')) {
+      replyText = `Here is your structured 3-step technical interview preparation roadmap:\n\n1. **Core Data Structures & Algorithmic Patterns**: Focus on Two Pointers, Sliding Window, DFS/BFS on Graphs, and Tree Traversals (LeetCode Medium).\n2. **Deep Framework & Runtime Internals**: Be ready to clearly articulate the React Reconciliation cycle, Node.js Event Loop phases, and MongoDB index optimizations.\n3. **Behavioral STAR Stories**: Prepare 3 concrete examples: one on handling project ambiguity, one resolving technical disagreements, and one triaging a production bug.`;
+    } else {
+      replyText = `I have analyzed your query within the context of your verified career trajectory. With your strong foundations in **React, Python, and full-stack API architecture**, your highest leverage strategy right now is to build high-complexity, production-grade applications that demonstrate tangible performance gains and clean architecture.\n\nWould you like me to recommend practice projects or review specific resume bullet points?`;
+    }
+
+    // Save pending rich payload to append once streaming completes
+    setActivePendingPayload({
+      opportunities: richOpportunities,
+      milestones: richMilestones,
+    });
+
+    // Start streaming tokens
+    startStream(replyText, (fullStreamed) => {
       setMessages((prev) => [
         ...prev,
         {
           id: `ai-${Date.now()}`,
           sender: 'assistant',
-          text: aiResponseText,
+          text: fullStreamed,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          opportunities: richOpportunities,
+          milestones: richMilestones,
         },
       ]);
-      setIsTyping(false);
-    }, 800);
+      setActivePendingPayload(null);
+    });
+  };
+
+  const handleStop = () => {
+    stopStream();
+    if (streamedText) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `ai-${Date.now()}`,
+          sender: 'assistant',
+          text: streamedText,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          opportunities: activePendingPayload?.opportunities,
+          milestones: activePendingPayload?.milestones,
+        },
+      ]);
+    }
+    setActivePendingPayload(null);
+  };
+
+  const handleCopyText = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast.success('Copied response to clipboard');
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   const handleKeyDown = (e) => {
@@ -127,27 +247,69 @@ export default function AICareerAdvisorPage() {
   return (
     <PageContainer>
       <div className="advisor-chat-wrapper">
-        {/* Header */}
-        <div style={{ marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-            <Badge variant="primary" size="sm" dot>
-              AI Career Advisor
-            </Badge>
+        {/* Header with Living AI Orb */}
+        <div style={{ marginBottom: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', background: 'var(--surface-raised)', padding: '1rem 1.25rem', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border-hairline, var(--border))' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <LivingAIOrb
+              state={isStreaming ? 'speaking' : isThinking ? 'thinking' : inputPrompt.trim() ? 'listening' : 'idle'}
+              size={56}
+              showLabel={false}
+            />
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                <Badge variant="primary" size="sm" dot>
+                  Mission Control Neural Advisor
+                </Badge>
+                <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                  {isStreaming ? '● STREAMING TELEMETRY' : isThinking ? '● NEURAL SYNTHESIS' : inputPrompt.trim() ? '● LISTENING' : '● ORBIT READY'}
+                </span>
+              </div>
+              <h1 className="text-h1" style={{ fontSize: '1.4rem', margin: 0 }}>
+                AI Flight Advisor
+              </h1>
+            </div>
           </div>
-          <h1 className="text-h1" style={{ fontSize: '1.65rem', marginBottom: '0.25rem' }}>AI Career Advisor</h1>
-          <p className="text-small" style={{ fontSize: '0.925rem', color: 'var(--text-secondary)' }}>
-            Ask me about your career, skills, resume, or interviews.
-          </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Compass size={14} />}
+              onClick={() => navigate('/skill-gap')}
+            >
+              Skill Gap
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Briefcase size={14} />}
+              onClick={() => navigate('/opportunities')}
+            >
+              Discover
+            </Button>
+          </div>
         </div>
 
-        {/* Chat Conversation Card */}
-        <Card variant="raised" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }}>
+        {/* Chat Conversation Window */}
+        <Card
+          variant="raised"
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            minHeight: 0,
+            position: 'relative',
+          }}
+        >
           {/* Scrollable messages container */}
           <div
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
             style={{
               flex: 1,
               overflowY: 'auto',
-              padding: '1.5rem',
+              padding: '1.25rem 1.5rem',
               display: 'flex',
               flexDirection: 'column',
               gap: '1.25rem',
@@ -163,7 +325,9 @@ export default function AICareerAdvisorPage() {
                     gap: '0.85rem',
                     alignItems: 'flex-start',
                     alignSelf: isUser ? 'flex-end' : 'flex-start',
-                    maxWidth: '82%',
+                    maxWidth: isUser ? '78%' : '88%',
+                    width: '100%',
+                    justifyContent: isUser ? 'flex-end' : 'flex-start',
                   }}
                 >
                   {!isUser && (
@@ -172,41 +336,93 @@ export default function AICareerAdvisorPage() {
                         width: '36px',
                         height: '36px',
                         borderRadius: '50%',
-                        backgroundColor: 'var(--color-primary-600)',
+                        backgroundColor: 'var(--primary)',
                         color: '#ffffff',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
-                        boxShadow: 'var(--shadow-raised-sm)',
+                        boxShadow: 'var(--shadow-raised)',
                       }}
                     >
                       <Sparkles size={18} />
                     </div>
                   )}
 
-                  <div
-                    style={{
-                      backgroundColor: isUser ? 'var(--color-primary-600)' : 'var(--color-bg)',
-                      color: isUser ? '#ffffff' : 'var(--color-text)',
-                      padding: '1rem 1.25rem',
-                      borderRadius: 'var(--radius-lg)',
-                      border: isUser ? 'none' : '1px solid var(--border-control)',
-                      boxShadow: isUser ? 'var(--shadow-raised-sm)' : 'var(--shadow-sunken)',
-                      fontSize: '0.92rem',
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {isUser ? msg.text : formatMarkdown(msg.text)}
+                  <div style={{ maxWidth: '100%' }}>
                     <div
                       style={{
-                        fontSize: '0.725rem',
-                        marginTop: '0.5rem',
-                        textAlign: isUser ? 'right' : 'left',
-                        color: isUser ? 'rgba(255, 255, 255, 0.75)' : 'var(--color-text-muted)',
+                        backgroundColor: isUser ? 'var(--primary)' : 'var(--surface-raised)',
+                        color: isUser ? '#ffffff' : 'var(--text-primary)',
+                        padding: '1rem 1.25rem',
+                        borderRadius: 'var(--radius-lg)',
+                        border: isUser ? 'none' : '1px solid var(--border)',
+                        boxShadow: isUser ? 'var(--shadow-raised)' : 'var(--shadow-sm)',
+                        fontSize: '0.92rem',
+                        lineHeight: 1.6,
                       }}
                     >
-                      {msg.timestamp}
+                      {isUser ? msg.text : formatMarkdown(msg.text)}
+
+                      {/* Embedded Rich Opportunities */}
+                      {msg.opportunities && msg.opportunities.length > 0 && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Recommended Opportunities
+                          </div>
+                          {msg.opportunities.map((opp) => (
+                            <ChatOpportunityCard key={opp.id} opportunity={opp} />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Embedded Rich Roadmap Milestones */}
+                      {msg.milestones && msg.milestones.length > 0 && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            Interactive Learning Roadmap
+                          </div>
+                          {msg.milestones.map((step, sIdx) => (
+                            <ChatRoadmapMilestone key={sIdx} step={step} index={sIdx} />
+                          ))}
+                        </div>
+                      )}
+
+                      <div
+                        style={{
+                          fontSize: '0.725rem',
+                          marginTop: '0.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: isUser ? 'flex-end' : 'space-between',
+                          color: isUser ? 'rgba(255, 255, 255, 0.75)' : 'var(--text-muted)',
+                        }}
+                      >
+                        <span>{msg.timestamp}</span>
+
+                        {!isUser && (
+                          <button
+                            onClick={() => handleCopyText(msg.text, msg.id)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.725rem',
+                              padding: '2px 6px',
+                              borderRadius: 'var(--radius-sm)',
+                              transition: 'color var(--transition-fast)',
+                            }}
+                            title="Copy response"
+                          >
+                            {copiedId === msg.id ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
+                            <span>{copiedId === msg.id ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -216,15 +432,15 @@ export default function AICareerAdvisorPage() {
                         width: '36px',
                         height: '36px',
                         borderRadius: '50%',
-                        backgroundColor: 'var(--color-surface)',
-                        border: '1px solid var(--border-control)',
-                        color: 'var(--color-primary-600)',
+                        backgroundColor: 'var(--surface)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--primary)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
                         fontWeight: 700,
-                        boxShadow: 'var(--shadow-raised-sm)',
+                        boxShadow: 'var(--shadow-raised)',
                       }}
                     >
                       U
@@ -234,12 +450,21 @@ export default function AICareerAdvisorPage() {
               );
             })}
 
-            {isTyping && (
-              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', margin: '0.25rem 0' }} className="animate-fade-in">
+            {/* Active Streaming Message */}
+            {isStreaming && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '0.85rem',
+                  alignItems: 'flex-start',
+                  maxWidth: '88%',
+                  width: '100%',
+                }}
+              >
                 <div
                   style={{
-                    width: '32px',
-                    height: '32px',
+                    width: '36px',
+                    height: '36px',
                     borderRadius: '50%',
                     backgroundColor: 'var(--primary)',
                     color: '#ffffff',
@@ -247,32 +472,88 @@ export default function AICareerAdvisorPage() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    boxShadow: 'var(--shadow-sm)',
+                    boxShadow: 'var(--shadow-raised)',
                   }}
                 >
-                  <Sparkles size={16} />
+                  <Sparkles size={18} />
                 </div>
+
                 <div
                   style={{
                     backgroundColor: 'var(--surface-raised)',
-                    padding: '0.75rem 1.15rem',
+                    color: 'var(--text-primary)',
+                    padding: '1rem 1.25rem',
                     borderRadius: 'var(--radius-lg)',
                     border: '1px solid var(--border)',
                     boxShadow: 'var(--shadow-sm)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
+                    fontSize: '0.92rem',
+                    lineHeight: 1.6,
+                    maxWidth: '100%',
                   }}
-                  aria-label="CareerPilot AI is typing"
                 >
-                  <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary)' }} />
-                  <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary)', animationDelay: '0.2s' }} />
-                  <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'var(--primary)', animationDelay: '0.4s' }} />
+                  {formatMarkdown(streamedText)}
+                  <span className="streaming-cursor" />
                 </div>
               </div>
             )}
+
+            {/* Shimmer Thinking State */}
+            {isThinking && (
+              <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center' }}>
+                <div
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    backgroundColor: 'var(--primary)',
+                    color: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}
+                >
+                  <Sparkles size={18} />
+                </div>
+                <div className="ai-thinking-shimmer">
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span style={{ marginLeft: '4px' }}>CareerPilot AI is analyzing your verified profile...</span>
+                </div>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
+
+          {/* Floating Scroll to Bottom Button if User Scrolled Up */}
+          {userScrolledUp && (
+            <button
+              onClick={() => scrollToBottom(true)}
+              style={{
+                position: 'absolute',
+                bottom: '120px',
+                right: '24px',
+                padding: '0.45rem 0.85rem',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: 'var(--surface-raised)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-floating)',
+                color: 'var(--text-primary)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                cursor: 'pointer',
+                zIndex: 10,
+              }}
+            >
+              <ArrowDown size={14} />
+              <span>Latest messages</span>
+            </button>
+          )}
 
           {/* Quick Prompt Chips */}
           <div
@@ -288,36 +569,44 @@ export default function AICareerAdvisorPage() {
               flexWrap: 'nowrap',
             }}
           >
-            {PROMPT_SUGGESTIONS.map((sug, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => handleSendMessage(sug)}
-                style={{
-                  padding: '0.45rem 0.85rem',
-                  borderRadius: 'var(--radius-full)',
-                  border: '1px solid var(--border)',
-                  backgroundColor: 'var(--surface-raised)',
-                  color: 'var(--text-secondary)',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  boxShadow: 'var(--shadow-sm)',
-                  transition: 'all var(--transition-fast)',
-                }}
-              >
-                {sug}
-              </button>
-            ))}
+            {PROMPT_SUGGESTIONS.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSendMessage(item.prompt)}
+                  disabled={isStreaming || isThinking}
+                  style={{
+                    padding: '0.45rem 0.85rem',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--surface-raised)',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: (isStreaming || isThinking) ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0,
+                    boxShadow: 'var(--shadow-sm)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    transition: 'all var(--transition-fast)',
+                  }}
+                >
+                  <Icon size={12} color="var(--primary)" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Message Input Footer */}
+          {/* Message Input Footer with Stop Generation Support */}
           <div
             className="advisor-input-bar"
             style={{
-              padding: '1rem 1.25rem',
+              padding: '0.85rem 1.25rem',
               borderTop: '1px solid var(--border)',
               backgroundColor: 'var(--surface)',
               display: 'flex',
@@ -330,7 +619,8 @@ export default function AICareerAdvisorPage() {
               value={inputPrompt}
               onChange={(e) => setInputPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask for resume feedback, interview prep, or eligibility..."
+              disabled={isStreaming}
+              placeholder="Ask for resume feedback, interview prep, or job matches..."
               style={{
                 flex: 1,
                 padding: '0.75rem 1rem',
@@ -343,26 +633,41 @@ export default function AICareerAdvisorPage() {
                 minHeight: '44px',
               }}
             />
-            <Button
-              variant="primary"
-              icon={<Send size={16} />}
-              onClick={() => handleSendMessage()}
-              disabled={!inputPrompt.trim() || isTyping}
-              className="touch-target"
-            >
-              Send
-            </Button>
+
+            {isStreaming ? (
+              <Button
+                variant="outline"
+                icon={<Square size={13} fill="currentColor" />}
+                onClick={handleStop}
+                style={{
+                  color: 'var(--danger)',
+                  borderColor: 'var(--danger-border)',
+                }}
+              >
+                Stop
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                icon={<Send size={15} />}
+                onClick={() => handleSendMessage()}
+                disabled={!inputPrompt.trim() || isThinking}
+                className="touch-target"
+              >
+                Send
+              </Button>
+            )}
           </div>
         </Card>
       </div>
 
       <style>{`
         .advisor-chat-wrapper {
-          max-width: 960px;
+          max-width: 980px;
           margin: 0 auto;
           display: flex;
           flex-direction: column;
-          height: calc(100vh - 140px);
+          height: calc(100vh - 130px);
         }
         @media (max-width: 768px) {
           .advisor-chat-wrapper {
