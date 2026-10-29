@@ -34,6 +34,7 @@ from app.models.digest_delivery import DigestDeliveryModel
 from app.models.interview_event import InterviewEventModel
 from app.models.interview_prep import InterviewPrepModel
 from app.models.mock_test_attempt import MockTestAttemptModel
+from app.models.interview_session import InterviewSessionModel
 from app.models.audit_log import AuditLogModel
 from app.services.scheduler import init_scheduler
 
@@ -106,6 +107,7 @@ def create_app(config_class=Config):
     InterviewEventModel.ensure_indexes()
     InterviewPrepModel.ensure_indexes()
     MockTestAttemptModel.ensure_indexes()
+    InterviewSessionModel.ensure_indexes()
     AuditLogModel.ensure_indexes()
 
     # Register Blueprints

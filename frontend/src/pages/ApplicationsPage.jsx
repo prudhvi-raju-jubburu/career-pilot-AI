@@ -50,6 +50,7 @@ import Modal from '../components/ui/Modal';
 import { useToast } from '../context/ToastContext';
 import { applicationService } from '../services/applicationService';
 import { mockTestService } from '../services/mockTestService';
+import AIInterviewSimulator from '../components/interview/AIInterviewSimulator';
 
 const CANONICAL_STATUSES = [
   'Saved',
@@ -1876,6 +1877,7 @@ export default function ApplicationsPage() {
                           { id: 'skill_gaps', label: `Skill Gaps (${prepPack.skill_gaps?.priority_gaps?.length ?? 0})`, icon: Target },
                           { id: 'questions', label: `Interview Questions (${prepPack.question_bank?.length ?? 0})`, icon: HelpCircle },
                           { id: 'mock_tests', label: `Mock Tests (${mockTestAttempts.length})`, icon: Award },
+                          { id: 'simulator', label: 'AI Simulator', icon: Sparkles },
                           { id: 'resources', label: `Learning Resources (${prepPack.learning_resources?.length ?? 0})`, icon: BookOpen }
                         ].map((sub) => {
                           const isActive = prepSectionTab === sub.id;
@@ -3553,6 +3555,22 @@ export default function ApplicationsPage() {
                             </div>
                           )}
                         </div>
+                      )}
+
+                      {/* SUB-TAB 5: PERSONALIZED AI INTERVIEW SIMULATOR */}
+                      {prepSectionTab === 'simulator' && (
+                        <AIInterviewSimulator
+                          application={selectedAppForDetail}
+                          prepPack={prepPack}
+                          toast={toast}
+                          onChecklistUpdated={(updatedPrep) => {
+                            if (updatedPrep) {
+                              setPrepPack(updatedPrep);
+                            } else if (selectedAppForDetail?.id) {
+                              loadPrepPackForApp(selectedAppForDetail.id, false);
+                            }
+                          }}
+                        />
                       )}
                     </div>
                   )}

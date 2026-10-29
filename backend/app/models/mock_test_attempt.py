@@ -125,6 +125,15 @@ class MockTestAttemptModel:
         return results
 
     @classmethod
+    def get_attempts_for_application(cls, app_id: str, user_id: Optional[str] = None) -> List[dict]:
+        col = cls.get_collection()
+        q: Dict[str, Any] = {"application_id": str(app_id)}
+        if user_id:
+            q["user_id"] = str(user_id)
+        cursor = col.find(q).sort("created_at", -1)
+        return [cls.to_dict(doc, include_answers=False) for doc in cursor]
+
+    @classmethod
     def save_answers(cls, attempt_id: str, user_id: str, answers: Dict[str, Any]) -> bool:
         """Atomically updates in-progress answers if test is still active."""
         col = cls.get_collection()

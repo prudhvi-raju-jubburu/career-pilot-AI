@@ -887,4 +887,341 @@ def add_weak_topic_to_roadmap_route(current_user, app_id, test_id):
             "error": str(e)
         }), 500
 
+# -----------------------------------------------------------------------------
+# Stage 6: Personalized AI Interview Simulator Endpoints
+# -----------------------------------------------------------------------------
+
+@application_bp.route("/<app_id>/interview-simulator", methods=["GET"])
+@token_required
+def get_interview_simulator_overview(current_user, app_id):
+    """Retrieves simulator overview: supported modes, active session (if any), and recent history."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        modes = InterviewSimulatorService.get_supported_modes()
+        active_session = InterviewSimulatorService.get_active_session(app_id, user_id)
+        history = InterviewSimulatorService.list_sessions(app_id, user_id, limit=10)
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "modes": modes,
+                "active_session": active_session,
+                "history": history
+            }
+        }), 200
+    except Exception as e:
+        logger.exception("Error fetching interview simulator overview for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to load interview simulator",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/interview-simulator/start", methods=["POST"])
+@token_required
+def start_interview_simulator_session(current_user, app_id):
+    """Initializes a new interview simulation session or resumes an existing active one."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        session = InterviewSimulatorService.start_session(app_id, user_id, payload)
+        return jsonify({
+            "success": True,
+            "message": "Interview simulator session started successfully",
+            "data": session
+        }), 201
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "VALIDATION_ERROR"
+        }), 400
+    except Exception as e:
+        logger.exception("Error starting interview simulator session for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to start interview session",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/interview-simulator/sessions/<session_id>", methods=["GET"])
+@token_required
+def get_interview_simulator_session(current_user, app_id, session_id):
+    """Retrieves an existing interview session state with evaluation history."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        session = InterviewSimulatorService.get_session(app_id, session_id, user_id)
+        return jsonify({
+            "success": True,
+            "data": session
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "NOT_FOUND"
+        }), 404
+    except Exception as e:
+        logger.exception("Error fetching session %s for app %s: %s", session_id, app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to fetch interview session",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/interview-simulator/sessions/<session_id>/answer", methods=["POST"])
+@token_required
+def submit_interview_simulator_answer(current_user, app_id, session_id):
+    """Submits candidate's answer for the current question, evaluates it, and returns feedback."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    question_index = payload.get("question_index")
+    answer_text = payload.get("answer") or payload.get("answer_text") or ""
+
+    if question_index is None:
+        return jsonify({
+            "success": False,
+            "message": "question_index is required",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        result = InterviewSimulatorService.submit_answer(
+            app_id=app_id,
+            session_id=session_id,
+            user_id=user_id,
+            question_index=int(question_index),
+            answer_text=str(answer_text)
+        )
+        return jsonify({
+            "success": True,
+            "message": "Answer evaluated successfully",
+            "data": result
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "VALIDATION_ERROR"
+        }), 400
+    except Exception as e:
+        logger.exception("Error evaluating answer for session %s: %s", session_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to evaluate answer",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/interview-simulator/sessions/<session_id>/next", methods=["POST"])
+@token_required
+def advance_interview_simulator_question(current_user, app_id, session_id):
+    """Advances session to the next question or completes the session if finished."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        session = InterviewSimulatorService.advance_to_next_question(app_id, session_id, user_id)
+        return jsonify({
+            "success": True,
+            "data": session
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "VALIDATION_ERROR"
+        }), 400
+    except Exception as e:
+        logger.exception("Error advancing question in session %s: %s", session_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to advance session",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/interview-simulator/sessions/<session_id>/pause", methods=["POST"])
+@token_required
+def pause_interview_simulator_session(current_user, app_id, session_id):
+    """Pauses an active interview simulation session."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        session = InterviewSimulatorService.pause_session(app_id, session_id, user_id)
+        return jsonify({
+            "success": True,
+            "message": "Session paused",
+            "data": session
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+@application_bp.route("/<app_id>/interview-simulator/sessions/<session_id>/resume", methods=["POST"])
+@token_required
+def resume_interview_simulator_session(current_user, app_id, session_id):
+    """Resumes a paused interview simulation session."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        session = InterviewSimulatorService.resume_session(app_id, session_id, user_id)
+        return jsonify({
+            "success": True,
+            "message": "Session resumed",
+            "data": session
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+@application_bp.route("/<app_id>/interview-simulator/sessions/<session_id>/end", methods=["POST"])
+@token_required
+def end_interview_simulator_session(current_user, app_id, session_id):
+    """Ends session early and generates performance summary."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        session = InterviewSimulatorService.end_session_early(app_id, session_id, user_id)
+        return jsonify({
+            "success": True,
+            "message": "Session ended",
+            "data": session
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+@application_bp.route("/<app_id>/interview-simulator/sessions", methods=["GET"])
+@token_required
+def list_interview_simulator_sessions(current_user, app_id):
+    """Lists past interview simulator sessions for this application."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        history = InterviewSimulatorService.list_sessions(app_id, user_id, limit=20)
+        return jsonify({
+            "success": True,
+            "data": history
+        }), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@application_bp.route("/<app_id>/interview-simulator/sessions/<session_id>/add-to-roadmap", methods=["POST"])
+@token_required
+def add_simulator_task_to_roadmap(current_user, app_id, session_id):
+    """Adds a weak area or revision task from interview simulation to the candidate's preparation checklist."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    task_title = (payload.get("task") or payload.get("task_title") or payload.get("topic") or "").strip()
+    category = payload.get("category", "Technical")
+
+    if not task_title:
+        return jsonify({
+            "success": False,
+            "message": "task is required",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    try:
+        from app.services.interview_simulator_service import InterviewSimulatorService
+        updated_pack = InterviewSimulatorService.add_feedback_to_roadmap(
+            app_id=app_id,
+            session_id=session_id,
+            user_id=user_id,
+            task_title=task_title,
+            category=category
+        )
+        return jsonify({
+            "success": True,
+            "message": f"Task '{task_title}' added to preparation checklist",
+            "data": updated_pack
+        }), 200
+    except Exception as e:
+        logger.exception("Error adding simulator task to roadmap: %s", str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to add task to roadmap",
+            "error": str(e)
+        }), 500
+
+
 

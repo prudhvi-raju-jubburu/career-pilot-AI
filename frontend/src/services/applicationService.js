@@ -234,8 +234,109 @@ export const applicationService = {
     } catch (error) {
       throw error;
     }
+  },
+
+  // --------------------------------------------------------------------------
+  // Stage 6: Personalized AI Interview Simulator
+  // --------------------------------------------------------------------------
+
+  async getInterviewSimulatorOverview(appId) {
+    try {
+      const response = await api.get(`/api/applications/${appId}/interview-simulator`);
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async startInterviewSimulatorSession(appId, config = {}) {
+    try {
+      const response = await api.post(`/api/applications/${appId}/interview-simulator/start`, config);
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async getInterviewSimulatorSession(appId, sessionId) {
+    try {
+      const response = await api.get(`/api/applications/${appId}/interview-simulator/sessions/${sessionId}`);
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async submitInterviewSimulatorAnswer(appId, sessionId, questionIndex, answerText) {
+    try {
+      const response = await api.post(`/api/applications/${appId}/interview-simulator/sessions/${sessionId}/answer`, {
+        question_index: questionIndex,
+        answer_text: answerText
+      });
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async advanceInterviewSimulatorQuestion(appId, sessionId) {
+    try {
+      const response = await api.post(`/api/applications/${appId}/interview-simulator/sessions/${sessionId}/next`);
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async pauseInterviewSimulatorSession(appId, sessionId) {
+    try {
+      const response = await api.post(`/api/applications/${appId}/interview-simulator/sessions/${sessionId}/pause`);
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async resumeInterviewSimulatorSession(appId, sessionId) {
+    try {
+      const response = await api.post(`/api/applications/${appId}/interview-simulator/sessions/${sessionId}/resume`);
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async endInterviewSimulatorSession(appId, sessionId) {
+    try {
+      const response = await api.post(`/api/applications/${appId}/interview-simulator/sessions/${sessionId}/end`);
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async listInterviewSimulatorSessions(appId) {
+    try {
+      const response = await api.get(`/api/applications/${appId}/interview-simulator/sessions`);
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  async addSimulatorTaskToRoadmap(appId, sessionId, taskTitle, category = 'Technical') {
+    try {
+      const response = await api.post(`/api/applications/${appId}/interview-simulator/sessions/${sessionId}/add-to-roadmap`, {
+        task: taskTitle,
+        category
+      });
+      return response.data || response;
+    } catch (error) {
+      throw error;
+    }
   }
 };
 
 export default applicationService;
+
 

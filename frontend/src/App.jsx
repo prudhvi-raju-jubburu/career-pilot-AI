@@ -22,6 +22,7 @@ const ResumeBuilderPage = lazy(() => import('./pages/ResumeBuilderPage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const MockTestProctoredPage = lazy(() => import('./pages/MockTestProctoredPage'));
+const InterviewSimulatorProctoredPage = lazy(() => import('./pages/InterviewSimulatorProctoredPage'));
 
 // Admin Workspace Routes
 const AdminRoute = lazy(() => import('./components/AdminRoute'));
@@ -96,6 +97,22 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <MockTestProctoredPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/applications/:appId/interview/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <InterviewSimulatorProctoredPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/applications/:appId/interview"
+              element={
+                <ProtectedRoute>
+                  <InterviewSimulatorProctoredPage />
                 </ProtectedRoute>
               }
             />
