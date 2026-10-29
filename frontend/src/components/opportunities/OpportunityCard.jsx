@@ -58,10 +58,17 @@ export default function OpportunityCard({
   const companyInitial = companyName.charAt(0).toUpperCase();
 
   const allSkills = Array.isArray(opp.skills) ? opp.skills : [];
-  const matchedSkills = Array.isArray(opp.matched_skills) ? opp.matched_skills : [];
+  const demonstratedSkills = Array.isArray(opp.demonstrated_skills) ? opp.demonstrated_skills : [];
+  const listedSkills = Array.isArray(opp.listed_skills) ? opp.listed_skills : [];
+  const matchedSkills = Array.isArray(opp.matched_skills)
+    ? opp.matched_skills
+    : [...demonstratedSkills, ...listedSkills];
   const missingSkills = Array.isArray(opp.missing_skills)
     ? opp.missing_skills
-    : allSkills.filter((s) => !matchedSkills.includes(s));
+    : (Array.isArray(opp.potential_gaps) ? opp.potential_gaps : allSkills.filter((s) => !matchedSkills.includes(s)));
+
+  const isApplied = Boolean(application || opp.already_applied);
+  const appStatus = application?.status || opp.application_status || 'Applied';
 
   const matchScore = typeof (opp.matchScore ?? opp.match_score) === 'number'
     ? (opp.matchScore ?? opp.match_score)
@@ -228,7 +235,7 @@ export default function OpportunityCard({
           <span>{formatLocationDisplay()} · {opp.workMode || 'Hybrid'}</span>
         </span>
 
-        {application && (
+        {isApplied && (
           <span
             style={{
               display: 'inline-flex',
@@ -244,7 +251,7 @@ export default function OpportunityCard({
             }}
           >
             <Layers size={11} />
-            <span>{application.status || 'Tracked'}</span>
+            <span>{appStatus}</span>
           </span>
         )}
       </div>
@@ -358,12 +365,22 @@ export default function OpportunityCard({
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
-          {matchedSkills.slice(0, 4).map((skill) => (
-            <span key={skill} className="opp-skill-chip-matched">
-              <Check size={11} strokeWidth={3} />
-              <span>{skill}</span>
-            </span>
-          ))}
+          {matchedSkills.slice(0, 4).map((skill) => {
+            const isDemonstrated = demonstratedSkills.some(
+              (d) => d.toLowerCase() === skill.toLowerCase()
+            );
+            return (
+              <span
+                key={skill}
+                className={isDemonstrated ? 'opp-skill-chip-matched' : 'opp-skill-chip-other'}
+                style={isDemonstrated ? { backgroundColor: '#ecfdf5', color: '#047857', borderColor: '#a7f3d0' } : undefined}
+                title={isDemonstrated ? `${skill} (Demonstrated in verified project or experience)` : `${skill} (Listed in profile/resume)`}
+              >
+                <Check size={11} strokeWidth={3} />
+                <span>{skill}{isDemonstrated ? ' ★' : ''}</span>
+              </span>
+            );
+          })}
 
           {missingSkills.slice(0, Math.max(0, 4 - matchedSkills.length)).map((skill) => (
             <span key={skill} className="opp-skill-chip-other">

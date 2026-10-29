@@ -38,10 +38,14 @@ def get_sources_status():
                 "schedule": src["schedule"],
                 "status": last_run.get("status", "idle") if last_run else "ready",
                 "last_synced_at": last_run.get("completed_at") if last_run else None,
+                "last_success_at": last_run.get("last_successful_at") or (last_run.get("completed_at") if last_run and last_run.get("status") == "success" else None),
                 "duration_seconds": last_run.get("duration_seconds", 0.0) if last_run else 0.0,
                 "items_fetched": last_run.get("fetched", 0) if last_run else 0,
+                "items_validated": last_run.get("validated", 0) if last_run else 0,
                 "items_accepted": last_run.get("accepted", 0) if last_run else 0,
+                "items_updated": last_run.get("updated", 0) if last_run else 0,
                 "items_duplicates": last_run.get("duplicates", 0) if last_run else 0,
+                "items_rejected": last_run.get("rejected", 0) if last_run else 0,
                 "last_error": last_run.get("error") if last_run else None
             })
 

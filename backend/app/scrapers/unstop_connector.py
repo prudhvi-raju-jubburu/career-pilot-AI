@@ -106,8 +106,15 @@ class UnstopConnector(OpportunitySource):
         work_mode = "Onsite" if is_in_office else ("Remote" if is_remote else "Hybrid")
 
         # URL Construction
-        seo_url = raw_item.get("seo_url") or str(raw_item.get("id"))
-        app_url = f"https://unstop.com/{opp_kind}/{seo_url}"
+        seo_url = str(raw_item.get("seo_url") or raw_item.get("id") or "").strip()
+        if seo_url.startswith("http://") or seo_url.startswith("https://"):
+            app_url = seo_url
+        elif seo_url.startswith("/"):
+            app_url = f"https://unstop.com{seo_url}"
+        elif seo_url:
+            app_url = f"https://unstop.com/{opp_kind}/{seo_url}"
+        else:
+            app_url = f"https://unstop.com/{opp_kind}"
 
         # Dates
         deadline = parse_iso_deadline(raw_item.get("end_date"))

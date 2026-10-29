@@ -1,5 +1,6 @@
 import re
 import hashlib
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List, Tuple
 from app.utils.skill_normalizer import normalize_skill, normalize_skill_list, SKILL_ALIASES
@@ -327,6 +328,58 @@ def extract_skills_from_text(text: str, existing_skills: Optional[List[str]] = N
 
     return sorted(list(found))
 
+TRACKING_PARAMS = {
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "ref", "ref_id", "source", "fbclid", "gclid", "trk", "trackingid",
+    "lever-source", "gh_src", "sub_id", "affiliate_id", "src", "spm",
+    "mc_cid", "mc_eid", "igshid"
+}
+
+def canonicalize_url(raw_url: Optional[str]) -> str:
+    """
+    Normalizes an application or opportunity URL by:
+      - Stripping anchor fragments (#...)
+      - Normalizing scheme (http -> https when safe, lowercase)
+      - Lowercasing hostnames and stripping www prefix / default ports
+      - Removing web analytics & ad tracking query parameters (utm_*, ref, fbclid, etc.)
+      - Preserving distinguishing parameters (job IDs, gh_jid, id, etc.)
+      - Sorting query params for consistent hashing
+      - Removing unnecessary trailing slashes
+    """
+    if not raw_url or not isinstance(raw_url, str):
+        return ""
+    clean = raw_url.strip()
+    if not clean:
+        return ""
+
+    try:
+        parsed = urlparse(clean)
+        scheme = parsed.scheme.lower() if parsed.scheme else "https"
+        netloc = parsed.netloc.lower()
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        if netloc.endswith(":443") and scheme == "https":
+            netloc = netloc[:-4]
+        elif netloc.endswith(":80") and scheme == "http":
+            netloc = netloc[:-3]
+
+        path = parsed.path.rstrip("/")
+        if not path:
+            path = ""
+
+        # Filter query params
+        qsl = parse_qsl(parsed.query, keep_blank_values=False)
+        filtered_params = [
+            (k, v) for k, v in qsl
+            if k.lower() not in TRACKING_PARAMS and not k.lower().startswith("utm_")
+        ]
+        filtered_params.sort(key=lambda x: (x[0], x[1]))
+        query = urlencode(filtered_params) if filtered_params else ""
+
+        return urlunparse((scheme, netloc, path, "", query, ""))
+    except Exception:
+        return clean.split("#")[0].split("?")[0].rstrip("/").lower()
+
 def generate_dedupe_key(
     source_name: str,
     external_id: Optional[str] = None,
@@ -340,7 +393,7 @@ def generate_dedupe_key(
     Computes a deterministic deduplication hash for an opportunity.
     Priority:
       1. source_name + ":" + external_id
-      2. SHA256 of normalized org + title + application_url
+      2. SHA256 of normalized org + title + canonical_url
       3. SHA256 of normalized org + title + location + deadline
     """
     if source_name and external_id:
@@ -348,7 +401,7 @@ def generate_dedupe_key(
 
     norm_org = re.sub(r'[^a-z0-9]', '', (org_name or '').lower())
     norm_title = re.sub(r'[^a-z0-9]', '', (title or '').lower())
-    norm_url = (application_url or '').strip().lower().split('?')[0].rstrip('/')
+    norm_url = canonicalize_url(application_url)
 
     if norm_org and norm_title and norm_url:
         payload = f"{norm_org}|{norm_title}|{norm_url}"

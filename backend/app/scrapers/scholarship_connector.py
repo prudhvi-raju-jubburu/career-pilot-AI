@@ -14,19 +14,19 @@ class ScholarshipConnector(OpportunitySource):
     Source: OpportunityDesk (https://opportunitydesk.org/feed/)
     """
 
-    def __init__(self, limit: int = 15, enabled: bool = False):
+    def __init__(self, limit: int = 15, enabled: bool = True):
         super().__init__(
             name="opportunitydesk_rss",
             source_type="scholarship",
             base_url="https://opportunitydesk.org/feed/",
             rate_limit_delay=1.0,
-            enabled=False
+            enabled=enabled
         )
         self.limit = limit
 
     def fetch(self) -> List[Dict[str, Any]]:
-        # System only recommends jobs and internships in India
-        return []
+        if not self.is_enabled:
+            return []
 
         try:
             raw_bytes = self._fetch_url(self.base_url)

@@ -19,27 +19,6 @@ from app.utils.opportunity_normalizer import is_india_eligible
 
 logger = logging.getLogger(__name__)
 
-def is_fuzzy_duplicate(candidate_title: str, candidate_org: str, existing_items: List[Dict[str, Any]], threshold: float = 0.88) -> bool:
-    """
-    Checks if a candidate opportunity has a near-identical title & organization
-    to an existing opportunity using SequenceMatcher.
-    """
-    c_title = candidate_title.lower().strip()
-    c_org = candidate_org.lower().strip()
-
-    for item in existing_items:
-        i_title = str(item.get("title", "")).lower().strip()
-        i_org = str(item.get("organization", {}).get("name", "")).lower().strip()
-
-        # Check organization similarity
-        org_ratio = SequenceMatcher(None, c_org, i_org).ratio()
-        if org_ratio >= 0.85:
-            # Check title similarity
-            title_ratio = SequenceMatcher(None, c_title, i_title).ratio()
-            if title_ratio >= threshold:
-                return True
-    return False
-
 class OpportunityIngestionService:
     """
     Production ingestion pipeline coordinating multiple real external sources
@@ -53,12 +32,16 @@ class OpportunityIngestionService:
             self.sources = [
                 ATSJobBoardConnector(limit_per_company=3),
                 UnstopConnector(limit=30),
+                DevfolioConnector(limit=15),
                 RemotiveConnector(limit=25),
+                CodeforcesConnector(limit=15),
+                ScholarshipConnector(limit=15),
             ]
 
     def run_ingestion(self) -> Dict[str, Any]:
         """
         Executes end-to-end ingestion across all registered source providers.
+        Tracks distinct telemetry: fetched, validated, accepted, updated, duplicates, rejected, failed.
         Returns execution metrics.
         """
         start_time = time.time()
@@ -69,16 +52,15 @@ class OpportunityIngestionService:
             "started_at": start_iso,
             "total_sources": len(self.sources),
             "total_fetched": 0,
+            "total_validated": 0,
             "total_accepted": 0,
+            "total_updated": 0,
             "total_duplicates": 0,
             "total_rejected": 0,
+            "total_failed": 0,
             "source_results": {},
             "errors": []
         }
-
-        # Cache recent opportunity summaries for fuzzy deduplication
-        col = OpportunityModel.get_collection()
-        recent_opps = list(col.find({"status": "active"}, {"title": 1, "organization.name": 1}).sort("created_at", -1).limit(200))
 
         newly_accepted_items = []
 
@@ -90,12 +72,16 @@ class OpportunityIngestionService:
                 "source_type": source.source_type,
                 "started_at": datetime.now(timezone.utc).isoformat(),
                 "fetched": 0,
+                "validated": 0,
                 "accepted": 0,
+                "updated": 0,
                 "duplicates": 0,
                 "rejected": 0,
+                "failed": 0,
                 "error": None,
                 "status": "success",
-                "duration_seconds": 0.0
+                "duration_seconds": 0.0,
+                "last_successful_at": None
             }
 
             try:
@@ -107,9 +93,8 @@ class OpportunityIngestionService:
                 for raw_item in raw_items:
                     try:
                         normalized = source.normalize(raw_item)
-                        is_valid, validation_err = OpportunityService.validate_opportunity(
-                            OpportunityService.normalize_opportunity(normalized)
-                        )
+                        standardized = OpportunityService.normalize_opportunity(normalized)
+                        is_valid, validation_err = OpportunityService.validate_opportunity(standardized)
                         if not is_valid:
                             src_stats["rejected"] += 1
                             overall_stats["total_rejected"] += 1
@@ -118,47 +103,44 @@ class OpportunityIngestionService:
 
                         # Filter for India tech roles & India-eligible opportunities
                         if not is_india_eligible(
-                            normalized.get("location", {}),
-                            title=normalized.get("title", ""),
-                            description=normalized.get("description", ""),
-                            eligibility_text=normalized.get("eligibility_text", ""),
+                            standardized.get("location", {}),
+                            title=standardized.get("title", ""),
+                            description=standardized.get("description", ""),
+                            eligibility_text=standardized.get("eligibility_text", ""),
                             source_name=source_name
                         ):
                             src_stats["rejected"] += 1
                             overall_stats["total_rejected"] += 1
-                            logger.debug("Filtered out non-India opportunity from %s: %s", source_name, normalized.get("title"))
+                            logger.debug("Filtered out non-India opportunity from %s: %s", source_name, standardized.get("title"))
                             continue
 
-                        # Check fuzzy duplicate against cache
-                        candidate_title = normalized.get("title", "")
-                        candidate_org = normalized.get("organization", {}).get("name", "")
-                        if is_fuzzy_duplicate(candidate_title, candidate_org, recent_opps):
-                            src_stats["duplicates"] += 1
-                            overall_stats["total_duplicates"] += 1
-                            continue
+                        src_stats["validated"] += 1
+                        overall_stats["total_validated"] += 1
 
-                        doc, created = OpportunityService.upsert_opportunity(normalized)
+                        # Ingest via layered deduplication and atomic upsert
+                        doc, created = OpportunityService.upsert_opportunity(standardized)
                         if created:
                             src_stats["accepted"] += 1
                             overall_stats["total_accepted"] += 1
-                            recent_opps.append({
-                                "title": candidate_title,
-                                "organization": {"name": candidate_org}
-                            })
                             newly_accepted_items.append(OpportunityModel.to_dict(doc))
                         else:
+                            src_stats["updated"] += 1
+                            overall_stats["total_updated"] += 1
                             src_stats["duplicates"] += 1
                             overall_stats["total_duplicates"] += 1
+
                     except Exception as item_err:
-                        src_stats["rejected"] += 1
-                        overall_stats["total_rejected"] += 1
+                        src_stats["failed"] += 1
+                        overall_stats["total_failed"] += 1
                         logger.warning("Error processing item from %s: %s", source_name, str(item_err))
 
+                src_stats["last_successful_at"] = datetime.now(timezone.utc).isoformat()
                 logger.info(
-                    "Source '%s' completed: %d fetched, %d accepted, %d duplicates, %d rejected",
+                    "Source '%s' completed: %d fetched, %d accepted, %d updated, %d duplicates, %d rejected",
                     source_name,
                     src_stats["fetched"],
                     src_stats["accepted"],
+                    src_stats["updated"],
                     src_stats["duplicates"],
                     src_stats["rejected"]
                 )
@@ -205,9 +187,10 @@ class OpportunityIngestionService:
                 logger.warning("Error matching new opportunities to students: %s", str(match_err))
 
         logger.info(
-            "Opportunity ingestion finished in %.2fs. Total Accepted: %d, Duplicates: %d, Rejected: %d, Expired: %d",
+            "Opportunity ingestion finished in %.2fs. Total Accepted: %d, Updated: %d, Duplicates: %d, Rejected: %d, Expired: %d",
             overall_stats["duration_seconds"],
             overall_stats["total_accepted"],
+            overall_stats["total_updated"],
             overall_stats["total_duplicates"],
             overall_stats["total_rejected"],
             expired_count

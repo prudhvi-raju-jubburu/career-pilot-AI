@@ -96,22 +96,25 @@ def test_scholarship_compensation_semantics():
 def test_opportunity_deduplication(client):
     unique_id = str(ObjectId())
     opp_data = {
-        "title": "Data Science Intern",
-        "organization_name": "Flipkart",
+        "title": f"Test Data Science Intern {unique_id}",
+        "organization_name": f"Test Flipkart {unique_id}",
         "application_url": f"https://flipkart.com/jobs/ds-intern-{unique_id}",
         "type": "internship",
         "category": "data_science",
         "skills": ["Python", "Pandas", "SQL"]
     }
 
-    # First insert
-    doc1, is_created1 = OpportunityService.upsert_opportunity(opp_data)
-    assert is_created1 is True
+    try:
+        # First insert
+        doc1, is_created1 = OpportunityService.upsert_opportunity(opp_data)
+        assert is_created1 is True
 
-    # Duplicate insert with identical organization, title, and application_url
-    doc2, is_created2 = OpportunityService.upsert_opportunity(opp_data)
-    assert is_created2 is False
-    assert str(doc1["_id"]) == str(doc2["_id"])
+        # Duplicate insert with identical organization, title, and application_url
+        doc2, is_created2 = OpportunityService.upsert_opportunity(opp_data)
+        assert is_created2 is False
+        assert str(doc1["_id"]) == str(doc2["_id"])
+    finally:
+        OpportunityModel.get_collection().delete_many({"application_url": f"https://flipkart.com/jobs/ds-intern-{unique_id}"})
 
 # =====================================================================
 # 2. Deterministic Eligibility Engine Tests

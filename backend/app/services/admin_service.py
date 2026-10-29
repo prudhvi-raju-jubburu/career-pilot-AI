@@ -1055,9 +1055,11 @@ class AdminService:
                 "schedule": src["schedule"],
                 "status": st,
                 "last_synced_at": last_run.get("completed_at"),
+                "last_success_at": last_run.get("last_successful_at") or (last_run.get("completed_at") if last_run.get("status") == "success" else None),
                 "duration_seconds": last_run.get("duration_seconds", 0.0),
                 "items_fetched": last_run.get("fetched", 0),
                 "items_accepted": last_run.get("accepted", 0),
+                "items_updated": last_run.get("updated", 0),
                 "items_duplicates": last_run.get("duplicates", 0),
                 "items_rejected": last_run.get("rejected", 0),
                 "last_error": str(last_run.get("error"))[:200] if last_run.get("error") else None

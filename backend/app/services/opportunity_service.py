@@ -258,8 +258,14 @@ class OpportunityService:
     def upsert_opportunity(cls, opp_data: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
         """
         Deduplicates and upserts an opportunity document in MongoDB.
+        Uses layered deduplication (external ID, canonical URL, cross-source matching, conservative fuzzy)
+        and deterministic field-precedence merging.
         Preserves original _id and created_at timestamps on duplicate matches.
+        Handles concurrent insertions safely with DuplicateKeyError protection.
         """
+        import pymongo
+        from app.services.dedup_service import DeduplicationService
+
         normalized = cls.normalize_opportunity(opp_data)
         is_valid, error = cls.validate_opportunity(normalized)
         if not is_valid:
@@ -269,39 +275,43 @@ class OpportunityService:
         dedupe_hash = normalized["metadata"]["raw_hash"]
         now = datetime.now(timezone.utc).isoformat()
 
-        existing = col.find_one({"metadata.raw_hash": dedupe_hash})
+        # Check for duplicate via layered deduplication service
+        existing, match_reason = DeduplicationService.find_duplicate(normalized)
         if existing:
-            # Preserve created_at and internal _id
-            update_payload = {
-                "title": normalized["title"],
-                "organization": normalized["organization"],
-                "description": normalized["description"],
-                "type": normalized["type"],
-                "category": normalized["category"],
-                "location": normalized["location"],
-                "work_mode": normalized["work_mode"],
-                "skills": normalized["skills"],
-                "education_requirements": normalized["education_requirements"],
-                "experience": normalized["experience"],
-                "eligibility_text": normalized["eligibility_text"],
-                "application_url": normalized["application_url"],
-                "source": normalized["source"],
-                "dates": normalized["dates"],
-                "compensation": normalized["compensation"],
-                "status": normalized["status"],
-                "updated_at": now,
-                "last_seen_at": now
-            }
-            col.update_one({"_id": existing["_id"]}, {"$set": update_payload})
-            existing.update(update_payload)
-            return existing, False
-        else:
-            normalized["created_at"] = now
-            normalized["updated_at"] = now
-            normalized["last_seen_at"] = now
+            merged = DeduplicationService.merge_into_canonical(
+                canonical_doc=existing,
+                incoming_opp=normalized,
+                match_reason=match_reason or "duplicate_matched"
+            )
+            return merged, False
+
+        # Attempt insertion of new opportunity
+        normalized["created_at"] = now
+        normalized["updated_at"] = now
+        normalized["last_seen_at"] = now
+        try:
             res = col.insert_one(normalized)
             normalized["_id"] = res.inserted_id
             return normalized, True
+        except pymongo.errors.DuplicateKeyError:
+            # Handle race condition where document was inserted concurrently
+            existing_retry, retry_reason = DeduplicationService.find_duplicate(normalized)
+            if existing_retry:
+                merged = DeduplicationService.merge_into_canonical(
+                    canonical_doc=existing_retry,
+                    incoming_opp=normalized,
+                    match_reason=retry_reason or "concurrent_duplicate_key"
+                )
+                return merged, False
+            fallback = col.find_one({"metadata.raw_hash": dedupe_hash})
+            if fallback:
+                merged = DeduplicationService.merge_into_canonical(
+                    canonical_doc=fallback,
+                    incoming_opp=normalized,
+                    match_reason="hash_collision_duplicate"
+                )
+                return merged, False
+            raise
 
     @classmethod
     def list_opportunities(
@@ -412,39 +422,38 @@ class OpportunityService:
         items = []
 
         profile = None
+        evidence = None
         student_skills = set()
         student_roles = []
         watchlist = set()
+        applied_map: Dict[str, str] = {}
 
-        # Try to resolve profile from user_id or fallback to existing active student
+        # Load authenticated student profile (strictly isolated per user_id)
         from app.models.profile import ProfileModel
         from app.models.company import CompanyModel
         from app.services.recommendation_engine import RecommendationEngine
 
         if user_id:
             try:
-                profile = ProfileModel.find_by_user_id(user_id) or {}
+                profile = ProfileModel.find_by_user_id(user_id) or None
             except Exception as e:
                 logger.warning("Could not load profile for user %s: %s", user_id, str(e))
                 profile = None
 
-        if not profile:
             try:
-                # Fallback to Jubburu or first verified profile
-                jubburu_prof = ProfileModel.get_collection().find_one({
-                    "$or": [
-                        {"personal.full_name": {"$regex": "Jubburu|Prudhvi", "$options": "i"}},
-                        {"user_id": user_id}
-                    ]
-                })
-                if jubburu_prof:
-                    profile = jubburu_prof
+                from app.models.application import ApplicationModel
+                user_apps = ApplicationModel.find_by_user(user_id)
+                applied_map = {
+                    str(a.get("opportunity_id")): a.get("status", "Applied")
+                    for a in user_apps if a.get("opportunity_id")
+                }
             except Exception:
-                pass
+                applied_map = {}
 
         if profile:
-            student_skills = RecommendationEngine._extract_student_skills(profile)
-            student_roles = RecommendationEngine._extract_student_preferred_roles(profile)
+            evidence = RecommendationEngine.build_student_evidence_profile(profile)
+            student_skills = evidence["all_student_skills"]
+            student_roles = evidence["target_roles"]
             if user_id:
                 try:
                     watchlist = set(CompanyModel.get_user_watchlist(user_id))
@@ -453,11 +462,16 @@ class OpportunityService:
 
         for doc in raw_docs:
             item = OpportunityModel.to_dict(doc)
+            opp_id = str(doc.get("_id") or doc.get("id", ""))
             opp_skills = doc.get("skills") or []
 
-            if profile is not None:
+            is_applied = opp_id in applied_map
+            if is_applied:
+                item["already_applied"] = True
+                item["application_status"] = applied_map[opp_id]
+
+            if profile is not None and evidence is not None:
                 from app.services.eligibility_engine import EligibilityEngine
-                from app.services.recommendation_engine import RecommendationEngine
 
                 elig = EligibilityEngine.evaluate(doc, profile)
                 score_data = RecommendationEngine._score_opportunity(
@@ -466,40 +480,73 @@ class OpportunityService:
                     student_skills=student_skills,
                     student_roles=student_roles,
                     watchlist=watchlist,
-                    eligibility=elig
+                    eligibility=elig,
+                    evidence=evidence
                 )
+                skill_gap = RecommendationEngine._build_skill_gap(doc, evidence)
+
                 item["eligibility"] = elig
                 item["match_score"] = score_data["total_score"]
                 item["score_breakdown"] = score_data["breakdown"]
                 item["why_matched"] = score_data["highlights"]
-                item["personal_rationale"] = RecommendationEngine._generate_rationale(doc, profile, score_data)
-
-                # Compute matched and missing skills directly for UI badge highlighting
-                matched = []
-                missing = []
-                for s in opp_skills:
-                    s_str = str(s).strip()
-                    s_norm = s_str.lower()
-                    if s_norm in student_skills or any(st in s_norm or s_norm in st for st in student_skills):
-                        matched.append(s_str)
-                    else:
-                        missing.append(s_str)
-                item["matched_skills"] = matched
-                item["missing_skills"] = missing
+                item["personal_rationale"] = RecommendationEngine._generate_rationale(doc, profile, score_data, evidence=evidence)
+                item["skill_gap"] = skill_gap
+                item["demonstrated_skills"] = [d["skill"] for d in skill_gap["demonstrated"]]
+                item["listed_skills"] = [l["skill"] for l in skill_gap["listed"]]
+                item["potential_gaps"] = skill_gap["potential_gaps"]
+                item["matched_skills"] = skill_gap["matched_skills"]
+                item["missing_skills"] = skill_gap["missing_skills"]
+                item["has_resume_evidence"] = evidence["has_resume"]
             else:
                 item["matched_skills"] = []
                 item["missing_skills"] = opp_skills
 
             items.append(item)
 
-        # Prioritize matching opportunities to student profile and resume
+        # Prioritize matching opportunities to student profile:
+        # Decouple Hard Eligibility: Eligible records rank strictly before Not-Eligible records
         if profile is not None and sort_by in ("latest", "match", "relevance", None):
-            items.sort(key=lambda x: (x.get("match_score", 0), len(x.get("matched_skills", []))), reverse=True)
+            def _opportunity_sort_key(x):
+                status = (x.get("eligibility") or {}).get("status", "")
+                elig_rank = 2 if status == "eligible" else (1 if status == "needs_review" else 0)
+                applied_rank = 0 if x.get("already_applied") else 1
+                return (
+                    elig_rank,
+                    applied_rank,
+                    x.get("match_score", 0),
+                    len(x.get("matched_skills", []))
+                )
+
+            items.sort(key=_opportunity_sort_key, reverse=True)
 
         if matched_only and profile is not None:
-            matched_items = [x for x in items if x.get("match_score", 0) >= 60 or len(x.get("matched_skills", [])) > 0]
-            if len(matched_items) >= 10:
+            matched_items = [
+                x for x in items
+                if (x.get("eligibility") or {}).get("is_eligible", False) and
+                   (x.get("match_score", 0) >= 60 or len(x.get("matched_skills", [])) > 0)
+            ]
+            if len(matched_items) >= 5:
                 items = matched_items
+
+        # Feed-Level Deduplication: Guarantee student feed never serves duplicate opportunity cards
+        from app.services.dedup_service import DeduplicationService
+        seen_feed_keys = set()
+        deduped_items = []
+        for item in items:
+            org = (item.get("organization") or {}).get("name") or item.get("organization_name") or ""
+            norm_org = DeduplicationService.normalize_org_name(org)
+            title = item.get("title") or ""
+            norm_title = DeduplicationService.normalize_title(title)
+            opp_type = str(item.get("type") or "job").strip().lower()
+            loc = DeduplicationService.normalize_location_token(item.get("location"))
+
+            feed_key = f"{norm_org}::{norm_title}::{opp_type}::{loc}" if (norm_org and norm_title) else str(item.get("id") or item.get("_id"))
+            if feed_key in seen_feed_keys:
+                continue
+            seen_feed_keys.add(feed_key)
+            deduped_items.append(item)
+
+        items = deduped_items
 
         total_count = len(items)
         total_pages = math.ceil(total_count / limit) if total_count > 0 else 1

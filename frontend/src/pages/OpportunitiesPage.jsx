@@ -526,6 +526,40 @@ export default function OpportunitiesPage() {
         </Link>
       </div>
 
+      {(!profile?.resume?.fileName && !profile?.resume_data) && (
+        <div
+          style={{
+            padding: '0.65rem 1rem',
+            borderRadius: '10px',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            color: '#92400e',
+            fontSize: '0.8rem',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            flexWrap: 'wrap'
+          }}
+        >
+          <span>
+            💡 <strong>Limited Resume Evidence:</strong> You have not uploaded a resume yet. Recommendations are currently using your profile tags. Upload your resume to unlock verified project skill matching!
+          </span>
+          <Link
+            to="/resume"
+            style={{
+              color: '#b45309',
+              fontWeight: 700,
+              textDecoration: 'underline',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Upload Resume →
+          </Link>
+        </div>
+      )}
+
       {/* 2. Floating Search & Filter Bar */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
         <div className="mavens-job-search-card">
@@ -674,6 +708,7 @@ export default function OpportunitiesPage() {
             {[
               { label: 'All', value: 'All' },
               { label: 'Eligible Only', value: 'eligible' },
+              { label: 'Needs Review', value: 'needs_review' }
             ].map((f) => (
               <button
                 key={f.value}

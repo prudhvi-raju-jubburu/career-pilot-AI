@@ -40,6 +40,151 @@ class RecommendationEngine:
     """
 
     @classmethod
+    def build_student_evidence_profile(cls, profile: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Builds a multi-signal, verified evidence profile combining:
+          1. Manually entered profile details (strict precedence over raw parser inferences)
+          2. Parsed skills and experience from the uploaded resume
+          3. Demonstrated skills grounded in verified projects, internships, and certifications
+          4. Listed skills from profile tags and resume text
+          5. Education and graduation credentials
+        """
+        from app.utils.skill_normalizer import normalize_skill
+        from app.utils.opportunity_normalizer import extract_skills_from_text
+
+        demonstrated_skills: Set[str] = set()
+        demonstrated_evidence: Dict[str, List[str]] = {}
+        listed_skills: Set[str] = set()
+
+        def _record_demonstrated(skill_name: str, source_label: str):
+            clean = str(skill_name).strip()
+            if not clean:
+                return
+            canon = normalize_skill(clean)
+            c_low = canon.lower().strip() if canon else clean.lower().strip()
+            demonstrated_skills.add(c_low)
+            demonstrated_skills.add(clean.lower())
+            if c_low not in demonstrated_evidence:
+                demonstrated_evidence[c_low] = []
+            if source_label not in demonstrated_evidence[c_low]:
+                demonstrated_evidence[c_low].append(source_label)
+
+        def _record_listed(skill_name: str):
+            clean = str(skill_name).strip()
+            if not clean:
+                return
+            canon = normalize_skill(clean)
+            c_low = canon.lower().strip() if canon else clean.lower().strip()
+            listed_skills.add(c_low)
+            listed_skills.add(clean.lower())
+
+        # 1. Demonstrated from Projects (Profile projects take precedence, supplemented by resume_data)
+        projects = profile.get("projects") or []
+        resume_data = profile.get("resume_data") or profile.get("parsed_resume") or {}
+        if not projects and isinstance(resume_data, dict):
+            projects = resume_data.get("projects") or []
+
+        for p in projects:
+            p_title = p.get("title") or p.get("name") or "Project"
+            techs = p.get("technologies") or p.get("tech_stack") or []
+            if isinstance(techs, str):
+                techs = [t.strip() for t in techs.split(",") if t.strip()]
+            for t in techs:
+                _record_demonstrated(t, f"Project '{p_title}'")
+            desc = p.get("description", "")
+            if desc:
+                inferred = extract_skills_from_text(desc)
+                for s in inferred:
+                    _record_demonstrated(s, f"Project '{p_title}'")
+
+        # 2. Demonstrated from Work Experience / Internships
+        experience = profile.get("experience") or []
+        if not experience and isinstance(resume_data, dict):
+            experience = resume_data.get("experience") or []
+
+        for exp in experience:
+            role = exp.get("role") or exp.get("position") or "Experience"
+            comp = exp.get("company") or exp.get("organization") or ""
+            label = f"{role} at {comp}" if comp else role
+            techs = exp.get("technologies") or []
+            if isinstance(techs, str):
+                techs = [t.strip() for t in techs.split(",") if t.strip()]
+            for t in techs:
+                _record_demonstrated(t, f"Experience ({label})")
+            desc = exp.get("description", "")
+            if desc:
+                inferred = extract_skills_from_text(desc)
+                for s in inferred:
+                    _record_demonstrated(s, f"Experience ({label})")
+
+        # 3. Demonstrated from Certifications
+        certs = profile.get("certifications") or []
+        if not certs and isinstance(resume_data, dict):
+            certs = resume_data.get("certifications") or []
+
+        for c in certs:
+            c_name = c.get("name") or c.get("title") or "Certification"
+            techs = c.get("skills") or []
+            if isinstance(techs, str):
+                techs = [t.strip() for t in techs.split(",") if t.strip()]
+            for t in techs:
+                _record_demonstrated(t, f"Certification: {c_name}")
+            inferred = extract_skills_from_text(c_name)
+            for s in inferred:
+                _record_demonstrated(s, f"Certification: {c_name}")
+
+        # 4. Listed from Profile Skills (manual profile skills take precedence)
+        raw_skills = profile.get("skills") or []
+        if isinstance(raw_skills, list):
+            for s in raw_skills:
+                _record_listed(str(s))
+        elif isinstance(raw_skills, dict):
+            for v in raw_skills.values():
+                if isinstance(v, list):
+                    for item in v:
+                        _record_listed(str(item))
+                elif isinstance(v, dict) and "value" in v:
+                    val = v["value"]
+                    if isinstance(val, list):
+                        for item in val:
+                            _record_listed(str(item))
+                    elif isinstance(val, str):
+                        _record_listed(val)
+
+        # 5. Listed from Uploaded Resume Data (if available)
+        has_resume = False
+        resume_meta = profile.get("resume") or {}
+        if resume_meta.get("fileName") or profile.get("resume_data") or profile.get("has_resume"):
+            has_resume = True
+            r_skills = resume_data.get("skills") or []
+            if isinstance(r_skills, list):
+                for s in r_skills:
+                    if isinstance(s, dict):
+                        _record_listed(str(s.get("name") or s.get("skill") or ""))
+                    else:
+                        _record_listed(str(s))
+            elif isinstance(r_skills, dict):
+                for v in r_skills.values():
+                    if isinstance(v, list):
+                        for item in v:
+                            _record_listed(str(item))
+
+        all_skills = demonstrated_skills.union(listed_skills)
+
+        return {
+            "has_resume": has_resume,
+            "has_profile": bool(profile),
+            "demonstrated_skills": demonstrated_skills,
+            "demonstrated_evidence": demonstrated_evidence,
+            "listed_skills": listed_skills,
+            "all_student_skills": all_skills,
+            "target_roles": cls._extract_student_preferred_roles(profile),
+            "projects_count": len(projects),
+            "experience_count": len(experience),
+            "certifications_count": len(certs)
+        }
+
+    @classmethod
     def get_recommendations(
         cls,
         user_id: str,
@@ -47,15 +192,18 @@ class RecommendationEngine:
         location: Optional[str] = None,
         work_mode: Optional[str] = None,
         min_stipend: Optional[int] = None,
-        tab: str = "recommended",  # 'recommended' | 'stretch' | 'saved'
+        tab: str = "recommended",  # 'recommended' | 'stretch' | 'saved' | 'applied'
         limit: int = 20,
         cursor: Optional[int] = 0
     ) -> Dict[str, Any]:
         """
         Retrieves personalized recommendations tailored to the student.
+        Decouples hard eligibility strictly before relevance ranking.
+        Excludes already applied opportunities from active recommended feed.
         """
-        # 1. Fetch student profile
+        # 1. Fetch student profile and build evidence profile
         profile_doc = ProfileModel.find_by_user_id(user_id) or {}
+        evidence = cls.build_student_evidence_profile(profile_doc)
 
         # 2. Fetch user's company watchlist
         watchlist = set(CompanyModel.get_user_watchlist(user_id))
@@ -64,7 +212,19 @@ class RecommendationEngine:
         from app.services.signal_interpreter import SignalInterpreter
         student_prefs = SignalInterpreter.build_student_preference_profile(user_id)
 
-        # 4. Retrieve candidates from MongoDB
+        # 4. Fetch tracked user applications to avoid recommending already applied opportunities
+        applied_map: Dict[str, str] = {}
+        try:
+            from app.models.application import ApplicationModel
+            user_applications = ApplicationModel.find_by_user(user_id)
+            applied_map = {
+                str(app.get("opportunity_id")): app.get("status", "Applied")
+                for app in user_applications if app.get("opportunity_id")
+            }
+        except Exception as e:
+            logger.warning("Could not fetch user applications for dedup: %s", str(e))
+
+        # 5. Retrieve candidates from MongoDB
         candidates = cls._retrieve_candidates(
             opp_type=opp_type,
             location=location,
@@ -75,12 +235,14 @@ class RecommendationEngine:
 
         recommended_items = []
         stretch_items = []
+        applied_items = []
 
-        student_skills = cls._extract_student_skills(profile_doc)
-        student_roles = cls._extract_student_preferred_roles(profile_doc)
+        student_skills = evidence["all_student_skills"]
+        student_roles = evidence["target_roles"]
 
         for opp in candidates:
             opp_id = str(opp.get("_id") or opp.get("id", ""))
+            is_applied = opp_id in applied_map
 
             # Deterministic hard eligibility check
             eligibility = EligibilityEngine.evaluate(opp, profile_doc)
@@ -92,7 +254,8 @@ class RecommendationEngine:
                 student_skills=student_skills,
                 student_roles=student_roles,
                 watchlist=watchlist,
-                eligibility=eligibility
+                eligibility=eligibility,
+                evidence=evidence
             )
 
             # Calculate bounded personalization adjustment from interaction history
@@ -106,8 +269,8 @@ class RecommendationEngine:
             if pers_delta > 0 and pers_highlights:
                 highlights.insert(0, pers_highlights[0])
 
-            # Build skill gap breakdown
-            skill_gap = cls._build_skill_gap(opp, student_skills)
+            # Build grounded skill gap breakdown distinguishing demonstrated vs listed
+            skill_gap = cls._build_skill_gap(opp, evidence)
 
             # Construct explainable card payload
             enriched_item = {
@@ -118,29 +281,66 @@ class RecommendationEngine:
                 "score_breakdown": score_data["breakdown"],
                 "eligibility": eligibility,
                 "skill_gap": skill_gap,
+                "demonstrated_skills": [d["skill"] for d in skill_gap["demonstrated"]],
+                "listed_skills": [l["skill"] for l in skill_gap["listed"]],
+                "potential_gaps": skill_gap["potential_gaps"],
+                "has_resume_evidence": evidence["has_resume"],
                 "is_watched_company": opp.get("organization", {}).get("name") in watchlist,
                 "why_matched": highlights[:3],
-                "personal_rationale": cls._generate_rationale(opp, profile_doc, score_data)
+                "personal_rationale": cls._generate_rationale(opp, profile_doc, score_data, evidence=evidence)
             }
 
-            # Filter out explicitly dismissed/not-relevant opportunities from recommended feed
+            if is_applied:
+                enriched_item["already_applied"] = True
+                enriched_item["application_status"] = applied_map[opp_id]
+                applied_items.append(enriched_item)
+
+            # Filter out explicitly dismissed/not-relevant opportunities
             is_dismissed = opp_id in student_prefs["dismissed_opp_ids"] or opp_id in student_prefs["not_relevant_opp_ids"]
 
-            # Decouple Eligibility from Relevance:
-            # High match score must NEVER override failed mandatory requirements.
-            if eligibility.get("is_eligible", False):
-                if not is_dismissed:
-                    recommended_items.append(enriched_item)
-                else:
-                    enriched_item["stretch_reasons"] = ["Dismissed by you"]
-                    stretch_items.append(enriched_item)
-            else:
+            # Decouple Hard Eligibility from Relevance Ranking:
+            # A high relevance score must NEVER override failed mandatory requirements.
+            if is_applied:
+                # Do not recommend in default feed if already applied
+                enriched_item["stretch_reasons"] = [f"Already applied ({applied_map[opp_id]})"]
+                stretch_items.append(enriched_item)
+            elif not eligibility.get("is_eligible", False):
                 enriched_item["stretch_reasons"] = eligibility.get("critical_failures") or eligibility.get("unknown_requirements", [])
                 stretch_items.append(enriched_item)
+            elif is_dismissed:
+                enriched_item["stretch_reasons"] = ["Dismissed by you"]
+                stretch_items.append(enriched_item)
+            else:
+                recommended_items.append(enriched_item)
 
         # Sort by total match score descending
         recommended_items.sort(key=lambda x: x["match_score"], reverse=True)
         stretch_items.sort(key=lambda x: x["match_score"], reverse=True)
+        applied_items.sort(key=lambda x: x["match_score"], reverse=True)
+
+        # Feed-Level Deduplication: Guarantee recommended, stretch, and applied feeds never serve duplicate cards
+        from app.services.dedup_service import DeduplicationService
+
+        def _dedupe_opportunity_list(item_list):
+            seen_feed_keys = set()
+            unique_items = []
+            for itm in item_list:
+                org = (itm.get("organization") or {}).get("name") or itm.get("organization_name") or ""
+                norm_org = DeduplicationService.normalize_org_name(org)
+                title = itm.get("title") or ""
+                norm_title = DeduplicationService.normalize_title(title)
+                opp_type = str(itm.get("type") or "job").strip().lower()
+                loc = DeduplicationService.normalize_location_token(itm.get("location"))
+                feed_key = f"{norm_org}::{norm_title}::{opp_type}::{loc}" if (norm_org and norm_title) else str(itm.get("id") or itm.get("_id"))
+                if feed_key in seen_feed_keys:
+                    continue
+                seen_feed_keys.add(feed_key)
+                unique_items.append(itm)
+            return unique_items
+
+        recommended_items = _dedupe_opportunity_list(recommended_items)
+        stretch_items = _dedupe_opportunity_list(stretch_items)
+        applied_items = _dedupe_opportunity_list(applied_items)
 
         # Apply diversity reranking
         diversified_recommended = cls._apply_diversity(recommended_items)
@@ -148,6 +348,8 @@ class RecommendationEngine:
         # Select tab
         if tab == "stretch":
             active_list = stretch_items
+        elif tab == "applied":
+            active_list = applied_items
         elif tab == "saved":
             from app.services.opportunity_service import OpportunityService
             saved_ids = set(OpportunityService.get_saved_opportunity_ids(user_id))
@@ -170,7 +372,14 @@ class RecommendationEngine:
             "counts": {
                 "recommended": len(diversified_recommended),
                 "stretch": len(stretch_items),
-                "saved": saved_count
+                "saved": saved_count,
+                "applied": len(applied_items)
+            },
+            "evidence_summary": {
+                "has_resume": evidence["has_resume"],
+                "demonstrated_skills_count": len(evidence["demonstrated_skills"]),
+                "listed_skills_count": len(evidence["listed_skills"]),
+                "projects_count": evidence["projects_count"]
             },
             "next_cursor": (start + limit) if has_next else None,
             "weights": {
@@ -187,19 +396,21 @@ class RecommendationEngine:
     def explain_recommendation(cls, opp_id: str, user_id: str) -> Optional[Dict[str, Any]]:
         """
         Returns full explainability inspector for a single recommendation.
+        Grounded in student verified evidence and opportunity criteria.
         """
         opp = OpportunityModel.find_by_id(opp_id)
         if not opp:
             return None
 
         profile_doc = ProfileModel.find_by_user_id(user_id) or {}
+        evidence = cls.build_student_evidence_profile(profile_doc)
         watchlist = set(CompanyModel.get_user_watchlist(user_id))
 
         from app.services.signal_interpreter import SignalInterpreter
         student_prefs = SignalInterpreter.build_student_preference_profile(user_id)
 
-        student_skills = cls._extract_student_skills(profile_doc)
-        student_roles = cls._extract_student_preferred_roles(profile_doc)
+        student_skills = evidence["all_student_skills"]
+        student_roles = evidence["target_roles"]
         eligibility = EligibilityEngine.evaluate(opp, profile_doc)
 
         score_data = cls._score_opportunity(
@@ -208,7 +419,8 @@ class RecommendationEngine:
             student_skills=student_skills,
             student_roles=student_roles,
             watchlist=watchlist,
-            eligibility=eligibility
+            eligibility=eligibility,
+            evidence=evidence
         )
 
         pers_delta, pers_highlights = SignalInterpreter.calculate_personalization_adjustment(opp, student_prefs)
@@ -221,7 +433,7 @@ class RecommendationEngine:
         if pers_delta > 0 and pers_highlights:
             highlights.insert(0, pers_highlights[0])
 
-        skill_gap = cls._build_skill_gap(opp, student_skills)
+        skill_gap = cls._build_skill_gap(opp, evidence)
 
         return {
             "opportunity_id": str(opp_id),
@@ -242,7 +454,11 @@ class RecommendationEngine:
             "highlights": highlights,
             "eligibility": eligibility,
             "skill_gap": skill_gap,
-            "personal_rationale": cls._generate_rationale(opp, profile_doc, score_data)
+            "demonstrated_skills": [d["skill"] for d in skill_gap["demonstrated"]],
+            "listed_skills": [l["skill"] for l in skill_gap["listed"]],
+            "potential_gaps": skill_gap["potential_gaps"],
+            "has_resume_evidence": evidence["has_resume"],
+            "personal_rationale": cls._generate_rationale(opp, profile_doc, score_data, evidence=evidence)
         }
 
     @classmethod
@@ -299,12 +515,13 @@ class RecommendationEngine:
         student_skills: set,
         student_roles: List[str],
         watchlist: set,
-        eligibility: Dict[str, Any]
+        eligibility: Dict[str, Any],
+        evidence: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Calculates production 5-factor weighted match score between 0 and 100.
         Factors:
-          1. Confirmed skill relevance: 35%
+          1. Confirmed skill relevance: 35% (weights demonstrated project skills higher than self-reported)
           2. Target role and career preference: 25%
           3. Project and experience relevance: 15%
           4. Education and graduation fit: 15%
@@ -326,12 +543,22 @@ class RecommendationEngine:
             if s_str:
                 opp_skills.append(s_str.lower())
 
+        demonstrated_set = evidence.get("demonstrated_skills", set()) if evidence else set()
+        listed_set = evidence.get("listed_skills", set()) if evidence else set()
+
         matched_skills = []
+        demonstrated_matched = []
+        listed_matched = []
+
         for s in opp_skills_raw:
             s_low = str(s).strip().lower()
             c = normalize_skill(s)
             c_low = c.lower().strip() if c else s_low
-            if s_low in student_skills or c_low in student_skills:
+            if s_low in demonstrated_set or c_low in demonstrated_set:
+                demonstrated_matched.append(s)
+                matched_skills.append(s)
+            elif s_low in listed_set or c_low in listed_set or s_low in student_skills or c_low in student_skills:
+                listed_matched.append(s)
                 matched_skills.append(s)
 
         if opp_type in ("scholarship", "fellowship"):
@@ -367,7 +594,11 @@ class RecommendationEngine:
             if matched_skills:
                 skill_score = min(98, skill_score + 10)
         elif opp_skills:
-            skill_score = min(100, int((len(matched_skills) / len(opp_skills)) * 100))
+            if evidence:
+                weighted_matches = (len(demonstrated_matched) * 1.0) + (len(listed_matched) * 0.8)
+                skill_score = min(100, int((weighted_matches / len(opp_skills)) * 100))
+            else:
+                skill_score = min(100, int((len(matched_skills) / len(opp_skills)) * 100))
         elif student_skills:
             # Word-boundary text matching for skills in title + description
             title_desc = f"{opp.get('title', '')} {opp.get('description', '')}".lower()
@@ -379,7 +610,9 @@ class RecommendationEngine:
         else:
             skill_score = 60
 
-        if matched_skills:
+        if demonstrated_matched:
+            highlights.append(f"Demonstrated project skills match {', '.join(demonstrated_matched[:3])}")
+        elif matched_skills:
             highlights.append(f"Matches your confirmed skills in {', '.join(matched_skills[:3])}")
 
         # -------------------------------------------------------------
@@ -594,37 +827,92 @@ class RecommendationEngine:
         }
 
     @classmethod
-    def _build_skill_gap(cls, opp: Dict[str, Any], student_skills: set) -> Dict[str, Any]:
-        """Calculates matched vs missing skills and links to learning resources."""
+    def _build_skill_gap(cls, opp: Dict[str, Any], student_skills: Any) -> Dict[str, Any]:
+        """
+        Calculates matched vs missing skills and links to learning resources.
+        Distinguishes demonstrated vs listed skills vs potential gaps.
+        """
+        from app.utils.skill_normalizer import normalize_skill
+
         opp_skills = opp.get("skills") or []
-        matched = []
-        missing = []
+
+        if isinstance(student_skills, dict):
+            demonstrated_set = student_skills.get("demonstrated_skills", set())
+            listed_set = student_skills.get("listed_skills", set())
+            demonstrated_evidence = student_skills.get("demonstrated_evidence", {})
+            has_profile_data = bool(student_skills.get("all_student_skills"))
+            has_resume = student_skills.get("has_resume", False)
+        else:
+            demonstrated_set = set()
+            listed_set = student_skills or set()
+            demonstrated_evidence = {}
+            has_profile_data = bool(student_skills)
+            has_resume = False
+
+        demonstrated = []
+        listed = []
+        potential_gaps = []
+        unknown = []
+        matched_skills = []
 
         for s in opp_skills:
-            if str(s).lower().strip() in student_skills:
-                matched.append(s)
-            else:
-                missing.append(s)
+            s_clean = str(s).strip()
+            if not s_clean:
+                continue
+            c = normalize_skill(s_clean)
+            c_low = c.lower().strip() if c else s_clean.lower().strip()
+            s_low = s_clean.lower()
 
-        readiness = (
-            "Ready to Apply"
-            if len(matched) >= math.ceil(len(opp_skills) * 0.6) or len(missing) <= 1
-            else f"Learn {missing[0]} First" if missing else "Ready to Apply"
-        )
-        estimated_effort = "1-2 weeks" if len(missing) <= 2 else "3-4 weeks"
+            if not has_profile_data:
+                unknown.append(s_clean)
+            elif c_low in demonstrated_set or s_low in demonstrated_set:
+                sources = demonstrated_evidence.get(c_low) or demonstrated_evidence.get(s_low) or []
+                src_label = sources[0] if sources else "Demonstrated in verified projects/experience"
+                demonstrated.append({
+                    "skill": s_clean,
+                    "evidence": src_label
+                })
+                matched_skills.append(s_clean)
+            elif c_low in listed_set or s_low in listed_set:
+                listed.append({
+                    "skill": s_clean,
+                    "evidence": "Listed in profile or resume"
+                })
+                matched_skills.append(s_clean)
+            else:
+                potential_gaps.append(s_clean)
+
+        total_reqs = len(opp_skills)
+        if total_reqs == 0:
+            readiness = "Ready to Apply"
+            estimated_effort = "Immediate"
+        elif len(matched_skills) >= math.ceil(total_reqs * 0.7):
+            readiness = "Ready to Apply"
+            estimated_effort = "1-2 days (review JD)"
+        elif len(potential_gaps) <= 2:
+            readiness = f"Review {potential_gaps[0]}" if potential_gaps else "Ready to Apply"
+            estimated_effort = "1-2 weeks"
+        else:
+            readiness = f"Learn {potential_gaps[0]} First" if potential_gaps else "Needs Preparation"
+            estimated_effort = "3-4 weeks"
 
         learning_resources = []
-        for m in missing[:2]:
+        for m in potential_gaps[:2]:
             res = get_learning_resources_for_skill(m)
             if res:
                 learning_resources.extend(res[:1])
 
         return {
-            "matched_skills": matched,
-            "missing_skills": missing,
+            "demonstrated": demonstrated,
+            "listed": listed,
+            "potential_gaps": potential_gaps,
+            "unknown": unknown,
+            "matched_skills": matched_skills,
+            "missing_skills": potential_gaps,
             "readiness_status": readiness,
             "estimated_effort": estimated_effort,
-            "learning_resources": learning_resources
+            "learning_resources": learning_resources,
+            "has_resume_evidence": has_resume
         }
 
     @classmethod
@@ -647,7 +935,13 @@ class RecommendationEngine:
         return result
 
     @classmethod
-    def _generate_rationale(cls, opp: Dict[str, Any], profile: Dict[str, Any], score_data: Dict[str, Any]) -> str:
+    def _generate_rationale(
+        cls,
+        opp: Dict[str, Any],
+        profile: Dict[str, Any],
+        score_data: Dict[str, Any],
+        evidence: Optional[Dict[str, Any]] = None
+    ) -> str:
         """
         Generates personalized rationale grounded strictly in student profile & opportunity text.
         """
@@ -663,6 +957,9 @@ class RecommendationEngine:
 
         if matched:
             fallback = f"Recommended for you: {matched[0]}."
+        elif evidence and not evidence.get("has_resume"):
+            title = opp.get("title", "Role")
+            fallback = f"Matched to {title} at {company} based on your profile preferences. Upload a resume to enable verified project skill matching."
         else:
             title = opp.get("title", "Role")
             fallback = f"Relevant opening for {title} at {company} matching your profile."
@@ -685,6 +982,33 @@ class RecommendationEngine:
                     candidate_list.extend(v)
                 elif isinstance(v, dict) and "value" in v and isinstance(v["value"], list):
                     candidate_list.extend(v["value"])
+
+        # Projects skills
+        for p in (profile.get("projects") or []):
+            techs = p.get("technologies") or p.get("tech_stack") or []
+            if isinstance(techs, list):
+                candidate_list.extend(techs)
+            elif isinstance(techs, str):
+                candidate_list.extend(techs.split(","))
+
+        # Experience skills
+        for exp in (profile.get("experience") or []):
+            techs = exp.get("technologies") or []
+            if isinstance(techs, list):
+                candidate_list.extend(techs)
+            elif isinstance(techs, str):
+                candidate_list.extend(techs.split(","))
+
+        # Resume data skills
+        resume_data = profile.get("resume_data") or profile.get("parsed_resume") or {}
+        if isinstance(resume_data, dict):
+            r_skills = resume_data.get("skills") or []
+            if isinstance(r_skills, list):
+                for s in r_skills:
+                    if isinstance(s, dict):
+                        candidate_list.append(s.get("name") or s.get("skill") or "")
+                    else:
+                        candidate_list.append(s)
 
         for s in candidate_list:
             s_str = str(s).strip()

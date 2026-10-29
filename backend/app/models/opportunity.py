@@ -25,8 +25,10 @@ class OpportunityModel:
         """Creates optimized indexes for fast opportunity search, filtering, sorting, and deduplication."""
         try:
             col = cls.get_collection()
-            # 1. Unique deduplication index
+            # 1. Unique deduplication & identity indexes
             col.create_index("metadata.raw_hash", unique=True, sparse=True)
+            col.create_index([("source.name", 1), ("source.external_id", 1)], sparse=True)
+            col.create_index("application_url", sparse=True)
 
             # 2. Filtering & query indexes
             col.create_index("status")

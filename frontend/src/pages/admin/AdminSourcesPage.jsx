@@ -244,10 +244,10 @@ export default function AdminSourcesPage() {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(4, 1fr)',
-                      gap: '0.5rem',
+                      gridTemplateColumns: 'repeat(5, 1fr)',
+                      gap: '0.4rem',
                       backgroundColor: '#f8fafc',
-                      padding: '0.75rem',
+                      padding: '0.75rem 0.5rem',
                       borderRadius: '8px',
                       border: '1px solid #e2e8f0',
                       textAlign: 'center',
@@ -261,6 +261,10 @@ export default function AdminSourcesPage() {
                     <div>
                       <div style={{ color: '#64748b', fontSize: '0.6875rem', fontWeight: 600 }}>Accepted</div>
                       <div style={{ fontWeight: 700, color: '#059669', marginTop: '0.15rem' }}>{conn.items_accepted}</div>
+                    </div>
+                    <div>
+                      <div style={{ color: '#64748b', fontSize: '0.6875rem', fontWeight: 600 }}>Updated</div>
+                      <div style={{ fontWeight: 700, color: '#2563eb', marginTop: '0.15rem' }}>{conn.items_updated || 0}</div>
                     </div>
                     <div>
                       <div style={{ color: '#64748b', fontSize: '0.6875rem', fontWeight: 600 }}>Duplicates</div>
@@ -303,7 +307,15 @@ export default function AdminSourcesPage() {
                   }}
                 >
                   <div>
-                    Last Sync: {conn.last_synced_at ? conn.last_synced_at.split('T')[0] : 'Never'}
+                    <div>
+                      <span style={{ fontWeight: 600 }}>Last Attempt:</span>{' '}
+                      {conn.last_synced_at ? conn.last_synced_at.replace('T', ' ').slice(0, 16) : 'Never'}
+                    </div>
+                    {conn.last_success_at && conn.last_success_at !== conn.last_synced_at && (
+                      <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: '0.15rem' }}>
+                        Last Success: {conn.last_success_at.replace('T', ' ').slice(0, 16)}
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -406,9 +418,10 @@ export default function AdminSourcesPage() {
                       </span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1rem', color: '#475569', fontSize: '0.75rem' }}>
+                    <div style={{ display: 'flex', gap: '0.85rem', color: '#475569', fontSize: '0.75rem', flexWrap: 'wrap' }}>
                       <span>Fetched: <strong style={{ color: '#0f172a' }}>{run.fetched || 0}</strong></span>
                       <span>Accepted: <strong style={{ color: '#059669' }}>{run.accepted || 0}</strong></span>
+                      <span>Updated: <strong style={{ color: '#2563eb' }}>{run.updated || 0}</strong></span>
                       <span>Duplicates: <strong style={{ color: '#d97706' }}>{run.duplicates || 0}</strong></span>
                       <span>Duration: <strong style={{ color: '#0f172a' }}>{run.duration_seconds || 0}s</strong></span>
                     </div>
