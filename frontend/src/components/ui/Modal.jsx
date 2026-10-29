@@ -34,6 +34,16 @@ export default function Modal({
     };
   }, [isOpen, onClose]);
 
+  // Initial focus management
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      const focusable = modalRef.current.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (focusable) {
+        focusable.focus();
+      }
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (

@@ -14,9 +14,8 @@ import {
   Sparkles,
   Award,
   Layers,
-  LayoutGrid,
-  List,
   AlertCircle,
+  HelpCircle,
   X,
   Share2,
   ChevronRight,
@@ -24,7 +23,9 @@ import {
   Globe,
   DollarSign,
   Send,
-  ArrowRight
+  ArrowRight,
+  RotateCcw,
+  Check
 } from 'lucide-react';
 import PageContainer from '../components/layout/PageContainer';
 import Card from '../components/ui/Card';
@@ -32,19 +33,44 @@ import Button from '../components/ui/Button';
 import SearchInput from '../components/ui/SearchInput';
 import Badge, { StatusBadge, OpportunityTypeBadge } from '../components/ui/Badge';
 import Drawer from '../components/ui/Drawer';
-import BottomSheet from '../components/ui/BottomSheet';
+import Modal from '../components/ui/Modal';
 import EmptyState from '../components/ui/EmptyState';
 import { SkeletonOpportunity } from '../components/ui/Skeleton';
 import { useToast } from '../context/ToastContext';
 import opportunityService from '../services/opportunityService';
 import OpportunityCard from '../components/opportunities/OpportunityCard';
-import OpportunitySwipeDeck from '../components/opportunities/OpportunitySwipeDeck';
+import OpportunityFeedbackWidget from '../components/opportunities/OpportunityFeedbackWidget';
 import RichJobDescription from '../components/opportunities/RichJobDescription';
 import { useLiveFeed } from '../hooks/useLiveFeed';
 import { useApplications } from '../hooks/useApplications';
+import { useAuth } from '../hooks/useAuth';
+import { useProfile } from '../hooks/useProfile';
+import { formatOpportunityLocation } from '../utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const CANONICAL_CATEGORIES = [
+  { label: 'All Opportunities', value: 'All' },
+  { label: 'Jobs', value: 'job' },
+  { label: 'Internships', value: 'internship' },
+  { label: 'Saved Bookmarks', value: 'saved' }
+];
+
+const WORK_MODES = ['All', 'Remote', 'Hybrid', 'Onsite'];
+
+const INDIAN_LOCATIONS = [
+  { label: 'All India', value: 'All' },
+  { label: 'Bengaluru', value: 'Bengaluru' },
+  { label: 'Hyderabad', value: 'Hyderabad' },
+  { label: 'Pune', value: 'Pune' },
+  { label: 'Delhi NCR', value: 'Delhi NCR' },
+  { label: 'Mumbai', value: 'Mumbai' },
+  { label: 'Chennai', value: 'Chennai' },
+  { label: 'Remote (India)', value: 'Remote' }
+];
+
 export default function OpportunitiesPage() {
+  const { user } = useAuth();
+  const { profile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -55,6 +81,56 @@ export default function OpportunitiesPage() {
     updateStage: updateAppStage
   } = useApplications();
 
+  const getSafeString = (field, fallback = '') => {
+    if (!field) return fallback;
+    if (typeof field === 'string') return field;
+    if (typeof field === 'number') return String(field);
+    if (typeof field === 'object') {
+      if (typeof field.value === 'string' && field.value.trim()) return field.value;
+      if (typeof field.value === 'number') return String(field.value);
+      if (typeof field.name === 'string' && field.name.trim()) return field.name;
+      if (typeof field.skill === 'string' && field.skill.trim()) return field.skill;
+    }
+    return fallback;
+  };
+
+  const studentName = getSafeString(profile?.personal?.fullName) || getSafeString(profile?.name) || user?.name || 'Student';
+  const degreeVal = getSafeString(profile?.education?.degree, 'B.Tech');
+  const branchVal = getSafeString(profile?.education?.branch, 'Computer Science');
+  const yearVal = getSafeString(profile?.education?.graduationYear) || getSafeString(profile?.education?.graduation_year, '2026');
+  const cgpaVal = getSafeString(profile?.education?.cgpa);
+
+  const displaySkills = useMemo(() => {
+    const extractName = (item) => getSafeString(item, '');
+
+    if (Array.isArray(profile?.skills) && profile.skills.length > 0) {
+      const list = profile.skills.map(extractName).filter(Boolean);
+      if (list.length > 0) return list;
+    }
+    if (profile?.skills && typeof profile.skills === 'object') {
+      const flattened = [];
+      Object.values(profile.skills).forEach((cat) => {
+        if (Array.isArray(cat)) {
+          cat.forEach((item) => {
+            const name = extractName(item);
+            if (name) flattened.push(name);
+          });
+        } else if (cat && typeof cat === 'object') {
+          if (Array.isArray(cat.value)) {
+            cat.value.forEach((item) => {
+              const name = extractName(item);
+              if (name) flattened.push(name);
+            });
+          } else if (typeof cat.value === 'string' && cat.value.trim()) {
+            flattened.push(cat.value.trim());
+          }
+        }
+      });
+      if (flattened.length > 0) return flattened;
+    }
+    return ['React', 'Python', 'Node.js', 'Problem Solving', 'Data Structures', 'Web Development'];
+  }, [profile]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [opportunities, setOpportunities] = useState([]);
@@ -63,13 +139,22 @@ export default function OpportunitiesPage() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
 
-  const [activeType, setActiveType] = useState(() => searchParams.get('type') || 'All');
+  const [activeCategory, setActiveCategory] = useState(() => searchParams.get('type') || 'All');
   const [activeMode, setActiveMode] = useState(() => searchParams.get('workMode') || 'All');
-  const [viewMode, setViewMode] = useState(() => searchParams.get('view') || 'grid'); // 'grid' | 'list' | 'deck'
+  const [activeLocation, setActiveLocation] = useState(() => searchParams.get('location') || 'All');
+  const [activeEligibilityFilter, setActiveEligibilityFilter] = useState('All'); // 'All' | 'eligible' | 'needs_review'
+  const [sortBy, setSortBy] = useState('relevance');
+  const [matchedOnly, setMatchedOnly] = useState(true);
+
   const [selectedOpp, setSelectedOpp] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const observerTarget = useRef(null);
 
+  // Manual Application Confirmation Modal State
+  const [confirmModalOpp, setConfirmModalOpp] = useState(null);
+  const [isConfirmingTrack, setIsConfirmingTrack] = useState(false);
+
+  // Saved Opportunities state
   const [savedOppIds, setSavedOppIds] = useState(() => {
     try {
       const saved = localStorage.getItem('careerpilot_bookmarked_opps');
@@ -79,17 +164,20 @@ export default function OpportunitiesPage() {
     }
   });
 
-  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
-
-  const opportunityTypes = [
-    { label: 'All', value: 'All' },
-    { label: 'Internships', value: 'internship' },
-    { label: 'Full-Time Jobs', value: 'job' },
-    { label: 'Hackathons', value: 'hackathon' },
-    { label: 'Coding Contests', value: 'coding_contest' },
-    { label: 'Fellowships', value: 'fellowship' },
-    { label: 'Scholarships', value: 'scholarship' }
-  ];
+  useEffect(() => {
+    let active = true;
+    const fetchSaved = async () => {
+      try {
+        const saved = await opportunityService.getSavedOpportunities();
+        if (active && Array.isArray(saved) && saved.length > 0) {
+          const ids = saved.map((s) => s.id || s._id).filter(Boolean);
+          setSavedOppIds((prev) => new Set([...prev, ...ids]));
+        }
+      } catch (e) {}
+    };
+    fetchSaved();
+    return () => { active = false; };
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -107,18 +195,37 @@ export default function OpportunitiesPage() {
     setError(null);
 
     try {
+      if (activeCategory === 'saved') {
+        const savedItems = await opportunityService.getSavedOpportunities();
+        const list = Array.isArray(savedItems) ? savedItems : [];
+        setOpportunities(list);
+        setPagination({ page: 1, limit: 100, total: list.length, pages: 1 });
+        setLoading(false);
+        return;
+      }
+
       const pageToFetch = isLoadMore ? pagination.page + 1 : 1;
       const filters = {
         page: pageToFetch,
         limit: 20,
         search: debouncedSearch.trim() || undefined,
-        type: activeType !== 'All' ? activeType : undefined,
+        type: activeCategory !== 'All' ? activeCategory : undefined,
         workMode: activeMode !== 'All' ? activeMode : undefined,
+        location: activeLocation !== 'All' ? activeLocation : undefined,
+        sort: sortBy,
+        matched: matchedOnly
       };
 
       const res = await opportunityService.getOpportunities(filters);
-      const items = res?.items || (Array.isArray(res) ? res : []);
+      let items = res?.items || (Array.isArray(res) ? res : []);
       const pag = res?.pagination || { page: pageToFetch, limit: 20, total: items.length, pages: 1 };
+
+      if (activeEligibilityFilter !== 'All') {
+        items = items.filter((item) => {
+          const status = item.eligibility?.status || (item.eligibility?.is_eligible ? 'eligible' : 'not_eligible');
+          return status === activeEligibilityFilter;
+        });
+      }
 
       if (isLoadMore) {
         setOpportunities((prev) => [...prev, ...items]);
@@ -127,7 +234,7 @@ export default function OpportunitiesPage() {
       }
       setPagination(pag);
 
-      // Handle deep-linked selected opportunity
+      // Deep-linked selected opportunity
       const selectedId = searchParams.get('selected');
       if (selectedId && !selectedOpp) {
         const found = items.find((o) => o.id === selectedId);
@@ -142,45 +249,28 @@ export default function OpportunitiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, activeType, activeMode, pagination.page, searchParams]);
+  }, [debouncedSearch, activeCategory, activeMode, activeLocation, activeEligibilityFilter, sortBy, matchedOnly, pagination.page, searchParams]);
 
   useEffect(() => {
     fetchOpportunities(false);
-  }, [debouncedSearch, activeType, activeMode]);
+  }, [debouncedSearch, activeCategory, activeMode, activeLocation, activeEligibilityFilter, sortBy, matchedOnly]);
 
-  // Sync filters and search to URL query params
+  // Sync to URL query params
   useEffect(() => {
     const params = new URLSearchParams();
     if (debouncedSearch) params.set('search', debouncedSearch);
-    if (activeType !== 'All') params.set('type', activeType);
+    if (activeCategory !== 'All') params.set('type', activeCategory);
     if (activeMode !== 'All') params.set('workMode', activeMode);
-    if (viewMode !== 'grid') params.set('view', viewMode);
+    if (activeLocation !== 'All') params.set('location', activeLocation);
     setSearchParams(params, { replace: true });
-  }, [debouncedSearch, activeType, activeMode, viewMode, setSearchParams]);
-
-  // Infinite scroll observer
-  useEffect(() => {
-    const target = observerTarget.current;
-    if (!target) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !loading && pagination.page < pagination.pages) {
-          fetchOpportunities(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [loading, pagination.page, pagination.pages, fetchOpportunities]);
+  }, [debouncedSearch, activeCategory, activeMode, activeLocation, setSearchParams]);
 
   const loadOpportunityDetail = async (id) => {
     setLoadingDetail(true);
     try {
       const detail = await opportunityService.getOpportunityById(id);
       setSelectedOpp(detail);
+      opportunityService.recordView(id);
     } catch (err) {
       toast.error('Could not load opportunity details.');
     } finally {
@@ -193,10 +283,12 @@ export default function OpportunitiesPage() {
       const next = new Set(prev);
       if (next.has(opp.id)) {
         next.delete(opp.id);
-        toast.info(`Removed ${opp.company} from saved opportunities`);
+        toast.info(`Removed ${opp.company} from saved bookmarks`);
+        opportunityService.unsaveOpportunity(opp.id);
       } else {
         next.add(opp.id);
-        toast.success(`Saved ${opp.company} (${opp.title}) to your bookmarks!`);
+        toast.success(`Saved ${opp.company} to your bookmarks!`);
+        opportunityService.saveOpportunity(opp.id);
       }
       try {
         localStorage.setItem('careerpilot_bookmarked_opps', JSON.stringify([...next]));
@@ -205,7 +297,7 @@ export default function OpportunitiesPage() {
     });
   };
 
-  // Map applications by opportunity ID or normalized company-role
+  // Map applications by opportunity ID
   const applicationsByOppId = useMemo(() => {
     const map = new Map();
     (applications || []).forEach((app) => {
@@ -230,83 +322,54 @@ export default function OpportunitiesPage() {
     [applicationsByOppId]
   );
 
-  const handleTrackOpportunity = async (opp, status = 'Saved') => {
-    try {
-      const existing = getOppApplication(opp);
-      if (existing) {
-        await updateAppStage(existing.id, status);
-        toast.success(`Updated ${opp.company} stage in Applications to "${status}"!`);
-        return;
-      }
+  /**
+   * Safe External Application Flow:
+   * 1. Safely opens external verified URL in a new tab.
+   * 2. Shows student confirmation modal: "Did you submit your application?"
+   * 3. Student manually confirms to record status in Tracker.
+   * No automatic/presumed submission.
+   */
+  const handleApplyClick = (opp) => {
+    const url = opp.applicationUrl || opp.application_url;
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setConfirmModalOpp(opp);
+    } else {
+      toast.info('Application link not provided. View opportunity details for submission instructions.');
+    }
+  };
 
+  const handleConfirmApplicationSubmission = async (status = 'Applied') => {
+    if (!confirmModalOpp) return;
+    setIsConfirmingTrack(true);
+    try {
+      const opp = confirmModalOpp;
       await trackApplication({
         opportunityId: opp.id,
-        company: opp.company,
+        company: opp.company || opp.organization?.name,
         role: opp.title,
-        type: opp.type === 'internship' ? 'Internship' : 'Full-Time',
-        status,
+        type: opp.type === 'internship' ? 'Internship' : 'Job',
+        status: status,
         appliedDate: status === 'Applied' ? new Date().toISOString().split('T')[0] : null,
-        matchScore: opp.matchScore || 88,
-        nextAction: status === 'Applied' ? 'Awaiting recruiter screening' : 'Review requirements & prepare resume',
-        nextActionDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-        notes: `Tracked from CareerPilot Opportunity Radar. Source: ${opp.source?.name || 'Verified Feed'}.`,
+        location: opp.locationString || 'India',
+        salary: opp.compensationString || 'Not specified',
+        deadline: opp.deadline,
+        applicationUrl: opp.applicationUrl || opp.application_url,
+        notes: `Tracked via external application portal on ${new Date().toLocaleDateString()}.`,
       });
 
       toast.success(
         status === 'Applied'
-          ? `Tracked application to ${opp.company} as "Applied"!`
+          ? `Application to ${opp.company} recorded in My Applications tracker!`
           : `Saved ${opp.company} to your Application Pipeline!`
       );
+      setConfirmModalOpp(null);
     } catch (err) {
-      toast.error('Could not track application: ' + err.message);
+      toast.error('Could not track application: ' + (err.message || 'Error'));
+    } finally {
+      setIsConfirmingTrack(false);
     }
   };
-
-  const handleApply = async (opp) => {
-    const url = opp.applicationUrl || opp.application_url;
-    if (url) {
-      window.open(url, '_blank', 'noopener,noreferrer');
-    } else {
-      toast.info(`Application link not provided. View opportunity details for submission instructions.`);
-      return;
-    }
-
-    // Auto-record or advance application status in pipeline
-    const existing = getOppApplication(opp);
-    if (!existing) {
-      try {
-        await trackApplication({
-          opportunityId: opp.id,
-          company: opp.company,
-          role: opp.title,
-          type: opp.type === 'internship' ? 'Internship' : 'Full-Time',
-          status: 'Applied',
-          appliedDate: new Date().toISOString().split('T')[0],
-          matchScore: opp.matchScore || 88,
-          nextAction: 'Submitted application — awaiting recruiter screening',
-          nextActionDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-          notes: `Applied via official listing link on ${new Date().toLocaleDateString()}. Tracked automatically.`,
-        });
-        toast.success(`Application site opened & tracked as "Applied" in your Pipeline!`);
-      } catch (err) {
-        console.warn('Auto-track failed:', err);
-      }
-    } else if (existing.status === 'Saved') {
-      try {
-        await updateAppStage(existing.id, 'Applied');
-        toast.success(`Moved ${opp.company} in Applications Pipeline to "Applied"!`);
-      } catch (err) {}
-    } else {
-      toast.success(`Opening verified application page for ${opp.company}`);
-    }
-  };
-
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (activeType !== 'All') count++;
-    if (activeMode !== 'All') count++;
-    return count;
-  }, [activeType, activeMode]);
 
   const handleLoadMore = () => {
     if (pagination.page < pagination.pages) {
@@ -316,7 +379,7 @@ export default function OpportunitiesPage() {
 
   return (
     <PageContainer>
-      {/* 1. Header & Quick Metrics */}
+      {/* 1. Header & Overview */}
       <div
         style={{
           display: 'flex',
@@ -324,127 +387,217 @@ export default function OpportunitiesPage() {
           alignItems: 'flex-start',
           flexWrap: 'wrap',
           gap: '1rem',
-          marginBottom: '1.75rem',
+          marginBottom: '1.25rem',
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
-            <h1 className="font-h1" style={{ color: 'var(--text-primary)' }}>
-              Discover Opportunities
-            </h1>
-            <Badge variant="primary" size="md">
-              {pagination.total > 0 ? `${pagination.total} Live` : 'Verified Feed'}
-            </Badge>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.45rem', flexWrap: 'wrap' }}>
+            <span className="lx-pill lx-pill-blue">
+              <Sparkles size={13} />
+              <span>🇮🇳 INDIA TECH OPPORTUNITIES ONLY</span>
+            </span>
+            <span className="lx-pill lx-pill-green">
+              <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+              <span>{pagination.total > 0 ? `${pagination.total} Verified Jobs & Internships` : 'Live Career Feeds'}</span>
+            </span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                color: '#1d4ed8',
+                borderRadius: '9999px',
+                padding: '0.2rem 0.65rem',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                border: '1px solid rgba(147, 197, 253, 0.5)'
+              }}
+            >
+              <span>📄 Resume-Matched</span>
+            </span>
           </div>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
-            Curated student internships, graduate full-time roles, hackathons, and scholarships with canonical requirements.
+          <h1 className="font-h1" style={{ color: 'var(--lx-ink)', fontSize: '2.15rem', fontWeight: 800, letterSpacing: '-0.035em' }}>
+            Personalized Jobs & Internships in India
+          </h1>
+          <p style={{ color: 'var(--lx-txt-2)', fontSize: '0.95rem', margin: '0.35rem 0 0 0' }}>
+            Discover tech jobs and internships across Indian tech hubs deterministically matched to your student profile, academic batch, and resume skills.
           </p>
         </div>
 
-        {/* View Toggle & Applications Pipeline Quick Link */}
+        {/* Action Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
           <Link to="/applications" style={{ textDecoration: 'none' }}>
             <Button
               variant="secondary"
               size="md"
               icon={<Layers size={16} />}
-              style={{ whiteSpace: 'nowrap' }}
+              style={{ whiteSpace: 'nowrap', borderRadius: '9999px' }}
             >
-              Applications Pipeline ({applications.length})
+              Application Tracker ({applications.length})
             </Button>
           </Link>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', backgroundColor: 'var(--surface)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-          <button
-            type="button"
-            onClick={() => setViewMode('grid')}
-            style={{
-              padding: '0.4rem 0.65rem',
-              borderRadius: 'var(--radius-sm)',
-              background: viewMode === 'grid' ? 'var(--primary-subtle)' : 'transparent',
-              color: viewMode === 'grid' ? 'var(--primary)' : 'var(--text-muted)',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-            }}
-            title="Grid View"
-          >
-            <LayoutGrid size={15} />
-            <span className="desktop-only-text">Grid</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('list')}
-            style={{
-              padding: '0.4rem 0.65rem',
-              borderRadius: 'var(--radius-sm)',
-              background: viewMode === 'list' ? 'var(--primary-subtle)' : 'transparent',
-              color: viewMode === 'list' ? 'var(--primary)' : 'var(--text-muted)',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-            }}
-            title="List View"
-          >
-            <List size={15} />
-            <span className="desktop-only-text">List</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('deck')}
-            style={{
-              padding: '0.4rem 0.65rem',
-              borderRadius: 'var(--radius-sm)',
-              background: viewMode === 'deck' ? 'var(--primary-subtle)' : 'transparent',
-              color: viewMode === 'deck' ? 'var(--primary)' : 'var(--text-muted)',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '0.8125rem',
-              fontWeight: 600,
-            }}
-            title="Swipe Deck Mode"
-          >
-            <Layers size={15} />
-            <span className="desktop-only-text">Swipe Deck</span>
-          </button>
+          <Link to="/resume" style={{ textDecoration: 'none' }}>
+            <Button
+              variant="outline"
+              size="md"
+              icon={<GraduationCap size={16} />}
+              style={{ whiteSpace: 'nowrap', borderRadius: '9999px' }}
+            >
+              View Resume AI
+            </Button>
+          </Link>
         </div>
       </div>
-    </div>
 
-      {/* 2. Search & Filter Bar */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.75rem' }}>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <div style={{ flex: 1, minWidth: '0' }}>
-            <SearchInput
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search roles, companies, or skills (e.g. Python, Google, Bengaluru)..."
-            />
-          </div>
-          <Button
-            variant="secondary"
-            onClick={() => setIsMobileFilterOpen(true)}
-            icon={<Filter size={15} />}
-            className="mobile-only touch-target"
-            style={{ flexShrink: 0, padding: '0.5rem 0.85rem' }}
+      {/* Student Profile & Resume Context Banner */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          padding: '0.85rem 1.25rem',
+          background: 'linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%)',
+          border: '1px solid #bbf7d0',
+          borderRadius: '16px',
+          marginBottom: '1.75rem',
+          boxShadow: '0 2px 10px rgba(16, 185, 129, 0.06)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: '#ffffff',
+              border: '1px solid #86efac',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#059669',
+              flexShrink: 0
+            }}
           >
-            Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-          </Button>
+            <Sparkles size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
+              Tailored for: <span style={{ color: '#047857' }}>{studentName}</span> ({degreeVal} {branchVal}, {yearVal}{cgpaVal ? ` · CGPA ${cgpaVal}` : ''})
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>Resume Skills:</span>
+              {displaySkills.slice(0, 8).map((s) => (
+                <span
+                  key={s}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #bbf7d0',
+                    color: '#065f46',
+                    borderRadius: '6px',
+                    padding: '0.12rem 0.45rem',
+                    fontSize: '0.72rem',
+                    fontWeight: 700
+                  }}
+                >
+                  ✓ {s}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Category & Type Pills */}
+        <Link
+          to="/profile"
+          style={{
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            color: '#2563eb',
+            textDecoration: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.25rem'
+          }}
+        >
+          <span>Edit Profile Skills</span>
+          <ChevronRight size={14} />
+        </Link>
+      </div>
+
+      {/* 2. Floating Search & Filter Bar */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+        <div className="mavens-job-search-card">
+          <div className="mavens-search-input-wrap">
+            <Search size={18} color="#94a3b8" />
+            <input
+              type="text"
+              className="mavens-search-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by role, company name, skill, or Indian city..."
+              aria-label="Search opportunities"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                aria-label="Clear search query"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          <div className="mavens-filter-select-wrap">
+            <MapPin size={16} color="#94a3b8" />
+            <select
+              className="mavens-filter-select"
+              value={activeLocation}
+              onChange={(e) => setActiveLocation(e.target.value)}
+            >
+              {INDIAN_LOCATIONS.map((loc) => (
+                <option key={loc.value} value={loc.value}>{loc.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mavens-filter-select-wrap">
+            <Briefcase size={16} color="#94a3b8" />
+            <select
+              className="mavens-filter-select"
+              value={activeMode}
+              onChange={(e) => setActiveMode(e.target.value)}
+            >
+              {WORK_MODES.map((mode) => (
+                <option key={mode} value={mode}>{mode === 'All' ? 'All Work Modes' : mode}</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="button"
+            className="mavens-btn-find-jobs"
+            onClick={() => fetchOpportunities(false)}
+          >
+            <Search size={16} />
+            <span>Search</span>
+          </button>
+        </div>
+
+        {/* Primary Canonical Categories (Jobs & Internships in India Only) */}
         <div
+          className="tab-strip-scroll"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -452,64 +605,99 @@ export default function OpportunitiesPage() {
             overflowX: 'auto',
             paddingBottom: '0.35rem',
             WebkitOverflowScrolling: 'touch',
+            maxWidth: '100%',
+            width: '100%',
+            minWidth: 0,
           }}
         >
-          {opportunityTypes.map((typeObj) => {
-            const isSelected = activeType === typeObj.value;
+          {CANONICAL_CATEGORIES.map((cat) => {
+            const isSelected = activeCategory === cat.value;
             return (
               <button
-                key={typeObj.value}
+                key={cat.value}
                 type="button"
-                onClick={() => setActiveType(typeObj.value)}
+                onClick={() => setActiveCategory(cat.value)}
                 style={{
-                  padding: '0.45rem 0.9rem',
-                  borderRadius: 'var(--radius-full)',
-                  border: isSelected ? '1px solid var(--primary)' : '1px solid var(--border)',
-                  backgroundColor: isSelected ? 'var(--primary)' : 'var(--surface)',
-                  color: isSelected ? 'white' : 'var(--text-secondary)',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
+                  padding: '0.5rem 1.1rem',
+                  borderRadius: '9999px',
+                  border: isSelected ? '1px solid var(--lx-blue)' : '1px solid var(--lx-line)',
+                  backgroundColor: isSelected ? 'var(--lx-blue)' : '#ffffff',
+                  color: isSelected ? '#ffffff' : 'var(--lx-txt-2)',
+                  fontSize: '0.84rem',
+                  fontWeight: 700,
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
-                  transition: 'all var(--transition-fast)',
+                  transition: 'all 0.18s ease',
+                  boxShadow: isSelected ? '0 4px 14px rgba(43, 87, 255, 0.28)' : 'none'
                 }}
               >
-                {typeObj.label}
+                {cat.label} {cat.value === 'saved' ? `(${savedOppIds.size})` : ''}
               </button>
             );
           })}
 
-          <div style={{ width: '1px', height: '20px', backgroundColor: 'var(--border)', margin: '0 0.25rem', flexShrink: 0 }} />
+          <div style={{ width: '1px', height: '22px', backgroundColor: 'var(--lx-line)', margin: '0 0.35rem', flexShrink: 0 }} />
 
-          {/* Work Mode Filters */}
-          {['All', 'Remote', 'Hybrid', 'Onsite'].map((mode) => {
-            const isSelected = activeMode === mode;
-            return (
+          {/* Interactive Resume Matched Toggle */}
+          <button
+            type="button"
+            onClick={() => setMatchedOnly(!matchedOnly)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              padding: '0.45rem 0.95rem',
+              borderRadius: '9999px',
+              border: matchedOnly ? '1px solid #10b981' : '1px solid var(--lx-line)',
+              backgroundColor: matchedOnly ? 'rgba(16, 185, 129, 0.12)' : '#ffffff',
+              color: matchedOnly ? '#065f46' : 'var(--lx-txt-2)',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.18s ease',
+              flexShrink: 0
+            }}
+            title="Filter to opportunities matching your profile & resume skills"
+          >
+            <Sparkles size={13} color={matchedOnly ? '#059669' : '#64748b'} />
+            <span>{matchedOnly ? '⚡ Resume Matched (Active)' : 'Resume Matched (All)'}</span>
+          </button>
+
+          <div style={{ width: '1px', height: '22px', backgroundColor: 'var(--lx-line)', margin: '0 0.35rem', flexShrink: 0 }} />
+
+          {/* Eligibility Filter: All | Eligible Only */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--lx-txt-3)', fontWeight: 700, textTransform: 'uppercase' }}>
+              Eligibility:
+            </span>
+            {[
+              { label: 'All', value: 'All' },
+              { label: 'Eligible Only', value: 'eligible' },
+            ].map((f) => (
               <button
-                key={mode}
+                key={f.value}
                 type="button"
-                onClick={() => setActiveMode(mode)}
+                onClick={() => setActiveEligibilityFilter(f.value)}
                 style={{
-                  padding: '0.45rem 0.85rem',
-                  borderRadius: 'var(--radius-full)',
-                  border: isSelected ? '1px solid var(--color-primary-600)' : '1px solid var(--border)',
-                  backgroundColor: isSelected ? 'var(--primary-subtle)' : 'var(--surface)',
-                  color: isSelected ? 'var(--primary)' : 'var(--text-secondary)',
-                  fontSize: '0.8125rem',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '9999px',
+                  border: activeEligibilityFilter === f.value ? '1px solid #10b981' : '1px solid var(--lx-line)',
+                  backgroundColor: activeEligibilityFilter === f.value ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+                  color: activeEligibilityFilter === f.value ? '#065F46' : 'var(--lx-txt-2)',
+                  fontSize: '0.78rem',
                   fontWeight: 600,
                   cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all var(--transition-fast)',
                 }}
               >
-                {mode === 'All' ? 'All Modes' : mode}
+                {f.label}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Live Radar Feed Alert Pill */}
+      {/* 3. Live Feed Alerts */}
       <AnimatePresence>
         {hasNewAlert && (
           <motion.div
@@ -527,41 +715,30 @@ export default function OpportunitiesPage() {
               onClick={() => {
                 const added = ingestNewItems();
                 setOpportunities((prev) => [...added, ...prev]);
-                toast.success(`Ingested ${added.length} new opportunities onto your radar!`);
+                toast.success(`Ingested ${added.length} verified listings onto your radar!`);
               }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.65rem',
                 padding: '0.55rem 1.35rem',
-                background: 'linear-gradient(135deg, rgba(0, 242, 254, 0.22), rgba(99, 102, 241, 0.22))',
-                border: '1px solid var(--accent-cyan)',
+                background: 'rgba(43, 87, 255, 0.08)',
+                border: '1px solid var(--lx-blue)',
                 borderRadius: '999px',
-                color: '#ffffff',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.8125rem',
+                color: 'var(--lx-blue)',
+                fontSize: '0.84rem',
                 fontWeight: 700,
-                boxShadow: '0 0 18px var(--cyan-glow)',
                 cursor: 'pointer',
               }}
             >
-              <span
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  background: 'var(--accent-cyan)',
-                  boxShadow: '0 0 8px var(--cyan-glow)',
-                }}
-                className="animate-pulse"
-              />
-              <span>✦ {newCount} new opportunities detected on radar. Tap to ingest</span>
+              <Sparkles size={14} />
+              <span>{newCount} new verified opportunities available. Click to refresh</span>
             </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 3. Opportunities Display (Loading / Error / Empty / Cards) */}
+      {/* 4. Opportunity Cards Grid */}
       {loading ? (
         <div className="grid-3">
           {[...Array(6)].map((_, i) => (
@@ -570,7 +747,7 @@ export default function OpportunitiesPage() {
         </div>
       ) : error ? (
         <EmptyState
-          icon={<AlertCircle size={32} color="var(--danger)" />}
+          icon={<AlertCircle size={32} color="#DC2626" />}
           title="Could not load opportunities"
           description={error}
           actionLabel="Try Again"
@@ -578,32 +755,23 @@ export default function OpportunitiesPage() {
         />
       ) : opportunities.length === 0 ? (
         <EmptyState
-          icon={<Briefcase size={36} color="var(--primary)" />}
+          icon={<Briefcase size={36} color="var(--lx-blue)" />}
           title="No matching opportunities found"
-          description="Try broadening your search keywords or adjusting your type and work mode filters."
+          description={
+            activeCategory === 'saved'
+              ? 'You have not saved any opportunities yet. Browse listings and bookmark interesting roles.'
+              : 'Try broadening your search keywords or switching to another category.'
+          }
           actionLabel="Reset Filters"
           onAction={() => {
             setSearchQuery('');
-            setActiveType('All');
+            setActiveCategory('All');
             setActiveMode('All');
+            setActiveLocation('All');
+            setActiveEligibilityFilter('All');
           }}
         />
-      ) : viewMode === 'deck' ? (
-        /* Swipe-Deck Mode */
-        <OpportunitySwipeDeck
-          opportunities={opportunities}
-          onSave={(opp) => {
-            toggleSave(opp);
-            handleTrackOpportunity(opp, 'Saved');
-          }}
-          onSkip={(opp) => toast.info(`Skipped ${opp.company}`)}
-          onSelectDetail={(opp) => {
-            setSelectedOpp(opp);
-            loadOpportunityDetail(opp.id);
-          }}
-        />
-      ) : viewMode === 'grid' ? (
-        /* Grid View with Rich OpportunityCard */
+      ) : (
         <div className="grid-3">
           {opportunities.map((opp) => (
             <OpportunityCard
@@ -615,164 +783,87 @@ export default function OpportunitiesPage() {
                 setSelectedOpp(item);
                 loadOpportunityDetail(item.id);
               }}
-              onApply={handleApply}
+              onApply={handleApplyClick}
               application={getOppApplication(opp)}
-              onTrack={handleTrackOpportunity}
+              onTrack={(item, status) => {
+                setConfirmModalOpp(item);
+              }}
             />
           ))}
         </div>
-      ) : (
-        /* List View */
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-          {opportunities.map((opp) => {
-            const isSaved = savedOppIds.has(opp.id);
-            const sourceName = opp.source?.name || 'Verified Feed';
-
-            return (
-              <Card key={opp.id} variant="raised" className="hover-lift">
-                <Card.Content style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-                  <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', minWidth: '280px', flex: 1 }}>
-                    <div
-                      style={{
-                        width: '44px',
-                        height: '44px',
-                        borderRadius: 'var(--radius-md)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        border: '1px solid var(--border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontWeight: 800,
-                        color: 'var(--primary)',
-                        fontSize: '1.1rem',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {opp.company ? opp.company.charAt(0) : 'O'}
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                          {opp.company}
-                        </span>
-                        <OpportunityTypeBadge type={opp.type} size="sm" />
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>• {opp.locationString || opp.location}</span>
-                      </div>
-                      <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                        {opp.title}
-                      </h3>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    <Badge variant="neutral" size="sm">
-                      {sourceName}
-                    </Badge>
-                    {opp.deadline && (
-                      <span style={{ fontSize: '0.78125rem', color: 'var(--warning-dark)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={13} />
-                        {new Date(opp.deadline).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    {getOppApplication(opp) ? (
-                      <span
-                        onClick={() => navigate(`/applications?appId=${getOppApplication(opp).id}`)}
-                        style={{ cursor: 'pointer' }}
-                        title="Click to view in Applications tracker"
-                      >
-                        <Badge
-                          variant={
-                            getOppApplication(opp).status === 'Offered'
-                              ? 'success'
-                              : getOppApplication(opp).status === 'Interviewing'
-                              ? 'purple'
-                              : getOppApplication(opp).status === 'Applied'
-                              ? 'primary'
-                              : 'neutral'
-                          }
-                          size="sm"
-                          dot
-                        >
-                          {getOppApplication(opp).status}
-                        </Badge>
-                      </span>
-                    ) : null}
-
-                    <button
-                      type="button"
-                      onClick={() => toggleSave(opp)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: isSaved ? 'var(--primary)' : 'var(--text-muted)',
-                        padding: '6px',
-                      }}
-                      title={isSaved ? 'Remove from saved' : 'Save opportunity'}
-                    >
-                      <Bookmark size={18} fill={isSaved ? 'currentColor' : 'none'} />
-                    </button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedOpp(opp);
-                        loadOpportunityDetail(opp.id);
-                      }}
-                    >
-                      View Details
-                    </Button>
-
-                    {getOppApplication(opp) ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/applications?appId=${getOppApplication(opp).id}`)}
-                        iconRight={<ArrowRight size={13} />}
-                      >
-                        Tracker
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleTrackOpportunity(opp, 'Saved')}
-                        icon={<Bookmark size={13} />}
-                      >
-                        Track
-                      </Button>
-                    )}
-
-                    <Button variant="primary" size="sm" onClick={() => handleApply(opp)} iconRight={<ExternalLink size={13} />}>
-                      Apply Now
-                    </Button>
-                  </div>
-                </Card.Content>
-              </Card>
-            );
-          })}
-        </div>
       )}
 
-      {/* 4. Load More / Infinite Scroll Target */}
-      {pagination.page < pagination.pages && (
-        <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+      {/* 5. Pagination */}
+      {activeCategory !== 'saved' && pagination.page < pagination.pages && (
+        <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
           <Button
             variant="secondary"
             size="md"
             onClick={handleLoadMore}
-            style={{ minWidth: '220px' }}
+            style={{ minWidth: '240px', borderRadius: '9999px' }}
           >
-            {loading ? 'Loading More...' : `Load More Opportunities (${pagination.total - opportunities.length} remaining)`}
+            {loading ? 'Loading...' : `Load More (${pagination.total - opportunities.length} remaining)`}
           </Button>
-          <div ref={observerTarget} style={{ height: '20px', marginTop: '1rem' }} />
         </div>
       )}
 
-      {/* 5. Opportunity Details Drawer */}
+      {/* 6. External Application Confirmation Modal */}
+      <Modal
+        isOpen={Boolean(confirmModalOpp)}
+        onClose={() => setConfirmModalOpp(null)}
+        title="Confirm Application Submission"
+        maxWidth="500px"
+      >
+        {confirmModalOpp && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <p style={{ fontSize: '0.92rem', color: 'var(--lx-txt-2)', lineHeight: 1.5, margin: 0 }}>
+              The official portal for <strong>{confirmModalOpp.company || confirmModalOpp.organization?.name}</strong> was opened in a new tab.
+              Have you submitted your application for <strong>{confirmModalOpp.title}</strong>?
+            </p>
+
+            <div style={{ padding: '0.85rem', backgroundColor: 'var(--lx-surface-2)', borderRadius: '12px', fontSize: '0.82rem', color: 'var(--lx-txt-2)' }}>
+              <div><strong>Role:</strong> {confirmModalOpp.title}</div>
+              <div><strong>Company:</strong> {confirmModalOpp.company}</div>
+              <div><strong>Compensation:</strong> {confirmModalOpp.compensationString || 'Not specified'}</div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => handleConfirmApplicationSubmission('Applied')}
+                disabled={isConfirmingTrack}
+                icon={<Check size={16} />}
+                style={{ width: '100%', justifyContent: 'center' }}
+              >
+                Yes, mark as "Applied" in Tracker
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => handleConfirmApplicationSubmission('Saved')}
+                disabled={isConfirmingTrack}
+                icon={<Bookmark size={15} />}
+                style={{ width: '100%', justifyContent: 'center' }}
+              >
+                Not yet, save to tracker as "Saved"
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmModalOpp(null)}
+                style={{ width: '100%', justifyContent: 'center', border: 'none', color: 'var(--lx-txt-3)' }}
+              >
+                Close without tracking
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* 7. Opportunity Details Drawer with Transparent Eligibility Breakdown */}
       <Drawer
         isOpen={Boolean(selectedOpp)}
         onClose={() => setSelectedOpp(null)}
@@ -780,11 +871,11 @@ export default function OpportunitiesPage() {
         size="lg"
       >
         {selectedOpp && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '0.5rem 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem', padding: '0.5rem 0' }}>
             {/* Header info */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.4rem', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--lx-ink)' }}>
                   {selectedOpp.company || selectedOpp.organization?.name}
                 </span>
                 <OpportunityTypeBadge type={selectedOpp.type} size="sm" />
@@ -792,13 +883,144 @@ export default function OpportunitiesPage() {
                   {selectedOpp.workMode || selectedOpp.work_mode}
                 </Badge>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                <MapPin size={14} />
-                <span>{selectedOpp.locationString || (typeof selectedOpp.location === 'string' ? selectedOpp.location : 'Remote')}</span>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', color: 'var(--lx-txt-2)' }}>
+                <MapPin size={14} color="var(--lx-txt-3)" />
+                <span>{selectedOpp.locationString || formatOpportunityLocation(selectedOpp)}</span>
               </div>
             </div>
 
-            {/* Application Pipeline Sync Panel */}
+            {/* Compensation & Deadline Banner */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '1rem',
+                padding: '1rem',
+                borderRadius: '16px',
+                backgroundColor: 'var(--lx-surface-2)',
+                border: '1px solid var(--lx-line)',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--lx-txt-3)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Compensation
+                </div>
+                <div style={{ fontSize: '1.15rem', fontWeight: 800, color: selectedOpp.compensationString === 'Not specified' ? 'var(--lx-txt-3)' : '#137a44', marginTop: '2px' }}>
+                  {selectedOpp.compensationString || 'Not specified'}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--lx-txt-3)', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Application Deadline
+                </div>
+                <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--lx-ink)', marginTop: '2px' }}>
+                  {selectedOpp.deadlineString || 'Deadline not specified'}
+                </div>
+              </div>
+            </div>
+
+            {/* Deterministic Eligibility Evaluation Breakdown */}
+            <div
+              style={{
+                padding: '1.15rem',
+                borderRadius: '16px',
+                backgroundColor: '#ffffff',
+                border: '1.5px solid var(--lx-line)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <GraduationCap size={18} color="var(--lx-blue)" />
+                  <span style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--lx-ink)' }}>
+                    Deterministic Eligibility Evaluation
+                  </span>
+                </div>
+
+                {/* Overall status pill */}
+                {(() => {
+                  const status = selectedOpp.eligibility?.status || (selectedOpp.eligibility?.is_eligible ? 'eligible' : 'not_eligible');
+                  if (status === 'eligible') {
+                    return (
+                      <span style={{ backgroundColor: '#ECFDF5', color: '#065F46', padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 800 }}>
+                        Eligible
+                      </span>
+                    );
+                  }
+                  if (status === 'needs_review') {
+                    return (
+                      <span style={{ backgroundColor: '#FFFBEB', color: '#92400E', padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 800 }}>
+                        Needs Review
+                      </span>
+                    );
+                  }
+                  return (
+                    <span style={{ backgroundColor: '#FEF2F2', color: '#991B1B', padding: '0.2rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: 800 }}>
+                      Not Eligible
+                    </span>
+                  );
+                })()}
+              </div>
+
+              {/* Itemized checks */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                {Array.isArray(selectedOpp.eligibility?.checks) && selectedOpp.eligibility.checks.length > 0 ? (
+                  selectedOpp.eligibility.checks.map((chk, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--lx-surface-2)',
+                        fontSize: '0.82rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {chk.status === 'passed' && <CheckCircle2 size={15} color="#059669" />}
+                        {chk.status === 'failed' && <AlertCircle size={15} color="#DC2626" />}
+                        {chk.status === 'unknown' && <HelpCircle size={15} color="#D97706" />}
+                        <div>
+                          <strong>{chk.requirement}</strong>
+                          {chk.required !== undefined && chk.required !== null && (
+                            <span style={{ color: 'var(--lx-txt-3)', marginLeft: '0.35rem' }}>
+                              (Req: {Array.isArray(chk.required) ? chk.required.join(', ') : String(chk.required)})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'capitalize' }}>
+                        {chk.status === 'passed' && <span style={{ color: '#059669' }}>Passed</span>}
+                        {chk.status === 'failed' && <span style={{ color: '#DC2626' }}>Failed</span>}
+                        {chk.status === 'unknown' && <span style={{ color: '#D97706' }}>Unverified</span>}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ fontSize: '0.82rem', color: 'var(--lx-txt-2)' }}>
+                    Standard university eligibility criteria apply. Review details below.
+                  </div>
+                )}
+              </div>
+
+              {/* Rationale reasons */}
+              {Array.isArray(selectedOpp.eligibility?.reasons) && selectedOpp.eligibility.reasons.length > 0 && (
+                <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px solid var(--lx-line)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  {selectedOpp.eligibility.reasons.map((r, i) => (
+                    <div key={i} style={{ fontSize: '0.78rem', color: 'var(--lx-txt-2)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: 'var(--lx-blue)' }} />
+                      <span>{r}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Application Tracker Status */}
             {(() => {
               const currentApp = selectedOpp ? getOppApplication(selectedOpp) : null;
               if (currentApp) {
@@ -806,10 +1028,9 @@ export default function OpportunitiesPage() {
                   <div
                     style={{
                       padding: '0.9rem 1.15rem',
-                      borderRadius: 'var(--radius-lg)',
-                      backgroundColor: 'var(--surface-raised)',
-                      border: '1px solid var(--border)',
-                      boxShadow: 'var(--shadow-sm)',
+                      borderRadius: '16px',
+                      backgroundColor: 'var(--lx-surface-2)',
+                      border: '1px solid var(--lx-line)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
@@ -817,32 +1038,15 @@ export default function OpportunitiesPage() {
                       gap: '0.75rem',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <div
-                        style={{
-                          width: '36px',
-                          height: '36px',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: 'var(--primary-subtle)',
-                          color: 'var(--primary)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Layers size={18} />
+                    <div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--lx-txt-3)', fontWeight: 700, textTransform: 'uppercase' }}>
+                        Tracked in My Applications
                       </div>
-                      <div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                          Tracked in Application Pipeline
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '2px' }}>
-                          <StatusBadge status={currentApp.status} size="sm" />
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                            {currentApp.appliedDate ? `Applied ${currentApp.appliedDate}` : 'In Pipeline'}
-                          </span>
-                        </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '3px' }}>
+                        <StatusBadge status={currentApp.status} size="sm" />
+                        <span style={{ fontSize: '0.82rem', color: 'var(--lx-txt-2)' }}>
+                          Status: <strong>{currentApp.status}</strong>
+                        </span>
                       </div>
                     </div>
 
@@ -850,23 +1054,23 @@ export default function OpportunitiesPage() {
                       <select
                         value={currentApp.status}
                         onChange={(e) => updateAppStage(currentApp.id, e.target.value)}
-                        aria-label="Change pipeline stage"
                         style={{
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
+                          fontSize: '0.82rem',
+                          fontWeight: 700,
                           padding: '0.35rem 0.65rem',
-                          borderRadius: 'var(--radius-md)',
-                          backgroundColor: 'var(--surface)',
-                          color: 'var(--text-primary)',
-                          border: '1px solid var(--border-control)',
+                          borderRadius: '8px',
+                          border: '1px solid var(--lx-line)',
+                          backgroundColor: '#ffffff',
                           cursor: 'pointer',
                         }}
                       >
                         <option value="Saved">Saved</option>
                         <option value="Applied">Applied</option>
-                        <option value="Interviewing">Interviewing</option>
-                        <option value="Offered">Offered</option>
+                        <option value="Assessment">Assessment</option>
+                        <option value="Interview">Interview</option>
+                        <option value="Offer">Offer</option>
                         <option value="Rejected">Rejected</option>
+                        <option value="Withdrawn">Withdrawn</option>
                       </select>
 
                       <Button
@@ -884,56 +1088,16 @@ export default function OpportunitiesPage() {
                   </div>
                 );
               }
-
-              return (
-                <div
-                  style={{
-                    padding: '0.85rem 1.15rem',
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: 'var(--bg-secondary)',
-                    border: '1px dashed var(--border-control)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '0.75rem',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <Layers size={16} color="var(--primary)" />
-                    <span style={{ fontSize: '0.84rem', color: 'var(--text-secondary)' }}>
-                      Not yet in your Application Pipeline.
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleTrackOpportunity(selectedOpp, 'Saved')}
-                      icon={<Bookmark size={13} />}
-                    >
-                      Save to Pipeline
-                    </Button>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handleTrackOpportunity(selectedOpp, 'Applied')}
-                      icon={<Send size={13} />}
-                    >
-                      Mark as Applied
-                    </Button>
-                  </div>
-                </div>
-              );
+              return null;
             })()}
 
-            {/* Source Transparency & Original Listing Link */}
+            {/* Discovered Source */}
             <div
               style={{
                 padding: '0.85rem 1rem',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                backgroundColor: 'var(--lx-surface-2)',
+                border: '1px solid var(--lx-line)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -943,9 +1107,9 @@ export default function OpportunitiesPage() {
               }}
             >
               <div>
-                <span style={{ color: 'var(--text-muted)' }}>Discovered from: </span>
-                <strong style={{ color: 'var(--text-primary)' }}>
-                  {selectedOpp.source?.name || 'Verified CareerPilot Feed'}
+                <span style={{ color: 'var(--lx-txt-3)' }}>Source: </span>
+                <strong style={{ color: 'var(--lx-ink)' }}>
+                  {selectedOpp.source?.name ? selectedOpp.source.name.replace(/_/g, ' ').toUpperCase() : 'OFFICIAL COMPANY PORTAL'}
                 </strong>
               </div>
               {(selectedOpp.source?.url || selectedOpp.applicationUrl) && (
@@ -953,27 +1117,32 @@ export default function OpportunitiesPage() {
                   href={selectedOpp.source?.url || selectedOpp.applicationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  style={{ color: 'var(--lx-blue)', textDecoration: 'none', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                 >
                   <Globe size={13} />
-                  <span>View Original Listing</span>
+                  <span>Official Listing</span>
                 </a>
               )}
             </div>
 
-            {/* Role Overview */}
+            {/* Explicit Student Relevance Feedback Widget */}
+            <OpportunityFeedbackWidget
+              opportunityId={selectedOpp.id}
+            />
+
+            {/* Description */}
             <div>
-              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.65rem' }}>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--lx-ink)', marginBottom: '0.65rem' }}>
                 About the Opportunity
               </h4>
               <RichJobDescription description={selectedOpp.description} />
             </div>
 
-            {/* Required Technical Skills */}
+            {/* Required Skills */}
             {(selectedOpp.skills || []).length > 0 && (
               <div>
-                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                  Technical Skills Required
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--lx-ink)', marginBottom: '0.5rem' }}>
+                  Required Skills
                 </h4>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                   {selectedOpp.skills.map((skill) => (
@@ -983,10 +1152,10 @@ export default function OpportunitiesPage() {
                         fontSize: '0.8rem',
                         fontWeight: 600,
                         padding: '0.25rem 0.65rem',
-                        borderRadius: 'var(--radius-sm)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                        border: '1px solid var(--border)',
+                        borderRadius: '6px',
+                        backgroundColor: 'var(--lx-surface-2)',
+                        color: 'var(--lx-ink)',
+                        border: '1px solid var(--lx-line)',
                       }}
                     >
                       {skill}
@@ -996,49 +1165,7 @@ export default function OpportunitiesPage() {
               </div>
             )}
 
-            {/* Education & Eligibility Criteria */}
-            {selectedOpp.education_requirements && (
-              <div
-                style={{
-                  padding: '1.15rem',
-                  borderRadius: 'var(--radius-lg)',
-                  backgroundColor: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' }}>
-                  <GraduationCap size={16} color="var(--primary)" />
-                  <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Education &amp; Eligibility Criteria
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                  {selectedOpp.education_requirements.cgpa_min && (
-                    <div>
-                      Minimum CGPA Cutoff: <strong style={{ color: 'var(--text-primary)' }}>{selectedOpp.education_requirements.cgpa_min}</strong>
-                    </div>
-                  )}
-                  {(selectedOpp.education_requirements.branches || []).length > 0 && (
-                    <div>
-                      Eligible Branches: <strong style={{ color: 'var(--text-primary)' }}>{selectedOpp.education_requirements.branches.join(', ')}</strong>
-                    </div>
-                  )}
-                  {(selectedOpp.education_requirements.graduation_years || []).length > 0 && (
-                    <div>
-                      Eligible Graduation Batches: <strong style={{ color: 'var(--text-primary)' }}>{selectedOpp.education_requirements.graduation_years.join(', ')}</strong>
-                    </div>
-                  )}
-                  {selectedOpp.eligibility_text && (
-                    <div style={{ marginTop: '0.25rem', fontStyle: 'italic', color: 'var(--text-muted)' }}>
-                      "{selectedOpp.eligibility_text}"
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Application & Deadline Box */}
+            {/* Action Buttons in Drawer */}
             <div
               style={{
                 marginTop: '1rem',
@@ -1048,44 +1175,26 @@ export default function OpportunitiesPage() {
                 flexWrap: 'wrap',
                 gap: '1rem',
                 paddingTop: '1rem',
-                borderTop: '1px solid var(--border)',
+                borderTop: '1px solid var(--lx-line)',
               }}
             >
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Application Deadline
-                </div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: selectedOpp.deadline ? 'var(--warning-dark)' : 'var(--text-primary)' }}>
-                  {selectedOpp.deadline ? new Date(selectedOpp.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Rolling / Open Until Filled'}
-                </div>
-              </div>
+              <Button
+                variant={savedOppIds.has(selectedOpp.id) ? 'secondary' : 'outline'}
+                size="md"
+                onClick={() => toggleSave(selectedOpp)}
+                icon={<Bookmark size={15} fill={savedOppIds.has(selectedOpp.id) ? 'currentColor' : 'none'} />}
+              >
+                {savedOppIds.has(selectedOpp.id) ? 'Saved' : 'Save'}
+              </Button>
 
-              <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                {getOppApplication(selectedOpp) && (
-                  <Button
-                    variant="outline"
-                    size="md"
-                    onClick={() => {
-                      const app = getOppApplication(selectedOpp);
-                      setSelectedOpp(null);
-                      navigate(`/applications?appId=${app.id}`);
-                    }}
-                    iconRight={<ArrowRight size={14} />}
-                  >
-                    View in Pipeline ({getOppApplication(selectedOpp).status})
-                  </Button>
-                )}
-                <Button
-                  variant="primary"
-                  size="md"
-                  onClick={() => handleApply(selectedOpp)}
-                  iconRight={<ExternalLink size={16} />}
-                >
-                  {getOppApplication(selectedOpp) && getOppApplication(selectedOpp).status !== 'Saved'
-                    ? 'Open Application Site'
-                    : 'Apply on Official Site'}
-                </Button>
-              </div>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => handleApplyClick(selectedOpp)}
+                iconRight={<ExternalLink size={16} />}
+              >
+                Apply on Official Site
+              </Button>
             </div>
           </div>
         )}

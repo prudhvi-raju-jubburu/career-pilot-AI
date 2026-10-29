@@ -57,9 +57,11 @@ class OpportunitySource(ABC):
             return False
         return True
 
-    def _fetch_url(self, url: str, headers: Optional[Dict[str, str]] = None, timeout: int = 15) -> bytes:
+    def _fetch_url(self, url: str, headers: Optional[Dict[str, str]] = None, timeout: int = 15, record_failure: bool = True) -> bytes:
         """
         Executes HTTP GET with retries, exponential backoff, rate limit delays, and error handling.
+        When record_failure=False, transient or 404 errors on child sub-endpoints do not count against
+        the connector-level circuit breaker.
         """
         req_headers = {
             "User-Agent": USER_AGENT,
@@ -86,13 +88,15 @@ class OpportunitySource(ABC):
                 logger.warning("[%s] HTTP error %d on attempt %d: %s", self.name, he.code, attempt, str(he))
                 if he.code in (404, 403, 401):
                     # Client errors are unlikely to resolve with retries
-                    self._record_failure()
+                    if record_failure:
+                        self._record_failure()
                     raise
                 if attempt < max_attempts:
                     time.sleep(backoff)
                     backoff *= 2
                 else:
-                    self._record_failure()
+                    if record_failure:
+                        self._record_failure()
                     raise
             except Exception as e:
                 logger.warning("[%s] Network error on attempt %d: %s", self.name, attempt, str(e))
@@ -100,7 +104,8 @@ class OpportunitySource(ABC):
                     time.sleep(backoff)
                     backoff *= 2
                 else:
-                    self._record_failure()
+                    if record_failure:
+                        self._record_failure()
                     raise
 
         raise RuntimeError(f"Failed to fetch {url} after {max_attempts} attempts")

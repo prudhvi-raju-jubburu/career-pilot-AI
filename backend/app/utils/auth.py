@@ -67,6 +67,13 @@ def token_required(f):
                     "error": "USER_NOT_FOUND"
                 }), 401
 
+            if UserModel.is_suspended(user):
+                return jsonify({
+                    "success": False,
+                    "message": "Account has been suspended. Please contact platform support.",
+                    "error": "ACCOUNT_SUSPENDED"
+                }), 403
+
             # Attach current_user to request
             request.current_user = user
         except ValueError as e:
@@ -79,9 +86,78 @@ def token_required(f):
             return jsonify({
                 "success": False,
                 "message": "Authentication failed",
-                "error": str(e)
+                "error": "AUTHENTICATION_FAILED"
             }), 401
 
         return f(current_user=user, *args, **kwargs)
 
     return decorated
+
+def admin_required(f):
+    """Decorator to require valid JWT and verified admin role for administrative routes."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization")
+
+        if not auth_header:
+            return jsonify({
+                "success": False,
+                "message": "Authorization header is missing",
+                "error": "UNAUTHORIZED"
+            }), 401
+
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return jsonify({
+                "success": False,
+                "message": "Invalid Authorization header format. Expected 'Bearer <token>'",
+                "error": "UNAUTHORIZED"
+            }), 401
+
+        token = parts[1]
+
+        try:
+            payload = decode_token(token)
+            user_id = payload.get("sub")
+            user = UserModel.find_by_id(user_id)
+
+            if not user:
+                return jsonify({
+                    "success": False,
+                    "message": "User not found or account deactivated",
+                    "error": "USER_NOT_FOUND"
+                }), 401
+
+            if UserModel.is_suspended(user):
+                return jsonify({
+                    "success": False,
+                    "message": "Account has been suspended. Please contact platform support.",
+                    "error": "ACCOUNT_SUSPENDED"
+                }), 403
+
+            if user.get("role") != "admin":
+                return jsonify({
+                    "success": False,
+                    "message": "Administrative privileges required",
+                    "error": "FORBIDDEN"
+                }), 403
+
+            # Attach current_user to request
+            request.current_user = user
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "message": str(e),
+                "error": "INVALID_TOKEN"
+            }), 401
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "message": "Authentication failed",
+                "error": "AUTHENTICATION_FAILED"
+            }), 401
+
+        return f(current_user=user, *args, **kwargs)
+
+    return decorated
+

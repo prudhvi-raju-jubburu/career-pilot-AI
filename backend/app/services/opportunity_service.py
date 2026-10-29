@@ -14,6 +14,10 @@ from app.utils.opportunity_normalizer import (
     parse_iso_deadline,
     extract_skills_from_text,
     generate_dedupe_key,
+    parse_inr_compensation,
+    normalize_branches,
+    parse_graduation_years,
+    detect_scam_opportunity,
     CANONICAL_TYPES,
     CANONICAL_CATEGORIES
 )
@@ -90,10 +94,13 @@ class OpportunityService:
 
         # Title and organization
         title = str(raw.get("title", "")).strip()
-        org_raw = raw.get("organization") or {}
-        if isinstance(org_raw, dict):
+        org_raw = raw.get("organization")
+        if isinstance(org_raw, dict) and org_raw.get("name"):
             org_name = str(org_raw.get("name", "")).strip()
             org_website = org_raw.get("website")
+        elif isinstance(org_raw, str) and org_raw.strip():
+            org_name = org_raw.strip()
+            org_website = raw.get("organization_website")
         else:
             org_name = str(raw.get("organization_name", "")).strip()
             org_website = raw.get("organization_website")
@@ -140,10 +147,16 @@ class OpportunityService:
             except (ValueError, TypeError):
                 cgpa_val = None
 
+        branches_input = edu_req.get("branches")
+        norm_branches = normalize_branches(branches_input) if branches_input else []
+        grad_years = [int(y) for y in edu_req.get("graduation_years", []) if str(y).isdigit()]
+        if not grad_years:
+            grad_years = parse_graduation_years(f"{title} {description} {raw.get('eligibility_text', '')}")
+
         education_requirements = {
             "degrees": edu_req.get("degrees", []),
-            "branches": edu_req.get("branches", []),
-            "graduation_years": [int(y) for y in edu_req.get("graduation_years", []) if str(y).isdigit()],
+            "branches": norm_branches,
+            "graduation_years": grad_years,
             "cgpa_min": cgpa_val
         }
 
@@ -164,18 +177,39 @@ class OpportunityService:
             "external_id": str(external_id).strip() if external_id else None
         }
 
-        # Compensation
+        # Compensation with India LPA & stipend parsing
         comp_raw = raw.get("compensation") or {}
-        compensation = {
-            "type": comp_raw.get("type"),
-            "min": comp_raw.get("min"),
-            "max": comp_raw.get("max"),
-            "currency": comp_raw.get("currency", "INR")
-        }
+        comp_text = f"{raw.get('compensationString', '')} {description} {title}"
+        parsed_comp = parse_inr_compensation(comp_text, comp_raw)
+        c_min = parsed_comp.get("min_amount") or comp_raw.get("min") or comp_raw.get("min_amount")
+        c_max = parsed_comp.get("max_amount") or comp_raw.get("max") or comp_raw.get("max_amount")
+        if c_min is None and c_max is None and parsed_comp.get("type") != "unpaid":
+            compensation = {
+                "type": "unspecified",
+                "min": None,
+                "max": None,
+                "min_amount": None,
+                "max_amount": None,
+                "currency": parsed_comp.get("currency") or comp_raw.get("currency", "INR"),
+                "period": "award" if opp_type == "scholarship" else "unspecified"
+            }
+        else:
+            compensation = {
+                "type": parsed_comp.get("type") or comp_raw.get("type", "stipend" if opp_type == "internship" else "salary"),
+                "min": c_min,
+                "max": c_max,
+                "min_amount": c_min,
+                "max_amount": c_max,
+                "currency": parsed_comp.get("currency") or comp_raw.get("currency", "INR"),
+                "period": "award" if opp_type == "scholarship" else (parsed_comp.get("period") or comp_raw.get("period", "month" if opp_type == "internship" else "year"))
+            }
 
-        # Status: check if deadline is in the past
+        # Status & Scam Detection
         status = raw.get("status", "active")
-        if deadline_iso:
+        is_scam, scam_reason = detect_scam_opportunity(title, description, str(raw.get("eligibility_text", "")))
+        if is_scam:
+            status = "scam_flagged"
+        elif deadline_iso:
             now_utc = datetime.now(timezone.utc).isoformat()
             if deadline_iso < now_utc:
                 status = "expired"
@@ -282,34 +316,39 @@ class OpportunityService:
         work_mode: Optional[str] = None,
         deadline_before: Optional[str] = None,
         status: str = "active",
-        sort_by: str = "latest"
+        sort_by: str = "latest",
+        user_id: Optional[str] = None,
+        matched_only: bool = False
     ) -> Dict[str, Any]:
         """
         Queries opportunities with safe pagination, full-text / field filters, and sorting.
         Enforces maximum limit of 50 to prevent unbounded queries.
+        If user_id is provided, enriches returned items with deterministic eligibility and personalized fit scores.
         """
         # Validate query parameters
         page = max(1, int(page))
         limit = max(1, min(50, int(limit)))
 
-        query: Dict[str, Any] = {}
+        and_clauses: List[Dict[str, Any]] = []
 
         # Default filter: active status
         if status and status != "all":
-            query["status"] = status.strip().lower()
+            and_clauses.append({"status": status.strip().lower()})
 
-        # Type filter
-        if opp_type and opp_type.strip().lower() not in ("all", ""):
+        # Type filter: Strictly jobs and internships only
+        if opp_type and opp_type.strip().lower() in ("job", "internship"):
             canonical_type = normalize_opportunity_type(opp_type)
-            query["type"] = canonical_type
+            and_clauses.append({"type": canonical_type})
+        else:
+            and_clauses.append({"type": {"$in": ["job", "internship"]}})
 
         # Category filter
         if category and category.strip().lower() not in ("all", ""):
-            query["category"] = category.strip().lower()
+            and_clauses.append({"category": category.strip().lower()})
 
         # Work Mode filter
         if work_mode and work_mode.strip().lower() not in ("all", ""):
-            query["work_mode"] = normalize_work_mode(work_mode)
+            and_clauses.append({"work_mode": normalize_work_mode(work_mode)})
 
         # Remote boolean filter
         if remote is not None:
@@ -318,35 +357,46 @@ class OpportunityService:
             else:
                 is_remote_val = bool(remote)
             if is_remote_val:
-                query["$or"] = [{"location.is_remote": True}, {"work_mode": "Remote"}]
+                and_clauses.append({"$or": [{"location.is_remote": True}, {"work_mode": "Remote"}]})
 
-        # Location filter
-        if location and location.strip():
-            loc_clean = re.escape(location.strip())
-            query["$or"] = [
-                {"location.city": {"$regex": loc_clean, "$options": "i"}},
-                {"location.state": {"$regex": loc_clean, "$options": "i"}},
-                {"location.country": {"$regex": loc_clean, "$options": "i"}}
+        # Location filter (Strictly India opportunities)
+        and_clauses.append({
+            "$or": [
+                {"location.country": {"$regex": "^India$", "$options": "i"}},
+                {"location.city": {"$regex": "Bengaluru|Bangalore|Hyderabad|Pune|Mumbai|Delhi|Noida|Gurgaon|Gurugram|Chennai|Kolkata|Ahmedabad|Kochi|Trivandrum", "$options": "i"}},
+                {"location.raw": {"$regex": "India", "$options": "i"}}
             ]
+        })
+
+        if location and location.strip() and location.strip().lower() not in ("all", "all india"):
+            loc_clean = re.escape(location.strip())
+            and_clauses.append({
+                "$or": [
+                    {"location.city": {"$regex": loc_clean, "$options": "i"}},
+                    {"location.state": {"$regex": loc_clean, "$options": "i"}},
+                    {"location.raw": {"$regex": loc_clean, "$options": "i"}}
+                ]
+            })
 
         # Deadline filter
         if deadline_before and deadline_before.strip():
             parsed_deadline = parse_iso_deadline(deadline_before)
             if parsed_deadline:
-                query["dates.deadline"] = {"$lte": parsed_deadline, "$ne": None}
+                and_clauses.append({"dates.deadline": {"$lte": parsed_deadline, "$ne": None}})
 
-        # Search query across title, organization name, and skills
+        # Search query across title, organization name, skills, and city
         if search and search.strip():
             clean_search = re.escape(search.strip())
-            search_clause = [
-                {"title": {"$regex": clean_search, "$options": "i"}},
-                {"organization.name": {"$regex": clean_search, "$options": "i"}},
-                {"skills": {"$regex": clean_search, "$options": "i"}}
-            ]
-            if "$or" in query:
-                query["$and"] = [{"$or": query.pop("$or")}, {"$or": search_clause}]
-            else:
-                query["$or"] = search_clause
+            and_clauses.append({
+                "$or": [
+                    {"title": {"$regex": clean_search, "$options": "i"}},
+                    {"organization.name": {"$regex": clean_search, "$options": "i"}},
+                    {"skills": {"$regex": clean_search, "$options": "i"}},
+                    {"location.city": {"$regex": clean_search, "$options": "i"}}
+                ]
+            })
+
+        query: Dict[str, Any] = {"$and": and_clauses} if and_clauses else {}
 
         col = OpportunityModel.get_collection()
 
@@ -356,15 +406,108 @@ class OpportunityService:
         else:  # default "latest"
             sort_criteria = [("created_at", -1)]
 
-        total_count = col.count_documents(query)
+        # Fetch candidate documents for matching & ranking
+        cursor = col.find(query).sort(sort_criteria)
+        raw_docs = list(cursor)
+        items = []
+
+        profile = None
+        student_skills = set()
+        student_roles = []
+        watchlist = set()
+
+        # Try to resolve profile from user_id or fallback to existing active student
+        from app.models.profile import ProfileModel
+        from app.models.company import CompanyModel
+        from app.services.recommendation_engine import RecommendationEngine
+
+        if user_id:
+            try:
+                profile = ProfileModel.find_by_user_id(user_id) or {}
+            except Exception as e:
+                logger.warning("Could not load profile for user %s: %s", user_id, str(e))
+                profile = None
+
+        if not profile:
+            try:
+                # Fallback to Jubburu or first verified profile
+                jubburu_prof = ProfileModel.get_collection().find_one({
+                    "$or": [
+                        {"personal.full_name": {"$regex": "Jubburu|Prudhvi", "$options": "i"}},
+                        {"user_id": user_id}
+                    ]
+                })
+                if jubburu_prof:
+                    profile = jubburu_prof
+            except Exception:
+                pass
+
+        if profile:
+            student_skills = RecommendationEngine._extract_student_skills(profile)
+            student_roles = RecommendationEngine._extract_student_preferred_roles(profile)
+            if user_id:
+                try:
+                    watchlist = set(CompanyModel.get_user_watchlist(user_id))
+                except Exception:
+                    pass
+
+        for doc in raw_docs:
+            item = OpportunityModel.to_dict(doc)
+            opp_skills = doc.get("skills") or []
+
+            if profile is not None:
+                from app.services.eligibility_engine import EligibilityEngine
+                from app.services.recommendation_engine import RecommendationEngine
+
+                elig = EligibilityEngine.evaluate(doc, profile)
+                score_data = RecommendationEngine._score_opportunity(
+                    opp=doc,
+                    profile=profile,
+                    student_skills=student_skills,
+                    student_roles=student_roles,
+                    watchlist=watchlist,
+                    eligibility=elig
+                )
+                item["eligibility"] = elig
+                item["match_score"] = score_data["total_score"]
+                item["score_breakdown"] = score_data["breakdown"]
+                item["why_matched"] = score_data["highlights"]
+                item["personal_rationale"] = RecommendationEngine._generate_rationale(doc, profile, score_data)
+
+                # Compute matched and missing skills directly for UI badge highlighting
+                matched = []
+                missing = []
+                for s in opp_skills:
+                    s_str = str(s).strip()
+                    s_norm = s_str.lower()
+                    if s_norm in student_skills or any(st in s_norm or s_norm in st for st in student_skills):
+                        matched.append(s_str)
+                    else:
+                        missing.append(s_str)
+                item["matched_skills"] = matched
+                item["missing_skills"] = missing
+            else:
+                item["matched_skills"] = []
+                item["missing_skills"] = opp_skills
+
+            items.append(item)
+
+        # Prioritize matching opportunities to student profile and resume
+        if profile is not None and sort_by in ("latest", "match", "relevance", None):
+            items.sort(key=lambda x: (x.get("match_score", 0), len(x.get("matched_skills", []))), reverse=True)
+
+        if matched_only and profile is not None:
+            matched_items = [x for x in items if x.get("match_score", 0) >= 60 or len(x.get("matched_skills", [])) > 0]
+            if len(matched_items) >= 10:
+                items = matched_items
+
+        total_count = len(items)
         total_pages = math.ceil(total_count / limit) if total_count > 0 else 1
         skip = (page - 1) * limit
-
-        cursor = col.find(query).sort(sort_criteria).skip(skip).limit(limit)
-        items = [OpportunityModel.to_dict(doc) for doc in cursor]
+        paginated_items = items[skip:skip + limit]
 
         return {
-            "items": items,
+            "items": paginated_items,
             "pagination": {
                 "page": page,
                 "limit": limit,
@@ -417,10 +560,15 @@ class OpportunityService:
         """
         col = OpportunityModel.get_collection()
         now_utc = datetime.now(timezone.utc).isoformat()
+        today_date = now_utc[:10]
         res = col.update_many(
             {
                 "status": "active",
-                "dates.deadline": {"$ne": None, "$lt": now_utc}
+                "dates.deadline": {"$ne": None},
+                "$or": [
+                    {"dates.deadline": {"$regex": r"^\d{4}-\d{2}-\d{2}$", "$lt": today_date}},
+                    {"dates.deadline": {"$regex": r"T", "$lt": now_utc}}
+                ]
             },
             {
                 "$set": {
@@ -437,106 +585,10 @@ class OpportunityService:
     def check_eligibility(cls, opp: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str, Any]:
         """
         Deterministic eligibility engine evaluating student profile against opportunity requirements.
-        Returns overall pass/fail, percentage eligibility, and rule-by-rule audit trail with reasons.
+        Delegates directly to EligibilityEngine.evaluate for complete status, checks, and audit trail.
         """
-        rules = []
-        edu_req = opp.get("education_requirements") or {}
-        dates = opp.get("dates") or {}
-        deadline = dates.get("deadline")
-
-        # 1. Deadline Rule
-        now_iso = datetime.now(timezone.utc).isoformat()
-        if deadline and deadline < now_iso:
-            rules.append({
-                "rule": "Deadline",
-                "passed": False,
-                "reason": f"Application deadline closed on {deadline[:10]}"
-            })
-        else:
-            rules.append({
-                "rule": "Deadline",
-                "passed": True,
-                "reason": f"Active listing (deadline: {deadline[:10] if deadline else 'Rolling / Open'})"
-            })
-
-        # 2. CGPA Rule
-        min_cgpa = edu_req.get("cgpa_min")
-        student_edu = profile.get("education") or {}
-        student_cgpa_raw = student_edu.get("cgpa")
-        try:
-            student_cgpa = float(student_cgpa_raw) if student_cgpa_raw is not None else None
-        except (ValueError, TypeError):
-            student_cgpa = None
-
-        if min_cgpa is not None:
-            if student_cgpa is not None:
-                passed = student_cgpa >= float(min_cgpa)
-                rules.append({
-                    "rule": "CGPA",
-                    "passed": passed,
-                    "reason": f"Your CGPA is {student_cgpa}; minimum requirement is {min_cgpa}" if passed else f"Your CGPA ({student_cgpa}) is below required {min_cgpa}"
-                })
-            else:
-                rules.append({
-                    "rule": "CGPA",
-                    "passed": True,
-                    "reason": f"Requires {min_cgpa} CGPA (unverified in profile)"
-                })
-        else:
-            rules.append({
-                "rule": "CGPA",
-                "passed": True,
-                "reason": "No minimum CGPA required"
-            })
-
-        # 3. Graduation Year Rule
-        allowed_years = edu_req.get("graduation_years") or []
-        student_year_raw = student_edu.get("graduationYear") or student_edu.get("graduation_year")
-        try:
-            student_year = int(student_year_raw) if student_year_raw else None
-        except (ValueError, TypeError):
-            student_year = None
-
-        if allowed_years and student_year:
-            passed = student_year in allowed_years
-            rules.append({
-                "rule": "Graduation Year",
-                "passed": passed,
-                "reason": f"Your graduation batch ({student_year}) is eligible" if passed else f"Targeting batches {allowed_years}; your profile lists {student_year}"
-            })
-        else:
-            rules.append({
-                "rule": "Graduation Year",
-                "passed": True,
-                "reason": "Open to all current university batches"
-            })
-
-        # 4. Academic Branch Rule
-        branches = edu_req.get("branches") or []
-        student_branch = (student_edu.get("branch") or "").strip().lower()
-        if branches and student_branch:
-            passed = any(b.lower() in student_branch or student_branch in b.lower() for b in branches) or "engineering" in student_branch
-            rules.append({
-                "rule": "Academic Discipline",
-                "passed": passed,
-                "reason": f"Branch '{student_branch.title()}' meets discipline criteria" if passed else f"Prefers branches: {', '.join(branches[:3])}"
-            })
-        else:
-            rules.append({
-                "rule": "Academic Discipline",
-                "passed": True,
-                "reason": "Open to all disciplines"
-            })
-
-        passed_rules = sum(1 for r in rules if r["passed"])
-        is_eligible = all(r["passed"] for r in rules)
-        score = int((passed_rules / len(rules)) * 100) if rules else 100
-
-        return {
-            "is_eligible": is_eligible,
-            "eligibility_score": score,
-            "rules": rules
-        }
+        from app.services.eligibility_engine import EligibilityEngine
+        return EligibilityEngine.evaluate(opp, profile)
 
     @classmethod
     def compute_match(cls, opp: Dict[str, Any], profile: Dict[str, Any]) -> Dict[str, Any]:
@@ -586,8 +638,13 @@ class OpportunityService:
         """Saves opportunity to user's saved bookmarks."""
         from app.models.profile import ProfileModel
         col = ProfileModel.get_collection()
+        uid_query = {"$in": [str(user_id), ObjectId(user_id)]} if ObjectId.is_valid(user_id) else str(user_id)
+        existing = col.find_one({"user_id": uid_query})
+        if not existing:
+            from app.services.profile_service import ProfileService
+            ProfileService.create_default_profile(user_id=str(user_id))
         col.update_one(
-            {"user_id": str(user_id)},
+            {"user_id": uid_query},
             {"$addToSet": {"saved_opportunities": str(opp_id)}}
         )
         return True
@@ -597,8 +654,9 @@ class OpportunityService:
         """Removes opportunity from user's saved bookmarks."""
         from app.models.profile import ProfileModel
         col = ProfileModel.get_collection()
+        uid_query = {"$in": [str(user_id), ObjectId(user_id)]} if ObjectId.is_valid(user_id) else str(user_id)
         col.update_one(
-            {"user_id": str(user_id)},
+            {"user_id": uid_query},
             {"$pull": {"saved_opportunities": str(opp_id)}}
         )
         return True
@@ -608,6 +666,7 @@ class OpportunityService:
         """Retrieves list of saved opportunity IDs for a user."""
         from app.models.profile import ProfileModel
         col = ProfileModel.get_collection()
-        doc = col.find_one({"user_id": str(user_id)}, {"saved_opportunities": 1})
+        uid_query = {"$in": [str(user_id), ObjectId(user_id)]} if ObjectId.is_valid(user_id) else str(user_id)
+        doc = col.find_one({"user_id": uid_query}, {"saved_opportunities": 1})
         return doc.get("saved_opportunities", []) if doc else []
 

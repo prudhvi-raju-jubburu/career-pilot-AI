@@ -125,7 +125,8 @@ export default function InteractiveLearningTimeline({
             filteredRoadmap.map((item, index) => {
               const skillProgress = learningProgress[item.skillName] || { status: 'not_started', progress: 0, completedTopics: [] };
               const completedTopics = skillProgress.completedTopics || [];
-              const totalTopics = item.topics ? item.topics.length : 3;
+              const topics = Array.isArray(item.topics) ? item.topics : [];
+              const totalTopics = topics.length;
               const isSkillCompleted = skillProgress.status === 'completed' || (totalTopics > 0 && completedTopics.length >= totalTopics);
 
               return (
@@ -209,49 +210,51 @@ export default function InteractiveLearningTimeline({
                     </div>
 
                     {/* Topic checklist milestones */}
-                    <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
-                        Milestone Deliverables ({completedTopics.length}/{totalTopics})
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem' }}>
-                        {(item.topics || ['Foundations & Core Syntax', 'Practical Build Implementation', 'Testing & Optimization']).map((topic, tIdx) => {
-                          const isTopicDone = completedTopics.includes(topic);
-                          return (
-                            <div
-                              key={tIdx}
-                              onClick={() => handleTopicCheck(item.skillName, topic, totalTopics, completedTopics.length)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                padding: '0.45rem 0.65rem',
-                                borderRadius: 'var(--radius-md)',
-                                backgroundColor: isTopicDone ? 'var(--success-bg)' : 'var(--surface)',
-                                border: '1px solid var(--border)',
-                                cursor: 'pointer',
-                                transition: 'all var(--transition-fast)',
-                              }}
-                            >
-                              {isTopicDone ? (
-                                <CheckCircle2 size={16} color="var(--success)" />
-                              ) : (
-                                <Circle size={16} color="var(--text-muted)" />
-                              )}
-                              <span
+                    {topics.length > 0 && (
+                      <div style={{ marginTop: '0.85rem', paddingTop: '0.85rem', borderTop: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+                          Milestone Deliverables ({completedTopics.length}/{totalTopics})
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.5rem' }}>
+                          {topics.map((topic, tIdx) => {
+                            const isTopicDone = completedTopics.includes(topic);
+                            return (
+                              <div
+                                key={tIdx}
+                                onClick={() => handleTopicCheck(item.skillName, topic, totalTopics, completedTopics.length)}
                                 style={{
-                                  fontSize: '0.8rem',
-                                  fontWeight: 500,
-                                  color: isTopicDone ? 'var(--success-dark)' : 'var(--text-primary)',
-                                  textDecoration: isTopicDone ? 'line-through' : 'none',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.5rem',
+                                  padding: '0.45rem 0.65rem',
+                                  borderRadius: 'var(--radius-md)',
+                                  backgroundColor: isTopicDone ? 'var(--success-bg)' : 'var(--surface)',
+                                  border: '1px solid var(--border)',
+                                  cursor: 'pointer',
+                                  transition: 'all var(--transition-fast)',
                                 }}
                               >
-                                {topic}
-                              </span>
-                            </div>
-                          );
-                        })}
+                                {isTopicDone ? (
+                                  <CheckCircle2 size={16} color="var(--success)" />
+                                ) : (
+                                  <Circle size={16} color="var(--text-muted)" />
+                                )}
+                                <span
+                                  style={{
+                                    fontSize: '0.8rem',
+                                    fontWeight: 500,
+                                    color: isTopicDone ? 'var(--success-dark)' : 'var(--text-primary)',
+                                    textDecoration: isTopicDone ? 'line-through' : 'none',
+                                  }}
+                                >
+                                  {topic}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               );

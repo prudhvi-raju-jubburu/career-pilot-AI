@@ -69,12 +69,42 @@ export const uploadResume = async (formData) => {
   });
 };
 
-export const analyzeResume = async () => {
-  return await api.post('/api/resume/analyze', {}, { timeout: 60000 });
+export const analyzeResume = async (options = {}) => {
+  const params = options.params || (options.save !== undefined ? { save: options.save } : {});
+  return await api.post('/api/resume/analyze', options.body || {}, { params, timeout: 60000 });
+};
+
+export const confirmResumeExtraction = async (payload) => {
+  return await api.post('/api/resume/confirm-extraction', payload);
 };
 
 export const getResumeInfo = async () => {
   return await api.get('/api/resume');
+};
+
+// Resume Builder Services
+export const getResumeBuilderSourceData = async () => {
+  return await api.get('/api/resume-builder/source-data');
+};
+
+export const mergeResumeSources = async (extractedResume = null) => {
+  return await api.post('/api/resume-builder/merge', { extracted_resume: extractedResume });
+};
+
+export const scoreResumeQuality = async (payload) => {
+  return await api.post('/api/resume-builder/score', payload);
+};
+
+export const getResumeImprovements = async (payload) => {
+  return await api.post('/api/resume-builder/improve', payload);
+};
+
+export const getResumeVersions = async () => {
+  return await api.get('/api/resume-builder/versions');
+};
+
+export const saveResumeVersion = async (versionPayload) => {
+  return await api.post('/api/resume-builder/versions', versionPayload);
 };
 
 // Profile Services
@@ -95,8 +125,14 @@ export const getProfileCompletion = async () => {
 };
 
 // Skill Gap & Learning Roadmap Services
-export const getSkillGap = async (targetRole) => {
-  const url = targetRole ? `/api/skill-gap?targetRole=${encodeURIComponent(targetRole)}` : '/api/skill-gap';
+export const getSkillGap = async (targetRole, opportunityId) => {
+  let url = '/api/skill-gap';
+  const queryParts = [];
+  if (targetRole) queryParts.push(`targetRole=${encodeURIComponent(targetRole)}`);
+  if (opportunityId) queryParts.push(`opportunityId=${encodeURIComponent(opportunityId)}`);
+  if (queryParts.length > 0) {
+    url += `?${queryParts.join('&')}`;
+  }
   return await api.get(url);
 };
 
@@ -129,6 +165,14 @@ export const updateLearningProgress = async (skill, progressData) => {
 // Opportunity Discovery Services
 export const getOpportunities = async (params = {}) => {
   return await api.get('/api/opportunities', { params });
+};
+
+export const getRecommendations = async (params = {}) => {
+  return await api.get('/api/recommendations', { params });
+};
+
+export const getOpportunityStats = async () => {
+  return await api.get('/api/opportunities/stats');
 };
 
 export const getOpportunityById = async (id) => {
@@ -194,8 +238,12 @@ export const getDashboardStats = async () => {
 };
 
 // Notifications & Daily Digest Services
-export const getNotifications = async () => {
-  return await api.get('/api/notifications');
+export const getNotifications = async (params = {}) => {
+  return await api.get('/api/notifications', { params });
+};
+
+export const getUnreadNotificationCount = async () => {
+  return await api.get('/api/notifications/unread-count');
 };
 
 export const markNotificationRead = async (id) => {
@@ -206,8 +254,24 @@ export const markAllNotificationsRead = async () => {
   return await api.post('/api/notifications/read-all');
 };
 
+export const deleteNotification = async (id) => {
+  return await api.delete(`/api/notifications/${id}`);
+};
+
+export const getNotificationPreferences = async () => {
+  return await api.get('/api/notifications/preferences');
+};
+
+export const updateNotificationPreferences = async (preferences) => {
+  return await api.put('/api/notifications/preferences', preferences);
+};
+
 export const getDailyDigest = async () => {
   return await api.get('/api/notifications/digest');
+};
+
+export const triggerDigestSend = async (frequency = 'daily') => {
+  return await api.post('/api/notifications/digest/send', { frequency });
 };
 
 // AI Career Advisor Services

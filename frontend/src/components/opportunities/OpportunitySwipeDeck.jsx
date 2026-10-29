@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-mo
 import { Bookmark, X, RotateCcw, Sparkles, MapPin, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { Card, Button, Badge, ProgressRing, OpportunityTypeBadge } from '../ui';
 import useCountdown from '../../hooks/useCountdown';
+import { formatOpportunityLocation } from '../../utils';
 
 export default function OpportunitySwipeDeck({
   opportunities = [],
@@ -282,7 +283,7 @@ function SwipeCardItem({ opp, onSelectDetail }) {
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
             <MapPin size={14} />
-            <span>{opp.locationString || opp.location || 'Remote'}</span>
+            <span>{formatOpportunityLocation(opp)}</span>
             <span>•</span>
             <span>{opp.workMode || 'Hybrid'}</span>
           </div>
@@ -308,7 +309,7 @@ function SwipeCardItem({ opp, onSelectDetail }) {
 
         {/* Skills */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: 'auto' }}>
-          {(opp.skills || ['Python', 'SQL', 'React']).map((s) => (
+          {(Array.isArray(opp.skills) ? opp.skills : []).map((s) => (
             <span
               key={s}
               style={{

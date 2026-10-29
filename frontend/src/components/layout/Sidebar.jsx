@@ -16,7 +16,8 @@ import {
   ChevronRight,
   ChevronLeft,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -39,7 +40,8 @@ export default function Sidebar({
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={18} /> },
     { name: 'Opportunities', path: '/opportunities', icon: <Briefcase size={18} /> },
     { name: 'Applications', path: '/applications', icon: <Layers size={18} /> },
-    { name: 'Skill Gap', path: '/skill-gap', icon: <TrendingUp size={18} /> },
+    { name: 'Resume Builder', path: '/resume', icon: <FileText size={18} />, badge: 'AI' },
+    { name: 'Skill Arena', path: '/skill-gap', icon: <TrendingUp size={18} /> },
     { name: 'AI Career Advisor', path: '/ai-advisor', icon: <Sparkles size={18} /> },
   ];
 
@@ -47,6 +49,9 @@ export default function Sidebar({
     { name: 'Profile', path: '/profile', icon: <User size={18} /> },
     { name: 'Notifications', path: '/notifications', icon: <Bell size={18} />, badge: 3 },
     { name: 'Settings', path: '/settings', icon: <Settings size={18} /> },
+    ...(user?.role === 'admin'
+      ? [{ name: 'Admin Workspace', path: '/admin/overview', icon: <Shield size={18} />, badge: 'Admin' }]
+      : []),
   ];
 
   const userInitial = user?.name ? user.name.charAt(0).toUpperCase() : 'S';
@@ -60,25 +65,33 @@ export default function Sidebar({
           className="sidebar-brand"
           onClick={onCloseMobile}
           title="CareerPilot AI — Go to Homepage"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}
         >
-          <div
+          <img
+            src="/careerpilot-logo.png"
+            alt="CareerPilot AI"
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: 'var(--radius-md)',
-              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              boxShadow: '0 2px 6px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35)',
+              height: collapsed ? '28px' : '36px',
+              width: 'auto',
+              objectFit: 'contain',
               flexShrink: 0,
             }}
-          >
-            <Compass size={19} />
-          </div>
-          {!collapsed && <span>CareerPilot</span>}
-          {!collapsed && <span className="sidebar-brand-badge">AI</span>}
+          />
+          {!collapsed && (
+            <span
+              style={{
+                fontSize: '0.62rem',
+                fontWeight: 800,
+                padding: '0.15rem 0.4rem',
+                borderRadius: '9999px',
+                background: 'var(--lx-blue)',
+                color: '#ffffff',
+                letterSpacing: '0.08em',
+              }}
+            >
+              AI
+            </span>
+          )}
         </NavLink>
 
         {/* Mobile Close Button */}
@@ -117,6 +130,21 @@ export default function Sidebar({
               {item.icon}
             </span>
             <span className="sidebar-nav-label">{item.name}</span>
+            {item.badge && !collapsed && (
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  fontSize: '0.65rem',
+                  fontWeight: 800,
+                  padding: '0.1rem 0.4rem',
+                  borderRadius: '9999px',
+                  backgroundColor: 'var(--lx-gold)',
+                  color: 'var(--lx-ink)',
+                }}
+              >
+                {item.badge}
+              </span>
+            )}
           </NavLink>
         ))}
 

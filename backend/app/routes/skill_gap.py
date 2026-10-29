@@ -26,17 +26,32 @@ def _extract_all_skills_from_profile(profile_data):
             
     return list(dict.fromkeys([s.strip() for s in all_skills if isinstance(s, str) and s.strip()]))
 
+def _hydrate_roadmap_progress(structured_roadmap, progress_list):
+    """Hydrates structured roadmap phases and milestones with user-persisted progress."""
+    if not structured_roadmap or not progress_list:
+        return structured_roadmap
+    prog_map = {p.get("skill", "").lower(): p for p in progress_list if isinstance(p, dict)}
+    for phase in structured_roadmap:
+        for m in phase.get("milestones", []):
+            skill_key = m.get("skill", "").lower()
+            if skill_key in prog_map:
+                p_data = prog_map[skill_key]
+                m["status"] = p_data.get("status", "not_started")
+                m["progress"] = p_data.get("progress", 0)
+                m["completedTopics"] = p_data.get("completed_topics", [])
+    return structured_roadmap
+
 @skill_gap_bp.route("", methods=["GET"])
 @token_required
 def get_skill_gap(current_user):
     """
     Computes skill gap for current student profile against their preferred target role
-    or default role ('Software Engineer').
+    or default role ('Software Engineer'), optionally compared against an active opportunity.
     """
     user_id = str(current_user["_id"])
     profile = ProfileModel.find_by_user_id(user_id) or {}
     
-    # Extract target role from student preferences or query parameter
+    # Extract target role from query parameter or student preferences
     target_role = request.args.get("targetRole")
     if not target_role:
         prefs = profile.get("preferences", {}) if isinstance(profile, dict) else {}
@@ -51,20 +66,42 @@ def get_skill_gap(current_user):
                 target_roles = [tr]
         target_role = target_roles[0] if target_roles else "Software Engineer"
 
+    # Optional target opportunity comparison
+    target_opportunity = None
+    opp_id = request.args.get("opportunityId") or request.args.get("opportunity_id")
+    if opp_id:
+        try:
+            from app.models.opportunity import OpportunityModel
+            target_opportunity = OpportunityModel.find_by_id(opp_id)
+        except Exception:
+            pass
+
     student_skills = _extract_all_skills_from_profile(profile)
-    # If student has not yet entered profile skills, pass empty list so gap shows all required skills
     if not student_skills:
         student_skills = []
 
     analysis = SkillGapService.analyze(
         student_skills=student_skills,
         target_role=target_role,
+        target_opportunity=target_opportunity,
         user_profile=profile
     )
 
-    # Attach any existing user learning progress
+    # Attach user learning progress and hydrate structured roadmap
     progress_list = LearningProgressModel.get_user_progress(user_id)
     analysis["userProgress"] = progress_list
+    if "structuredRoadmap" in analysis:
+        analysis["structuredRoadmap"] = _hydrate_roadmap_progress(analysis["structuredRoadmap"], progress_list)
+
+    # Attach student resume metadata
+    resume_info = profile.get("resume", {}) if isinstance(profile, dict) else {}
+    analysis["resumeMeta"] = {
+        "fileName": resume_info.get("fileName") or resume_info.get("file_name"),
+        "uploadedAt": resume_info.get("uploadedAt") or resume_info.get("uploaded_at"),
+        "analysisStatus": resume_info.get("analysisStatus") or resume_info.get("analysis_status") or "none",
+        "hasResume": bool(resume_info.get("fileName") or resume_info.get("file_name")),
+        "lastProfileUpdate": profile.get("updated_at")
+    }
 
     return jsonify({
         "success": True,
@@ -85,6 +122,14 @@ def analyze_skill_gap(current_user):
     payload = request.get_json() or {}
     target_role = payload.get("targetRole", "Software Engineer")
     target_opportunity = payload.get("targetOpportunity")
+    opp_id = payload.get("opportunityId") or payload.get("opportunity_id")
+    if not target_opportunity and opp_id:
+        try:
+            from app.models.opportunity import OpportunityModel
+            target_opportunity = OpportunityModel.find_by_id(opp_id)
+        except Exception:
+            pass
+
     custom_skills = payload.get("skills")
 
     if custom_skills and isinstance(custom_skills, list):
@@ -103,6 +148,17 @@ def analyze_skill_gap(current_user):
 
     progress_list = LearningProgressModel.get_user_progress(user_id)
     analysis["userProgress"] = progress_list
+    if "structuredRoadmap" in analysis:
+        analysis["structuredRoadmap"] = _hydrate_roadmap_progress(analysis["structuredRoadmap"], progress_list)
+
+    resume_info = profile.get("resume", {}) if isinstance(profile, dict) else {}
+    analysis["resumeMeta"] = {
+        "fileName": resume_info.get("fileName") or resume_info.get("file_name"),
+        "uploadedAt": resume_info.get("uploadedAt") or resume_info.get("uploaded_at"),
+        "analysisStatus": resume_info.get("analysisStatus") or resume_info.get("analysis_status") or "none",
+        "hasResume": bool(resume_info.get("fileName") or resume_info.get("file_name")),
+        "lastProfileUpdate": profile.get("updated_at")
+    }
 
     return jsonify({
         "success": True,
@@ -120,7 +176,7 @@ def get_roadmap(current_user):
     target_role = request.args.get("targetRole", "Software Engineer")
     student_skills = _extract_all_skills_from_profile(profile)
     if not student_skills:
-        student_skills = ["Python", "C++", "SQL", "React", "Flask", "MongoDB", "Git"]
+        student_skills = []
 
     analysis = SkillGapService.analyze(
         student_skills=student_skills,
@@ -128,12 +184,18 @@ def get_roadmap(current_user):
         user_profile=profile
     )
 
+    progress_list = LearningProgressModel.get_user_progress(user_id)
+    structured_roadmap = analysis.get("structuredRoadmap", [])
+    if structured_roadmap:
+        structured_roadmap = _hydrate_roadmap_progress(structured_roadmap, progress_list)
+
     return jsonify({
         "success": True,
         "message": "Personalized learning roadmap generated",
         "data": {
             "targetRole": target_role,
             "roadmap": analysis.get("roadmap", {}),
+            "structuredRoadmap": structured_roadmap,
             "prioritySpotlight": analysis.get("prioritySpotlight", []),
             "futureSkills": analysis.get("futureSkills", [])
         }

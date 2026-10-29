@@ -27,13 +27,26 @@ class RemotiveConnector(OpportunitySource):
         if not self.is_enabled:
             return []
 
-        url = f"{self.base_url}&limit={self.limit}"
+        url = f"{self.base_url}&limit=50"
         try:
             raw_bytes = self._fetch_url(url)
             data = json.loads(raw_bytes.decode("utf-8"))
             jobs = data.get("jobs", [])
-            logger.info("RemotiveConnector: fetched %d jobs", len(jobs))
-            return jobs
+            
+            # Filter for India-eligible roles (Worldwide, Anywhere, India, APAC, or Asia)
+            india_eligible_jobs = []
+            allowed_locations = ["india", "worldwide", "anywhere", "apac", "asia", "global"]
+            for job in jobs:
+                loc = (job.get("candidate_required_location") or "").lower()
+                # Exclude strictly foreign-restricted jobs
+                foreign_only = ["usa only", "us only", "uk only", "germany only", "europe only", "canada only", "emea only", "latam only"]
+                if any(f in loc for f in foreign_only):
+                    continue
+                if not loc or any(a in loc for a in allowed_locations):
+                    india_eligible_jobs.append(job)
+            
+            logger.info("RemotiveConnector: fetched %d jobs (%d India-eligible)", len(jobs), len(india_eligible_jobs))
+            return india_eligible_jobs[:self.limit]
         except Exception as e:
             logger.error("RemotiveConnector fetch failed: %s", str(e))
             return []
@@ -61,7 +74,8 @@ class RemotiveConnector(OpportunitySource):
                 description=" ".join(tags)
             ),
             "location": {
-                "city": location_text if location_text else "Remote",
+                "city": "Remote (India)" if "india" in location_text.lower() else "Remote (India Eligible)",
+                "country": "India",
                 "is_remote": True
             },
             "work_mode": "Remote",
@@ -73,7 +87,7 @@ class RemotiveConnector(OpportunitySource):
                 "cgpa_min": None
             },
             "experience": {"min_years": 0, "max_years": 3},
-            "eligibility_text": f"Open to remote candidates ({location_text}).",
+            "eligibility_text": f"Open to remote developers in India ({location_text}).",
             "application_url": raw_item.get("url", ""),
             "source": {
                 "name": self.name,

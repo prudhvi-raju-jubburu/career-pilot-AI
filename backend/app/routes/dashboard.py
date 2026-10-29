@@ -43,16 +43,22 @@ def get_dashboard_stats(current_user):
             })
             sparkline.append(cnt)
 
-        # 4. User's Applications Pipeline Breakdown
+        # 4. User's Applications Pipeline Breakdown (7 Canonical Statuses)
         user_apps = ApplicationModel.find_by_user(user_id)
+        from app.services.opportunity_service import OpportunityService
+        saved_opp_ids = OpportunityService.get_saved_opportunity_ids(user_id)
         pipeline = {
             "saved": len([a for a in user_apps if a.get("status") == "Saved"]),
             "applied": len([a for a in user_apps if a.get("status") == "Applied"]),
-            "interviewing": len([a for a in user_apps if a.get("status") == "Interviewing"]),
-            "offer": len([a for a in user_apps if a.get("status") == "Offer"]),
-            "rejected": len([a for a in user_apps if a.get("status") == "Rejected"]),
+            "assessment": len([a for a in user_apps if a.get("status") in ("Assessment", "Online Assessment")]),
+            "interview": len([a for a in user_apps if a.get("status") in ("Interview", "Interviewing")]),
+            "interviewing": len([a for a in user_apps if a.get("status") in ("Interview", "Interviewing", "Assessment")]),
+            "offer": len([a for a in user_apps if a.get("status") in ("Offer", "Offered", "Hired")]),
+            "rejected": len([a for a in user_apps if a.get("status") in ("Rejected", "Closed")]),
+            "withdrawn": len([a for a in user_apps if a.get("status") == "Withdrawn"]),
         }
         active_applications = pipeline["applied"] + pipeline["interviewing"]
+        saved_opportunities_count = max(len(saved_opp_ids), pipeline["saved"])
 
         # 5. Profile Completion
         profile = ProfileService.get_profile_by_user_id(user_id)
@@ -84,6 +90,7 @@ def get_dashboard_stats(current_user):
                 "scanned_today": scanned_today,
                 "sparkline_data": sparkline,
                 "active_applications": active_applications,
+                "saved_opportunities_count": saved_opportunities_count,
                 "pipeline": pipeline,
                 "profile_completion": completion_pct,
                 "missing_items": completion_data.get("missing_items", []),

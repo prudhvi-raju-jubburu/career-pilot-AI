@@ -410,13 +410,19 @@ class ProfileService:
                 if not isinstance(val, list):
                     raise ValueError(f"Field '{array_key}' must be an array.")
 
+        # Skills validation
+        if "skills" in updates:
+            val = updates["skills"]
+            if not isinstance(val, (list, dict)):
+                raise ValueError("Field 'skills' must be an array or dictionary.")
+
         # Preferences validation
         prefs = updates.get("preferences")
         if isinstance(prefs, dict):
             for k, val in prefs.items():
                 items = val.get("value") if isinstance(val, dict) and "value" in val else val
-                if items is not None and not isinstance(items, list):
-                    raise ValueError(f"Preference '{k}' must be an array of strings.")
+                if items is not None and not isinstance(items, (list, str)):
+                    raise ValueError(f"Preference '{k}' must be an array or string.")
 
     @classmethod
     def update_profile_for_user(cls, user_id: str, updates: dict) -> dict:
@@ -468,44 +474,78 @@ class ProfileService:
                     profile["education"][field] = val
                     field_sources[f"education.{field}"] = "manual"
 
+        # Handle Target Role
+        if "target_role" in updates:
+            tr = cls._clean_str(updates["target_role"])
+            profile["target_role"] = tr
+            if tr and tr not in profile["preferences"]["target_roles"]:
+                profile["preferences"]["target_roles"].append(tr)
+            field_sources["target_role"] = "manual"
+
         # Handle Skills Section
-        if "skills" in updates and isinstance(updates["skills"], dict):
-            s_updates = updates["skills"]
-            cat_map = {
-                "programming_languages": ["programming_languages", "programmingLanguages"],
-                "frameworks": ["frameworks"],
-                "databases": ["databases"],
-                "ai_ml": ["ai_ml", "aiMl"],
-                "cloud": ["cloud"],
-                "devops": ["devops"],
-                "tools": ["tools"],
-                "other": ["other", "technical"]
-            }
-            for canonical_cat, aliases in cat_map.items():
-                for alias in aliases:
-                    if alias in s_updates:
-                        val = s_updates[alias]
-                        items = val.get("value") if isinstance(val, dict) and "value" in val else val
-                        if isinstance(items, list):
-                            normalized = normalize_skill_list(items)
-                            profile["skills"][canonical_cat] = normalized
-                            field_sources[f"skills.{canonical_cat}"] = "manual"
-                        break
+        if "skills" in updates:
+            if isinstance(updates["skills"], list):
+                normalized = normalize_skill_list(updates["skills"])
+                for s in normalized:
+                    s_lower = s.lower()
+                    if s_lower in ["python", "javascript", "typescript", "c++", "c#", "java", "go", "rust", "sql", "c", "ruby", "php"]:
+                        if s not in profile["skills"]["programming_languages"]:
+                            profile["skills"]["programming_languages"].append(s)
+                    elif s_lower in ["react", "vue.js", "angular", "node.js", "express", "flask", "django", "fastapi", "spring boot"]:
+                        if s not in profile["skills"]["frameworks"]:
+                            profile["skills"]["frameworks"].append(s)
+                    elif s_lower in ["mongodb", "postgresql", "mysql", "redis", "elasticsearch", "sqlite"]:
+                        if s not in profile["skills"]["databases"]:
+                            profile["skills"]["databases"].append(s)
+                    elif s_lower in ["docker", "kubernetes", "git", "ci/cd", "linux", "terraform"]:
+                        if s not in profile["skills"]["devops"]:
+                            profile["skills"]["devops"].append(s)
+                    elif s_lower in ["aws", "azure", "gcp"]:
+                        if s not in profile["skills"]["cloud"]:
+                            profile["skills"]["cloud"].append(s)
+                    else:
+                        if s not in profile["skills"]["other"]:
+                            profile["skills"]["other"].append(s)
+                field_sources["skills"] = "manual"
+            elif isinstance(updates["skills"], dict):
+                s_updates = updates["skills"]
+                cat_map = {
+                    "programming_languages": ["programming_languages", "programmingLanguages"],
+                    "frameworks": ["frameworks"],
+                    "databases": ["databases"],
+                    "ai_ml": ["ai_ml", "aiMl"],
+                    "cloud": ["cloud"],
+                    "devops": ["devops"],
+                    "tools": ["tools"],
+                    "other": ["other", "technical"]
+                }
+                for canonical_cat, aliases in cat_map.items():
+                    for alias in aliases:
+                        if alias in s_updates:
+                            val = s_updates[alias]
+                            items = val.get("value") if isinstance(val, dict) and "value" in val else val
+                            if isinstance(items, list):
+                                normalized = normalize_skill_list(items)
+                                profile["skills"][canonical_cat] = normalized
+                                field_sources[f"skills.{canonical_cat}"] = "manual"
+                            break
 
         # Handle Preferences Section
         if "preferences" in updates and isinstance(updates["preferences"], dict):
             pref_updates = updates["preferences"]
             pref_map = {
-                "target_roles": ["target_roles", "targetRoles"],
-                "preferred_locations": ["preferred_locations", "preferredLocations"],
-                "opportunity_types": ["opportunity_types", "opportunityTypes"],
-                "work_modes": ["work_modes", "workModes"]
+                "target_roles": ["target_roles", "targetRoles", "target_role", "roles"],
+                "preferred_locations": ["preferred_locations", "preferredLocations", "locations", "location"],
+                "opportunity_types": ["opportunity_types", "opportunityTypes", "types", "type"],
+                "work_modes": ["work_modes", "workModes", "work_mode", "workMode"]
             }
             for canonical_pref, aliases in pref_map.items():
                 for alias in aliases:
                     if alias in pref_updates:
                         val = pref_updates[alias]
                         items = val.get("value") if isinstance(val, dict) and "value" in val else val
+                        if isinstance(items, str):
+                            items = [items]
                         if isinstance(items, list):
                             profile["preferences"][canonical_pref] = [
                                 cls._clean_str(item) for item in items if cls._clean_str(item)
@@ -679,6 +719,182 @@ class ProfileService:
         profile["updated_at"] = now
 
         # Recalculate completion
+        comp = cls.calculate_profile_completion(profile)
+        profile["profile_completion"] = {
+            "percentage": comp["percentage"],
+            "missing_fields": comp["missing_fields"]
+        }
+
+        col.update_one({"_id": profile["_id"]}, {"$set": profile})
+        return profile
+
+    @classmethod
+    def merge_confirmed_resume_data(
+        cls,
+        user_id: str,
+        confirmed_data: dict,
+        selected_fields: Optional[List[str]] = None,
+        field_choices: Optional[Dict[str, str]] = None
+    ) -> dict:
+        """
+        Safely merges student-reviewed and approved resume extraction fields into the profile.
+        Strict Rules:
+          1. Only applies fields chosen by the student (if selected_fields is provided).
+          2. Preserves manually entered information unless explicitly chosen to overwrite in field_choices.
+          3. Missing fields in confirmed_data NEVER delete or wipe out existing profile information.
+          4. Chosen fields are marked with source 'manual' (since student reviewed/approved them).
+          5. Skills are normalized and deduplicated.
+          6. Updates resume analysis_status to 'completed'.
+          7. Transitions verification status to 'needs_review'.
+          8. Recalculates deterministic profile completion.
+        """
+        col = cls.get_collection()
+        now = datetime.now(timezone.utc).isoformat()
+
+        profile = cls.get_profile_by_user_id(user_id)
+        if not profile:
+            profile = cls.create_default_profile(user_id)
+
+        field_sources = profile.get("field_sources", {})
+        if field_choices is None:
+            field_choices = {}
+
+        def should_apply(field_path: str) -> bool:
+            # If student chose "existing" in conflict resolution, do not overwrite
+            if field_choices.get(field_path) == "existing":
+                return False
+            # If selected_fields is specified, must be present
+            if selected_fields is not None:
+                return field_path in selected_fields
+            # If not in selected_fields and already manual, don't overwrite unless choice is "resume"
+            if field_sources.get(field_path) == "manual" and field_choices.get(field_path) != "resume":
+                return False
+            return True
+
+        # 1. Personal Section
+        ext_personal = confirmed_data.get("personal", {})
+        if isinstance(ext_personal, dict):
+            name_val = ext_personal.get("fullName", ext_personal.get("full_name"))
+            if name_val is not None and should_apply("personal.full_name"):
+                cleaned = cls._clean_str(name_val)
+                if cleaned:
+                    profile["personal"]["full_name"] = cleaned
+                    field_sources["personal.full_name"] = "manual"
+
+            email_val = ext_personal.get("email")
+            if email_val is not None and should_apply("personal.email"):
+                cleaned = cls._clean_str(email_val)
+                if cleaned:
+                    profile["personal"]["email"] = cleaned
+                    field_sources["personal.email"] = "manual"
+
+            phone_val = ext_personal.get("phone")
+            if phone_val is not None and should_apply("personal.phone"):
+                cleaned = cls._clean_str(phone_val)
+                if cleaned:
+                    profile["personal"]["phone"] = cleaned
+                    field_sources["personal.phone"] = "manual"
+
+            loc_val = ext_personal.get("location")
+            if loc_val is not None and should_apply("personal.location"):
+                cleaned = cls._clean_str(loc_val)
+                if cleaned:
+                    profile["personal"]["location"] = cleaned
+                    field_sources["personal.location"] = "manual"
+
+        # 2. Education Section
+        ext_edu = confirmed_data.get("education", {})
+        if isinstance(ext_edu, dict):
+            college_val = ext_edu.get("college")
+            if college_val is not None and should_apply("education.college"):
+                cleaned = cls._clean_str(college_val)
+                if cleaned:
+                    profile["education"]["college"] = cleaned
+                    field_sources["education.college"] = "manual"
+
+            degree_val = ext_edu.get("degree")
+            if degree_val is not None and should_apply("education.degree"):
+                cleaned = cls._clean_str(degree_val)
+                if cleaned:
+                    profile["education"]["degree"] = cleaned
+                    field_sources["education.degree"] = "manual"
+
+            branch_val = ext_edu.get("branch")
+            if branch_val is not None and should_apply("education.branch"):
+                cleaned = cls._clean_str(branch_val)
+                if cleaned:
+                    profile["education"]["branch"] = cleaned
+                    field_sources["education.branch"] = "manual"
+
+            grad_val = ext_edu.get("graduationYear", ext_edu.get("graduation_year"))
+            if grad_val is not None and should_apply("education.graduation_year"):
+                try:
+                    profile["education"]["graduation_year"] = int(grad_val)
+                    field_sources["education.graduation_year"] = "manual"
+                except (ValueError, TypeError):
+                    pass
+
+            cgpa_val = ext_edu.get("cgpa")
+            if cgpa_val is not None and should_apply("education.cgpa"):
+                try:
+                    profile["education"]["cgpa"] = float(cgpa_val)
+                    field_sources["education.cgpa"] = "manual"
+                except (ValueError, TypeError):
+                    pass
+
+        # 3. Skills Section
+        ext_skills = confirmed_data.get("skills", {})
+        if isinstance(ext_skills, dict):
+            cat_mapping = {
+                "programming_languages": ["programmingLanguages", "programming_languages"],
+                "frameworks": ["frameworks"],
+                "databases": ["databases"],
+                "ai_ml": ["ai_ml", "aiMl"],
+                "cloud": ["cloud"],
+                "devops": ["devops"],
+                "tools": ["tools"],
+                "other": ["other", "technical"]
+            }
+            for canonical_cat, aliases in cat_mapping.items():
+                if not should_apply(f"skills.{canonical_cat}") and not should_apply("skills"):
+                    continue
+                extracted_list = []
+                for alias in aliases:
+                    if alias in ext_skills and isinstance(ext_skills[alias], list):
+                        extracted_list.extend(ext_skills[alias])
+                if extracted_list:
+                    normalized = normalize_skill_list(extracted_list)
+                    existing_skills = profile["skills"].get(canonical_cat, [])
+                    merged_skills = list(existing_skills)
+                    for s in normalized:
+                        if s not in merged_skills:
+                            merged_skills.append(s)
+                    profile["skills"][canonical_cat] = merged_skills
+                    field_sources[f"skills.{canonical_cat}"] = "manual"
+
+        # 4. Projects, Experience, Certifications, Achievements
+        for sec in ["projects", "experience", "certifications", "achievements"]:
+            if should_apply(sec):
+                ext_items = confirmed_data.get(sec)
+                if isinstance(ext_items, list) and ext_items:
+                    profile[sec] = ext_items
+                    field_sources[sec] = "manual"
+
+        # 5. Update resume status
+        if "resume" in profile:
+            profile["resume"]["analysis_status"] = "completed"
+            profile["resume"]["parsed"] = True
+
+        # 6. Verification Status: needs_review
+        profile["verification"] = {
+            "status": "needs_review",
+            "verified_at": None
+        }
+
+        profile["field_sources"] = field_sources
+        profile["updated_at"] = now
+
+        # 7. Recalculate deterministic completion
         comp = cls.calculate_profile_completion(profile)
         profile["profile_completion"] = {
             "percentage": comp["percentage"],

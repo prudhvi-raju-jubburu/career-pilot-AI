@@ -1,0 +1,1230 @@
+/* ==========================================================================
+   CareerPilot AI — Cinematic Entrance V2 (Scoped Styles)
+   Photorealistic 3D Pixar Animated Film & Grand Hero Brand Reveal
+   ========================================================================== */
+
+.cpe-overlay-root {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 99999;
+  background: #02050e;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  opacity: 1;
+  transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.cpe-overlay-root.cpe-exiting {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+}
+
+/* Header Controls (Skip Button & Discreet Badge) */
+.cpe-header-bar {
+  position: absolute;
+  top: 1.5rem;
+  left: 2rem;
+  right: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 60;
+}
+
+.cpe-brand-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.95rem;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 9999px;
+  backdrop-filter: blur(14px);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #38bdf8;
+}
+
+.cpe-brand-mini-badge .cpe-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #00f0ff;
+  box-shadow: 0 0 10px #00f0ff;
+  animation: cpePulse 2s infinite ease-in-out;
+}
+
+@keyframes cpePulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* Skip Intro Action Button */
+.cpe-skip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 9999px;
+  backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.cpe-skip-btn:hover {
+  background: rgba(37, 99, 235, 0.45);
+  border-color: rgba(56, 189, 248, 0.75);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(0, 210, 255, 0.35);
+}
+
+.cpe-skip-btn:focus-visible {
+  outline: 2px solid #00f0ff;
+  outline-offset: 3px;
+}
+
+.cpe-skip-shortcut {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #cbd5e1;
+}
+
+/* Main Film Viewport Container */
+.cpe-main-film-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 10;
+}
+
+/* Film Wrapper for seamless cross-fade into Brand Reveal */
+.cpe-film-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), transform 1s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 1;
+  transform: scale(1);
+}
+
+.cpe-film-wrapper.cpe-film-wrapper-hidden {
+  opacity: 0;
+  transform: scale(1.08);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   CINEMATIC 3D FILM STAGE (Continuous smooth motion, zero cuts/stutter)
+   ========================================================================== */
+
+.cpe-film-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000000;
+}
+
+.cpe-film-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity;
+  pointer-events: none;
+}
+
+.cpe-film-slide.cpe-slide-active {
+  opacity: 1;
+  z-index: 5;
+}
+
+/* Cleanly fades out the previous slide so characters never ghost or overlap */
+.cpe-film-slide.cpe-slide-prev {
+  opacity: 0;
+  z-index: 4;
+  transition: opacity 0.38s ease-out;
+}
+
+.cpe-film-slide.cpe-slide-past {
+  opacity: 0;
+  z-index: 1;
+  transition: opacity 0.3s ease;
+}
+
+.cpe-film-slide.cpe-slide-future {
+  opacity: 0;
+  z-index: 2;
+}
+
+.cpe-film-frame {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  will-change: transform;
+}
+
+/* Continuous Cinematic Camera Pan & Zoom Keyframes (5.5s so motion never stops) */
+.cpeCamPan1 {
+  animation: cpeAnimPan1 5.5s ease-out forwards;
+}
+@keyframes cpeAnimPan1 {
+  0% { transform: scale(1.0) translate(0%, 0%); }
+  100% { transform: scale(1.08) translate(0%, -1.4%); }
+}
+
+.cpeCamPan2 {
+  animation: cpeAnimPan2 5.5s ease-out forwards;
+}
+@keyframes cpeAnimPan2 {
+  0% { transform: scale(1.01) translate(0%, 0%); }
+  100% { transform: scale(1.10) translate(-1.8%, -1.2%); }
+}
+
+.cpeCamPan3 {
+  animation: cpeAnimPan3 5.5s ease-out forwards;
+}
+@keyframes cpeAnimPan3 {
+  0% { transform: scale(1.09) translate(0%, 0%); }
+  100% { transform: scale(1.02) translate(1.4%, 1.4%); }
+}
+
+.cpeCamPan4 {
+  animation: cpeAnimPan4 5.5s ease-out forwards;
+}
+@keyframes cpeAnimPan4 {
+  0% { transform: scale(1.06) translate(0%, 0%); }
+  100% { transform: scale(1.01) translate(-0.6%, 0.6%); }
+}
+
+.cpeCamPan5 {
+  animation: cpeAnimPan5 5.5s ease-out forwards;
+}
+@keyframes cpeAnimPan5 {
+  0% { transform: scale(1.0) translate(0%, 0%); }
+  100% { transform: scale(1.09) translate(-1.4%, -1.6%); }
+}
+
+.cpeCamPan6 {
+  animation: cpeAnimPan6 5.5s ease-out forwards;
+}
+@keyframes cpeAnimPan6 {
+  0% { transform: scale(1.02) translate(0%, 0%); }
+  100% { transform: scale(1.13) translate(0%, -1.2%); }
+}
+
+/* Golden Portal Aura for Summit Scene (CareerPilot AI Emblem & SUCCESS Theme) */
+.cpe-summit-golden-aura {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 36%,
+    rgba(254, 240, 138, 0.32) 0%,
+    rgba(245, 158, 11, 0.16) 35%,
+    rgba(217, 119, 6, 0.06) 60%,
+    transparent 80%
+  );
+  mix-blend-mode: screen;
+  z-index: 6;
+  opacity: 0.85;
+  animation: cpeSummitAuraPulse 3s infinite ease-in-out alternate;
+}
+
+@keyframes cpeSummitAuraPulse {
+  0% {
+    opacity: 0.65;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+/* Hyperspace Light Burst into Brand Reveal */
+.cpe-summit-golden-aura.cpe-portal-bursting {
+  opacity: 1;
+  background: radial-gradient(
+    circle at 50% 38%,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(254, 240, 138, 0.85) 30%,
+    rgba(56, 189, 248, 0.55) 60%,
+    transparent 88%
+  );
+  animation: cpePortalBurst 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cpePortalBurst {
+  0% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.4);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.75);
+  }
+}
+
+/* Atmospheric Vignette & Film Depth */
+.cpe-film-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0) 50%, rgba(2, 5, 14, 0.75) 100%);
+  z-index: 8;
+}
+
+.cpe-film-anamorphic-flare {
+  position: absolute;
+  top: 0;
+  left: -20%;
+  width: 140%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(56, 189, 248, 0.08) 50%,
+    rgba(254, 240, 138, 0.06) 53%,
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* Film Narrative Subtitle */
+.cpe-film-caption-bar {
+  position: absolute;
+  bottom: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 40;
+  max-width: 90vw;
+  width: 680px;
+  pointer-events: none;
+}
+
+.cpe-cinematic-caption {
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.5;
+  margin: 0;
+  letter-spacing: 0.03em;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 0, 0, 0.8);
+  animation: cpeCaptionFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cpeCaptionFade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   GRAND CAREERPILOT AI LOGO REVEAL (Panel 9 Reference)
+   ========================================================================== */
+
+.cpe-grand-brand-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  background: radial-gradient(circle at 50% 45%, #0b1f4d 0%, #060b1c 55%, #02050e 100%);
+  animation: cpeGrandFadeIn 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cpeGrandFadeIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Deep Cosmic Radial Backlight */
+.cpe-cosmic-glow-core {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.55) 0%, rgba(56, 189, 248, 0.25) 40%, rgba(0, 0, 0, 0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(40px);
+  animation: cpeCorePulse 4s infinite ease-in-out alternate;
+}
+
+.cpe-cosmic-glow-outer {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 850px;
+  height: 850px;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.2) 0%, rgba(37, 99, 235, 0.12) 50%, rgba(0, 0, 0, 0) 75%);
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(60px);
+}
+
+@keyframes cpeCorePulse {
+  0% { transform: translate(-50%, -50%) scale(0.92); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+}
+
+/* Cosmic Orbital Energy Arcs (Panel 9) */
+.cpe-orbital-arc {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.cpe-orbital-arc-1 {
+  width: 660px;
+  height: 330px;
+  border: 1.5px solid rgba(0, 240, 255, 0.4);
+  border-top-color: #00f0ff;
+  border-bottom-color: rgba(37, 99, 235, 0.25);
+  transform: translate(-50%, -50%) rotate(-18deg);
+  animation: cpeOrbitSpin1 22s linear infinite;
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.3);
+}
+
+.cpe-orbital-arc-2 {
+  width: 800px;
+  height: 390px;
+  border: 1.5px dashed rgba(56, 189, 248, 0.32);
+  border-left-color: #38bdf8;
+  border-right-color: rgba(124, 58, 237, 0.35);
+  transform: translate(-50%, -50%) rotate(22deg);
+  animation: cpeOrbitSpin2 34s linear infinite reverse;
+}
+
+.cpe-orbital-arc-3 {
+  width: 940px;
+  height: 460px;
+  border: 1px dotted rgba(255, 255, 255, 0.22);
+  transform: translate(-50%, -50%) rotate(5deg);
+  animation: cpeOrbitSpin1 50s linear infinite;
+}
+
+@keyframes cpeOrbitSpin1 {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes cpeOrbitSpin2 {
+  from { transform: translate(-50%, -50%) rotate(360deg); }
+  to { transform: translate(-50%, -50%) rotate(0deg); }
+}
+
+/* Glowing Floor Portal Dais (Floor Projection Rings) */
+.cpe-floor-portal-dais {
+  position: absolute;
+  bottom: 14%;
+  left: 50%;
+  transform: translateX(-50%) rotateX(68deg);
+  width: 600px;
+  height: 230px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cpe-floor-ring-outer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 240, 255, 0.75);
+  box-shadow: 0 0 40px #00f0ff, inset 0 0 25px rgba(0, 240, 255, 0.45);
+}
+
+.cpe-floor-ring-inner {
+  position: absolute;
+  width: 75%;
+  height: 75%;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(255, 255, 255, 0.65);
+  box-shadow: 0 0 22px rgba(56, 189, 248, 0.65);
+}
+
+.cpe-floor-radial-glow {
+  position: absolute;
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 240, 255, 0.38) 0%, rgba(37, 99, 235, 0.16) 55%, transparent 75%);
+}
+
+/* ==========================================================================
+   DOMINANT HERO LOGO PRESENTATION (45–55% VIEWPORT WIDTH)
+   ========================================================================== */
+
+.cpe-grand-logo-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  margin-bottom: 2.25rem;
+}
+
+.cpe-grand-logo-shimmer-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem 2rem;
+  opacity: 0;
+  transform: scale(0.65) translateY(24px);
+  transition: opacity 0.4s ease;
+}
+
+.cpe-grand-logo-shimmer-shell.cpe-logo-animate-in {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  animation: cpeLogoEnter 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cpeLogoEnter {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) translateY(32px);
+    filter: brightness(2.4) blur(12px) drop-shadow(0 0 45px rgba(0, 240, 255, 0.95));
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06) translateY(-4px);
+    filter: brightness(1.35) blur(2px) drop-shadow(0 0 70px rgba(0, 240, 255, 0.85));
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.0) translateY(0);
+    filter: brightness(1.0) blur(0px) drop-shadow(0 12px 35px rgba(0, 210, 255, 0.6)) drop-shadow(0 0 60px rgba(37, 99, 235, 0.45));
+  }
+}
+
+/* Luminous Ambient Backer to make CareerPilot typography shine brilliantly */
+.cpe-logo-ambient-backer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 95%;
+  height: 90%;
+  background: radial-gradient(
+    ellipse at 50% 50%,
+    rgba(255, 255, 255, 0.96) 0%,
+    rgba(240, 249, 255, 0.88) 35%,
+    rgba(56, 189, 248, 0.5) 60%,
+    rgba(37, 99, 235, 0.2) 80%,
+    transparent 100%
+  );
+  border-radius: 40px;
+  filter: blur(28px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* The actual CareerPilot AI logo asset rendered large and dominant */
+.cpe-grand-hero-logo {
+  position: relative;
+  z-index: 2;
+  width: clamp(320px, 50vw, 620px);
+  height: auto;
+  max-width: 88vw;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 12px 35px rgba(0, 210, 255, 0.6)) drop-shadow(0 0 60px rgba(37, 99, 235, 0.45));
+  transform: translateZ(0);
+}
+
+/* Shimmer Light Sweep across the dominant logo */
+.cpe-grand-light-sweep {
+  position: absolute;
+  top: -60%;
+  left: -80%;
+  width: 50%;
+  height: 220%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.2) 30%,
+    rgba(0, 240, 255, 0.75) 50%,
+    rgba(255, 255, 255, 0.2) 70%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(28deg);
+  pointer-events: none;
+  z-index: 3;
+  animation: cpeGrandSweep 2.4s infinite ease-in-out;
+}
+
+@keyframes cpeGrandSweep {
+  0% { left: -90%; }
+  55%, 100% { left: 180%; }
+}
+
+/* Sequential Narrative Taglines */
+.cpe-grand-taglines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 10;
+}
+
+.cpe-grand-tagline-1 {
+  font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+  background: linear-gradient(135deg, #ffffff 0%, #e0f2fe 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 30px rgba(56, 189, 248, 0.5);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cpe-grand-tagline-1.cpe-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cpe-grand-tagline-2 {
+  font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 0.02em;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.15s;
+}
+
+.cpe-grand-tagline-2.cpe-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   SCENE 5: 3D HOLOGRAPHIC FLOATING TELEMETRY CARDS (PHYSICAL GLASSMORPHISM)
+   ========================================================================== */
+
+.cpe-holo-cards-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  z-index: 12;
+  overflow: hidden;
+  animation: cpeHoloFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cpeHoloFadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.cpe-holo-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.84) 0%,
+    rgba(30, 41, 59, 0.72) 55%,
+    rgba(14, 165, 233, 0.22) 100%
+  );
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(56, 189, 248, 0.65);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  color: #ffffff;
+  box-shadow: 
+    0 16px 36px rgba(0, 0, 0, 0.55),
+    0 0 25px rgba(0, 240, 255, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 16px rgba(56, 189, 248, 0.15);
+  pointer-events: auto;
+  will-change: transform, opacity;
+  overflow: hidden;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cpe-holo-card:hover {
+  border-color: #00f0ff;
+  box-shadow: 
+    0 22px 48px rgba(0, 0, 0, 0.65),
+    0 0 35px rgba(0, 240, 255, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Diagonal Light Sweep across holographic glass face */
+.cpe-holo-glint {
+  position: absolute;
+  top: -60%;
+  left: -80%;
+  width: 50%;
+  height: 220%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.12) 30%,
+    rgba(0, 240, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.12) 70%,
+    transparent 100%
+  );
+  transform: rotate(25deg);
+  pointer-events: none;
+  animation: cpeCardSweep 3.6s infinite ease-in-out;
+}
+
+@keyframes cpeCardSweep {
+  0% { left: -90%; }
+  45%, 100% { left: 190%; }
+}
+
+/* Card Body & Header Row */
+.cpe-holo-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.15rem;
+}
+
+/* 3D Pixar Sample Image Viewport Frame */
+.cpe-holo-thumb-frame {
+  position: relative;
+  width: 100%;
+  height: 125px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 0 14px rgba(0, 0, 0, 0.35);
+  background: #090e1a;
+}
+
+.cpe-holo-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.02);
+  transition: transform 0.5s ease;
+}
+
+.cpe-holo-card:hover .cpe-holo-thumb-img {
+  transform: scale(1.08);
+}
+
+.cpe-holo-thumb-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    transparent 45%,
+    rgba(15, 23, 42, 0.65) 100%
+  );
+  pointer-events: none;
+}
+
+.cpe-thumb-floating-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Card Header */
+.cpe-holo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.cpe-holo-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.cpe-holo-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 6px #00f0ff;
+  opacity: 0.85;
+}
+
+.cpe-holo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cpe-badge-cyan {
+  background: rgba(14, 165, 233, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.65);
+  color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.cpe-badge-amber {
+  background: rgba(245, 158, 11, 0.25);
+  border: 1px solid rgba(251, 191, 36, 0.65);
+  color: #fcd34d;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.cpe-badge-emerald {
+  background: rgba(16, 185, 129, 0.25);
+  border: 1px solid rgba(52, 211, 153, 0.65);
+  color: #6ee7b7;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.cpe-badge-blue {
+  background: rgba(59, 130, 246, 0.25);
+  border: 1px solid rgba(96, 165, 250, 0.65);
+  color: #93c5fd;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+}
+
+.cpe-holo-icon-spin {
+  animation: cpeIconSpin 6s linear infinite;
+}
+
+@keyframes cpeIconSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Card Body */
+.cpe-holo-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.cpe-holo-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.15rem;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  text-shadow: 0 0 14px rgba(255, 255, 255, 0.45);
+}
+
+.cpe-holo-sub {
+  font-size: 0.76rem;
+  color: #cbd5e1;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Meta telemetry */
+.cpe-holo-meta {
+  margin-top: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cpe-holo-progress-wrap {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.cpe-holo-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7, #00f0ff);
+  box-shadow: 0 0 10px #00f0ff;
+  border-radius: 9999px;
+}
+
+.cpe-holo-meta-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: #38bdf8;
+  letter-spacing: 0.04em;
+}
+
+.cpe-holo-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.cpe-holo-tag {
+  font-size: 0.66rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #e2e8f0;
+}
+
+.cpe-tag-live {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fca5a5;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
+  animation: cpePulseLive 2s infinite ease-in-out;
+}
+
+@keyframes cpePulseLive {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
+
+.cpe-holo-verified-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.4rem;
+}
+
+.cpe-holo-check-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #6ee7b7;
+}
+
+.cpe-holo-score {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #38bdf8;
+  background: rgba(14, 165, 233, 0.25);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+}
+
+/* Compact Background Card Body */
+.cpe-holo-body-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.cpe-holo-compact-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.cpe-holo-compact-val {
+  font-size: 0.72rem;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   3D PERSPECTIVE POSITIONS & CONTINUOUS SMOOTH FLOATING ANIMATIONS
+   ========================================================================== */
+
+/* Left Upper Card: Personalized Guidance */
+.cpe-holo-card-left-top {
+  top: 7%;
+  left: 3.5%;
+  width: 290px;
+  animation: cpeFloatLeft1 4.4s ease-in-out infinite alternate;
+}
+
+@keyframes cpeFloatLeft1 {
+  0% {
+    transform: perspective(1000px) rotateY(16deg) rotateX(-3deg) rotateZ(1deg) translateY(0px);
+  }
+  50% {
+    transform: perspective(1000px) rotateY(13deg) rotateX(-1deg) rotateZ(0deg) translateY(-14px);
+  }
+  100% {
+    transform: perspective(1000px) rotateY(18deg) rotateX(-4deg) rotateZ(1.5deg) translateY(6px);
+  }
+}
+
+/* Left Lower Foreground Card: Curated Resources */
+.cpe-holo-card-left-bottom {
+  bottom: 8%;
+  left: 3%;
+  width: 300px;
+  animation: cpeFloatLeft2 4.8s ease-in-out infinite alternate 0.2s;
+}
+
+@keyframes cpeFloatLeft2 {
+  0% {
+    transform: perspective(1000px) rotateY(18deg) rotateX(4deg) translateY(0px);
+  }
+  50% {
+    transform: perspective(1000px) rotateY(15deg) rotateX(2deg) translateY(-12px);
+  }
+  100% {
+    transform: perspective(1000px) rotateY(20deg) rotateX(5deg) translateY(8px);
+  }
+}
+
+/* Right Upper Card: Verified Opportunities */
+.cpe-holo-card-right-top {
+  top: 7%;
+  right: 3.5%;
+  width: 290px;
+  animation: cpeFloatRight1 4.2s ease-in-out infinite alternate;
+}
+
+@keyframes cpeFloatRight1 {
+  0% {
+    transform: perspective(1000px) rotateY(-16deg) rotateX(-3deg) rotateZ(-1deg) translateY(0px);
+  }
+  50% {
+    transform: perspective(1000px) rotateY(-13deg) rotateX(-1deg) rotateZ(0deg) translateY(-14px);
+  }
+  100% {
+    transform: perspective(1000px) rotateY(-18deg) rotateX(-4deg) rotateZ(-1.5deg) translateY(6px);
+  }
+}
+
+/* Right Lower Foreground Card: Skill Development */
+.cpe-holo-card-right-bottom {
+  bottom: 8%;
+  right: 3%;
+  width: 305px;
+  animation: cpeFloatRight2 4.6s ease-in-out infinite alternate 0.3s;
+}
+
+@keyframes cpeFloatRight2 {
+  0% {
+    transform: perspective(1000px) rotateY(-18deg) rotateX(4deg) translateY(0px);
+  }
+  50% {
+    transform: perspective(1000px) rotateY(-15deg) rotateX(2deg) translateY(-12px);
+  }
+  100% {
+    transform: perspective(1000px) rotateY(-20deg) rotateX(5deg) translateY(8px);
+  }
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN (TABLET & MOBILE)
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .cpe-header-bar {
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+  }
+
+  /* Responsive Holographic Cards */
+  .cpe-holo-card-left-top {
+    top: 7%;
+    left: 2%;
+    width: 180px;
+    padding: 0.55rem;
+  }
+
+  .cpe-holo-card-left-bottom {
+    bottom: 8%;
+    left: 2%;
+    width: 180px;
+    padding: 0.55rem;
+  }
+
+  .cpe-holo-card-right-top {
+    top: 7%;
+    right: 2%;
+    width: 180px;
+    padding: 0.55rem;
+  }
+
+  .cpe-holo-card-right-bottom {
+    bottom: 8%;
+    right: 2%;
+    width: 180px;
+    padding: 0.55rem;
+  }
+
+  .cpe-holo-thumb-frame {
+    height: 75px;
+    margin-bottom: 0.35rem;
+  }
+
+  .cpe-thumb-floating-badge {
+    font-size: 0.55rem;
+    padding: 0.12rem 0.35rem;
+  }
+
+  .cpe-holo-title {
+    font-size: 0.8rem;
+  }
+
+  .cpe-holo-sub {
+    font-size: 0.62rem;
+    display: none;
+  }
+
+  .cpe-brand-mini-badge {
+    font-size: 0.68rem;
+    padding: 0.3rem 0.75rem;
+  }
+
+  .cpe-skip-btn {
+    padding: 0.45rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .cpe-skip-shortcut {
+    display: none;
+  }
+
+  .cpe-film-caption-bar {
+    bottom: 2rem;
+    width: 92vw;
+  }
+
+  .cpe-cinematic-caption {
+    font-size: 0.95rem;
+  }
+
+  .cpe-grand-hero-logo {
+    width: clamp(260px, 78vw, 360px);
+  }
+
+  .cpe-cosmic-glow-core {
+    width: 340px;
+    height: 340px;
+  }
+
+  .cpe-orbital-arc-1 {
+    width: 440px;
+    height: 220px;
+  }
+
+  .cpe-orbital-arc-2 {
+    width: 520px;
+    height: 260px;
+  }
+
+  .cpe-floor-portal-dais {
+    width: 380px;
+    height: 150px;
+  }
+}
+
+/* ==========================================================================
+   PREFERS-REDUCED-MOTION OVERRIDES
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .cpe-overlay-root {
+    transition: opacity 0.2s ease;
+  }
+
+  .cpeCamPan1,
+  .cpeCamPan2,
+  .cpeCamPan3,
+  .cpeCamPan4,
+  .cpeCamPan5,
+  .cpeCamPan6,
+  .cpe-cosmic-glow-core,
+  .cpe-orbital-arc-1,
+  .cpe-orbital-arc-2,
+  .cpe-orbital-arc-3,
+  .cpe-grand-light-sweep,
+  .cpe-pulse-dot {
+    animation: none !important;
+  }
+
+  .cpe-grand-tagline-1,
+  .cpe-grand-tagline-2 {
+    transition: opacity 0.2s ease !important;
+    transform: none !important;
+  }
+}

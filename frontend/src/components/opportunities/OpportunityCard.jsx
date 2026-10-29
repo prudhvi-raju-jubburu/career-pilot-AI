@@ -7,16 +7,39 @@ import {
   ExternalLink,
   Bookmark,
   CheckCircle2,
-  XCircle,
+  AlertCircle,
+  HelpCircle,
   Sparkles,
   ChevronDown,
   ChevronUp,
   Award,
-  Layers,
-  ArrowRight
+  ArrowRight,
+  Code,
+  Briefcase,
+  Check,
+  TrendingUp,
+  Flame,
+  Layers
 } from 'lucide-react';
-import { Card, Button, Badge, ProgressRing, OpportunityTypeBadge } from '../ui';
-import useCountdown from '../../hooks/useCountdown';
+import './OpportunityCard.css';
+
+const AVATAR_BG_PALETTE = [
+  { bg: '#EFF6FF', color: '#1D4ED8' },
+  { bg: '#ECFDF5', color: '#047857' },
+  { bg: '#F5F3FF', color: '#6D28D9' },
+  { bg: '#FFF7ED', color: '#C2410C' },
+  { bg: '#FDF2F8', color: '#BE185D' },
+  { bg: '#F0FDFA', color: '#0F766E' },
+];
+
+function getCompanyAvatarTheme(company = '') {
+  let hash = 0;
+  for (let i = 0; i < company.length; i++) {
+    hash = company.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const idx = Math.abs(hash) % AVATAR_BG_PALETTE.length;
+  return AVATAR_BG_PALETTE[idx];
+}
 
 export default function OpportunityCard({
   opp,
@@ -28,380 +51,396 @@ export default function OpportunityCard({
   onTrack
 }) {
   const navigate = useNavigate();
-  const [whyMatchesOpen, setWhyMatchesOpen] = useState(false);
-  const countdown = useCountdown(opp.deadline);
+  const [showRationale, setShowRationale] = useState(false);
 
-  // Compute deterministic eligibility checks based on student baseline
-  const eligibilityChecks = [
-    { label: 'Degree & Branch Eligible', pass: true },
-    { label: `Min CGPA: ${opp.eligibility?.minCgpa || '7.0+'}`, pass: true },
-    { label: 'Graduation Batch (2025-2027)', pass: true }
-  ];
+  const companyName = opp.company || opp.organization?.name || 'Tech Company';
+  const avatarTheme = getCompanyAvatarTheme(companyName);
+  const companyInitial = companyName.charAt(0).toUpperCase();
 
-  // Matched skills vs missing skills
-  const allSkills = opp.skills || ['Python', 'SQL', 'REST APIs', 'System Design'];
-  const matchedSkills = allSkills.slice(0, Math.ceil(allSkills.length * 0.7));
-  const missingSkills = allSkills.slice(Math.ceil(allSkills.length * 0.7));
+  const allSkills = Array.isArray(opp.skills) ? opp.skills : [];
+  const matchedSkills = Array.isArray(opp.matched_skills) ? opp.matched_skills : [];
+  const missingSkills = Array.isArray(opp.missing_skills)
+    ? opp.missing_skills
+    : allSkills.filter((s) => !matchedSkills.includes(s));
 
-  const matchScore = opp.matchScore || 88;
+  const matchScore = typeof (opp.matchScore ?? opp.match_score) === 'number'
+    ? (opp.matchScore ?? opp.match_score)
+    : 85;
 
-  const deadlineStyle = countdown.isUrgent
-    ? { color: 'var(--danger)', backgroundColor: 'var(--danger-subtle)', borderColor: 'var(--danger)' }
-    : countdown.isWarning
-    ? { color: 'var(--warning-dark)', backgroundColor: 'var(--warning-subtle)', borderColor: 'var(--warning)' }
-    : { color: 'var(--text-muted)', backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)' };
+  const isHighFit = matchScore >= 80;
+
+  // Extract deterministic eligibility status
+  const eligibility = opp.eligibility || {};
+  const eligStatus = eligibility.status || (eligibility.is_eligible ? 'eligible' : 'not_eligible');
+
+  const formatLocationDisplay = () => {
+    if (opp.locationString) return opp.locationString;
+    if (typeof opp.location === 'string') return opp.location;
+    if (opp.location && typeof opp.location === 'object') {
+      const parts = [];
+      if (opp.location.city) parts.push(opp.location.city);
+      if (opp.location.state && opp.location.state !== opp.location.city) parts.push(opp.location.state);
+      if (parts.length > 0) return parts.join(', ');
+      if (opp.location.is_remote) return 'Remote (India)';
+    }
+    return opp.workMode === 'Remote' ? 'Remote (India)' : (opp.workMode || 'India');
+  };
+
+  const getCompensationDisplay = () => {
+    if (opp.compensationString && opp.compensationString !== 'Not specified') {
+      return opp.compensationString;
+    }
+    const comp = opp.compensation;
+    const isInternship = (opp.type || '').toLowerCase() === 'internship';
+
+    if (comp && typeof comp === 'object') {
+      const min = comp.min_amount || comp.min;
+      const max = comp.max_amount || comp.max;
+      if (min && max) {
+        if (isInternship || comp.period === 'month' || comp.type === 'stipend') {
+          return `₹${Number(min).toLocaleString('en-IN')} – ₹${Number(max).toLocaleString('en-IN')}/mo`;
+        }
+        const minLpa = (min / 100000).toFixed(1).replace('.0', '');
+        const maxLpa = (max / 100000).toFixed(1).replace('.0', '');
+        return `₹${minLpa} – ₹${maxLpa} LPA`;
+      }
+      if (min) {
+        if (isInternship || comp.type === 'stipend') {
+          return `₹${Number(min).toLocaleString('en-IN')}+ /mo`;
+        }
+        return `₹${(min / 100000).toFixed(1)} LPA`;
+      }
+      if (max) {
+        if (isInternship || comp.type === 'stipend') {
+          return `Up to ₹${Number(max).toLocaleString('en-IN')}/mo`;
+        }
+        return `Up to ₹${(max / 100000).toFixed(1)} LPA`;
+      }
+    }
+    return isInternship ? '₹35,000 – ₹50,000/mo (Est.)' : '₹10.0 – ₹18.0 LPA (Est.)';
+  };
+
+  const getDeadlineDisplay = () => {
+    if (opp.deadlineString) return opp.deadlineString;
+    if (opp.deadline) return opp.deadline.slice(0, 10);
+    if (opp.dates?.deadline) return opp.dates.deadline.slice(0, 10);
+    return 'Rolling Applications';
+  };
+
+  const sourceName = opp.source?.name
+    ? opp.source.name.replace(/_/g, ' ').toUpperCase()
+    : 'OFFICIAL CAREER PORTAL';
+
+  const shortExplanation = opp.personal_rationale ||
+    (Array.isArray(opp.why_matched) && opp.why_matched[0]) ||
+    opp.explanation ||
+    (matchedSkills.length > 0
+      ? `Matches your resume skills in ${matchedSkills.slice(0, 3).join(', ')}.`
+      : 'Curated opening aligning with your degree and developer skill set.');
+
+  const isInternship = (opp.type || '').toLowerCase() === 'internship';
 
   return (
-    <Card
-      variant="raised"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        transition: 'all var(--transition-fast)',
-        border: '1px solid var(--border)',
-        overflow: 'hidden'
-      }}
-      className="hover-lift"
+    <motion.div
+      className="opp-card-container"
+      onClick={() => onSelectDetail(opp)}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      <Card.Content style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem', flex: 1 }}>
-        {/* Top Header: Company Avatar + Name + Match Score Ring + Save Button */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            <div
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 800,
-                color: 'var(--primary)',
-                fontSize: '1.05rem',
-                flexShrink: 0,
-                boxShadow: 'var(--shadow-sm)',
-              }}
-            >
-              {opp.company ? opp.company.charAt(0) : 'O'}
-            </div>
-            <div>
-              <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                {opp.company}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px', flexWrap: 'wrap' }}>
-                <OpportunityTypeBadge type={opp.type} size="sm" />
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>• {opp.workMode || 'Remote'}</span>
-                {application && (
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/applications?appId=${application.id}`);
-                    }}
-                    style={{ cursor: 'pointer' }}
-                    title={`Tracked in Applications (${application.status}). Click to view.`}
-                  >
-                    <Badge
-                      variant={
-                        application.status === 'Offered'
-                          ? 'success'
-                          : application.status === 'Interviewing'
-                          ? 'purple'
-                          : application.status === 'Applied'
-                          ? 'primary'
-                          : 'neutral'
-                      }
-                      size="sm"
-                      dot
-                    >
-                      {application.status}
-                    </Badge>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+      {/* Top Accent Line for high fit */}
+      {isHighFit && <div className="opp-card-top-accent" />}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {/* Animated Match-Score Ring */}
-            <div title={`${matchScore}% Profile Match`}>
-              <ProgressRing score={matchScore} size={38} strokeWidth={3.5} />
-            </div>
-
-            {/* Save Button with micro-interaction */}
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.8 }}
-              whileHover={{ scale: 1.12 }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleSave(opp);
-              }}
-              style={{
-                background: isSaved ? 'var(--primary-subtle)' : 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                color: isSaved ? 'var(--primary)' : 'var(--text-muted)',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'background var(--transition-fast)'
-              }}
-              title={isSaved ? 'Saved to bookmarks' : 'Save opportunity'}
-              aria-label="Save opportunity"
-            >
-              <Bookmark size={16} fill={isSaved ? 'currentColor' : 'none'} />
-            </motion.button>
-          </div>
-        </div>
-
-        {/* Role Title & Location */}
-        <div>
-          <h3
+      {/* Top Header: Company Avatar + Title + Badges + Save Button */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.85rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div
             style={{
-              fontSize: '1rem',
-              fontWeight: 700,
-              color: 'var(--text-primary)',
-              lineHeight: 1.4,
-              cursor: 'pointer'
-            }}
-            onClick={() => onSelectDetail(opp)}
-          >
-            {opp.title}
-          </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-            <MapPin size={13} />
-            <span>{opp.locationString || (typeof opp.location === 'string' ? opp.location : 'Remote')}</span>
-          </div>
-        </div>
-
-        {/* Deadline Countdown with Color Shift (Amber -> Red) */}
-        {opp.deadline && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.35rem' }}>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                padding: '0.2rem 0.5rem',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid',
-                ...deadlineStyle
-              }}
-            >
-              <Clock size={12} />
-              <span>{countdown.formatted}</span>
-            </span>
-
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Due: {new Date(opp.deadline).toLocaleDateString()}
-            </span>
-          </div>
-        )}
-
-        {/* Deterministic Eligibility Checklist */}
-        <div
-          style={{
-            padding: '0.5rem 0.65rem',
-            borderRadius: 'var(--radius-sm)',
-            backgroundColor: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.25rem'
-          }}
-        >
-          {eligibilityChecks.map((check, idx) => (
-            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-              {check.pass ? (
-                <CheckCircle2 size={13} color="var(--success)" style={{ flexShrink: 0 }} />
-              ) : (
-                <XCircle size={13} color="var(--danger)" style={{ flexShrink: 0 }} />
-              )}
-              <span>{check.label}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Expandable "Why this matches" panel */}
-        <div style={{ marginTop: '0.25rem' }}>
-          <button
-            type="button"
-            onClick={() => setWhyMatchesOpen(!whyMatchesOpen)}
-            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '14px',
+              backgroundColor: avatarTheme.bg,
+              color: avatarTheme.color,
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              padding: '0.35rem 0',
-              background: 'none',
-              border: 'none',
-              color: 'var(--primary)',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              cursor: 'pointer'
+              justifyContent: 'center',
+              fontSize: '1.25rem',
+              fontWeight: 800,
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
             }}
           >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Sparkles size={13} />
-              Why this matches
-            </span>
-            {whyMatchesOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          </button>
-
-          <AnimatePresence>
-            {whyMatchesOpen && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                style={{
-                  padding: '0.65rem',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--surface-raised)',
-                  border: '1px solid var(--border)',
-                  marginTop: '0.35rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.4rem',
-                  fontSize: '0.75rem'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--success)', marginBottom: '0.2rem' }}>
-                    ✓ Matched Skills ({matchedSkills.length})
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                    {matchedSkills.map((s) => (
-                      <span
-                        key={s}
-                        style={{
-                          backgroundColor: 'var(--success-subtle)',
-                          color: 'var(--success)',
-                          padding: '0.1rem 0.4rem',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.7rem',
-                          fontWeight: 600
-                        }}
-                      >
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {missingSkills.length > 0 && (
-                  <div>
-                    <div style={{ fontWeight: 700, color: 'var(--warning-dark)', marginBottom: '0.2rem' }}>
-                      ⚠ Skills to learn ({missingSkills.length})
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                      {missingSkills.map((s) => (
-                        <span
-                          key={s}
-                          style={{
-                            backgroundColor: 'var(--warning-subtle)',
-                            color: 'var(--warning-dark)',
-                            padding: '0.1rem 0.4rem',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: '0.7rem',
-                            fontWeight: 600
-                          }}
-                        >
-                          {s}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+            {companyInitial}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.96rem', fontWeight: 700, color: '#0f172a' }}>
+                {companyName}
+              </span>
+              <CheckCircle2 size={13} color="#2563eb" />
+            </div>
+            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
+              {sourceName}
+            </div>
+          </div>
         </div>
 
-        {/* Technical Skill Chips */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: 'auto', paddingTop: '0.4rem' }}>
-          {allSkills.slice(0, 4).map((skill) => (
-            <span
-              key={skill}
-              style={{
-                fontSize: '0.7rem',
-                fontWeight: 600,
-                padding: '0.15rem 0.45rem',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border)',
-              }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          {/* Animated Match Score Badge */}
+          {matchScore !== null && (
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className={isHighFit ? 'opp-match-badge-emerald' : 'opp-match-badge-blue'}
+              title="Matched to your student profile & parsed resume"
             >
+              {isHighFit && <span className="opp-match-beacon" />}
+              <Sparkles size={12} />
+              <span>{matchScore}% Match</span>
+            </motion.div>
+          )}
+
+          {/* Bookmark Button with Micro-Animation */}
+          <motion.button
+            type="button"
+            className={`opp-btn-bookmark ${isSaved ? 'saved' : ''}`}
+            whileTap={{ scale: 0.82 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSave(opp);
+            }}
+            title={isSaved ? 'Saved to bookmarks' : 'Bookmark this opportunity'}
+          >
+            <Bookmark size={15} fill={isSaved ? 'currentColor' : 'none'} />
+          </motion.button>
+        </div>
+      </div>
+
+      {/* Tags Row: Type Badge + India Location */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
+        <span className={isInternship ? 'opp-type-pill-internship' : 'opp-type-pill-job'}>
+          <Briefcase size={12} />
+          <span>{isInternship ? 'Internship' : 'Full-Time Job'}</span>
+        </span>
+
+        <span className="opp-india-pill">
+          <span>🇮🇳</span>
+          <span>{formatLocationDisplay()} · {opp.workMode || 'Hybrid'}</span>
+        </span>
+
+        {application && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+              backgroundColor: '#eff6ff',
+              color: '#1d4ed8',
+              border: '1px solid #bfdbfe',
+              borderRadius: '9999px',
+              padding: '0.2rem 0.6rem',
+              fontSize: '0.72rem',
+              fontWeight: 700
+            }}
+          >
+            <Layers size={11} />
+            <span>{application.status || 'Tracked'}</span>
+          </span>
+        )}
+      </div>
+
+      {/* Role Title */}
+      <h3
+        style={{
+          fontSize: '1.18rem',
+          fontWeight: 800,
+          color: '#0f172a',
+          lineHeight: 1.35,
+          letterSpacing: '-0.025em',
+          margin: '0 0 0.65rem 0',
+        }}
+      >
+        {opp.title}
+      </h3>
+
+      {/* Compensation & Deadline Row */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          padding: '0.65rem 0.85rem',
+          background: '#f8fafc',
+          borderRadius: '12px',
+          marginBottom: '0.85rem',
+          border: '1px solid #f1f5f9'
+        }}
+      >
+        <div>
+          <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+            {isInternship ? 'Stipend' : 'Annual CTC / Salary'}
+          </div>
+          <div
+            style={{
+              fontSize: '1.12rem',
+              fontWeight: 800,
+              color: '#047857',
+              letterSpacing: '-0.02em',
+              marginTop: '1px'
+            }}
+          >
+            {getCompensationDisplay()}
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+            Deadline
+          </div>
+          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginTop: '1px' }}>
+            {getDeadlineDisplay()}
+          </div>
+        </div>
+      </div>
+
+      {/* Eligibility Indicator */}
+      <div style={{ marginBottom: '0.75rem' }}>
+        {eligStatus === 'eligible' ? (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: '#ecfdf5',
+              color: '#065f46',
+              border: '1px solid #a7f3d0',
+              borderRadius: '9999px',
+              padding: '0.2rem 0.65rem',
+              fontSize: '0.73rem',
+              fontWeight: 700,
+            }}
+          >
+            <CheckCircle2 size={13} color="#059669" />
+            <span>Eligible for your profile & batch</span>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: '#fffbeb',
+              color: '#92400e',
+              border: '1px solid #fde68a',
+              borderRadius: '9999px',
+              padding: '0.2rem 0.65rem',
+              fontSize: '0.73rem',
+              fontWeight: 700,
+            }}
+          >
+            <HelpCircle size={13} color="#d97706" />
+            <span>Open for Review · Apply Now</span>
+          </div>
+        )}
+      </div>
+
+      {/* Interactive Resume Skills Breakdown */}
+      <div style={{ marginBottom: '0.85rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+          <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+            Skills Compatibility:
+          </span>
+          {matchedSkills.length > 0 && (
+            <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 800 }}>
+              ✓ {matchedSkills.length} Matched from Resume
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+          {matchedSkills.slice(0, 4).map((skill) => (
+            <span key={skill} className="opp-skill-chip-matched">
+              <Check size={11} strokeWidth={3} />
+              <span>{skill}</span>
+            </span>
+          ))}
+
+          {missingSkills.slice(0, Math.max(0, 4 - matchedSkills.length)).map((skill) => (
+            <span key={skill} className="opp-skill-chip-other">
               {skill}
             </span>
           ))}
+
           {allSkills.length > 4 && (
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', alignSelf: 'center' }}>
+            <span style={{ fontSize: '0.72rem', color: '#94a3b8', alignSelf: 'center', paddingLeft: '4px' }}>
               +{allSkills.length - 4} more
             </span>
           )}
         </div>
-      </Card.Content>
+      </div>
 
-      {/* Card Footer CTAs */}
-      <Card.Footer style={{ padding: '0.75rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', flexWrap: 'wrap', gap: '0.5rem' }}>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onSelectDetail(opp)}
+      {/* Grounded Resume Rationale Accordion */}
+      {shortExplanation && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowRationale(!showRationale);
+          }}
+          style={{
+            fontSize: '0.78rem',
+            color: '#334155',
+            backgroundColor: '#eff6ff',
+            padding: '0.55rem 0.8rem',
+            borderRadius: '10px',
+            marginBottom: '1rem',
+            lineHeight: 1.45,
+            border: '1px solid #dbeafe',
+            cursor: 'pointer'
+          }}
         >
-          View Details
-        </Button>
-
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-          {application ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/applications?appId=${application.id}`);
-              }}
-              iconRight={<ArrowRight size={12} />}
-              title="View in Applications tracker"
-            >
-              Pipeline: {application.status}
-            </Button>
-          ) : onTrack ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onTrack(opp, 'Saved');
-              }}
-              icon={<Bookmark size={13} />}
-              title="Save to your Application Pipeline"
-            >
-              Track
-            </Button>
-          ) : null}
-
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onApply(opp)}
-            iconRight={<ExternalLink size={13} />}
-          >
-            {application && application.status !== 'Saved' ? 'Apply Link' : 'Apply Now'}
-          </Button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, color: '#1d4ed8' }}>
+              <Sparkles size={13} color="#2563eb" />
+              <span>Why Matched With Your Resume</span>
+            </div>
+            {showRationale ? <ChevronUp size={14} color="#64748b" /> : <ChevronDown size={14} color="#64748b" />}
+          </div>
+          <div style={{ marginTop: '0.35rem', color: '#475569' }}>
+            {shortExplanation}
+          </div>
         </div>
-      </Card.Footer>
-    </Card>
+      )}
+
+      {/* Animated Action Buttons */}
+      <div style={{ display: 'flex', gap: '0.65rem', alignItems: 'center', marginTop: 'auto' }}>
+        <motion.button
+          type="button"
+          className="opp-btn-apply"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onApply(opp);
+          }}
+        >
+          <span>Apply Now</span>
+          <ArrowRight size={14} />
+        </motion.button>
+
+        <motion.button
+          type="button"
+          className="opp-btn-details"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectDetail(opp);
+          }}
+        >
+          <span>Match Details</span>
+          <ExternalLink size={13} />
+        </motion.button>
+      </div>
+    </motion.div>
   );
 }

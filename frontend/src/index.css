@@ -6,120 +6,125 @@
    1. Root Tokens & Centralized Design Token System
    -------------------------------------------------------------------------- */
 
-:root {
+:root,
+[data-theme="light"],
+.theme-light {
   /* ==========================================================================
-     CareerPilot AI — Smooth High-Contrast Obsidian & Neon UI Theme
-     Palette: Deep Slate Obsidian (#0b0f19) + Luminous Electric Violet (#8b5cf6) to Laser Cyan (#06b6d4)
+     CareerPilot AI — Mavens-i Enterprise Light Design System
+     Palette: Pure White & Slate Surfaces + Electric Royal Blue (#255eff) + Flare Orange (#f97316)
      ========================================================================== */
 
-  /* Deep Space Obsidian Surfaces (Smooth & Defined) */
-  --bg-primary: #0b0f19;
-  --bg-secondary: #111827;
-  --bg-sunken: #070a12;
+  /* Crisp Clean Surfaces (Mavens-i Light Theme) */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-sunken: #f1f5f9;
 
-  /* Card & Surface Layering (Clearly Visible Boundaries) */
-  --surface: #141c2e;
-  --surface-raised: #1c263d;
-  --surface-hover: #222e49;
-  --surface-active: #2b3a5a;
-  --surface-glass: rgba(20, 28, 46, 0.85);
+  /* Card & Surface Layering */
+  --surface: #ffffff;
+  --surface-raised: #f8fafc;
+  --surface-hover: #f1f5f9;
+  --surface-active: #e2e8f0;
+  --surface-glass: rgba(255, 255, 255, 0.95);
 
-  /* Signature Accent Gradient: Luminous Violet to Laser Cyan */
-  --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
-  --accent-gradient-hover: linear-gradient(135deg, #7c3aed 0%, #0891b2 100%);
-  --accent-gradient-subtle: linear-gradient(135deg, rgba(139, 92, 246, 0.16) 0%, rgba(6, 182, 212, 0.16) 100%);
-  --accent-gradient-text: linear-gradient(135deg, #a78bfa 0%, #38bdf8 100%);
+  /* Signature Accent Gradient: Deep Cobalt to Electric Blue to Flare Orange */
+  --accent-gradient: linear-gradient(135deg, #0b2f74 0%, #255eff 52%, #f97316 100%);
+  --accent-gradient-hover: linear-gradient(135deg, #071a45 0%, #1d4cdb 52%, #ea580c 100%);
+  --accent-gradient-subtle: linear-gradient(135deg, rgba(37, 94, 255, 0.1) 0%, rgba(249, 115, 22, 0.08) 100%);
+  --accent-gradient-text: linear-gradient(135deg, #0b2f74 0%, #255eff 50%, #f97316 100%);
 
-  /* Primary Accent: Luminous Electric Violet */
-  --primary: #8b5cf6;
-  --primary-hover: #7c3aed;
-  --primary-active: #6d28d9;
-  --primary-subtle: rgba(139, 92, 246, 0.16);
+  /* Primary Accent: Electric Royal Blue */
+  --primary: #255eff;
+  --primary-hover: #1d4cdb;
+  --primary-active: #153bb5;
+  --primary-subtle: rgba(37, 94, 255, 0.1);
 
-  /* Secondary Accent: Laser Cyan */
-  --secondary: #06b6d4;
-  --secondary-hover: #0891b2;
-  --secondary-active: #0e7490;
-  --secondary-subtle: rgba(6, 182, 212, 0.16);
+  /* Secondary Accent: Flare Radiant Orange */
+  --secondary: #f97316;
+  --secondary-hover: #ea580c;
+  --secondary-active: #c2410c;
+  --secondary-subtle: rgba(249, 115, 22, 0.12);
 
   /* Brand Accents */
-  --brand-navy: #0b0f19;
-  --brand-indigo: #1c263d;
-  --brand-slate: #111827;
+  --brand-navy: #071a45;
+  --brand-cobalt: #0b2f74;
+  --brand-blue: #255eff;
+  --brand-orange: #f97316;
+  --brand-ice: #255eff;
+  --brand-slate: #0f172a;
 
-  --accent: #f43f5e;
-  --accent-hover: #e11d48;
-  --accent-active: #be123c;
-  --accent-subtle: rgba(244, 63, 94, 0.16);
+  --accent: #f97316;
+  --accent-hover: #ea580c;
+  --accent-active: #c2410c;
+  --accent-subtle: rgba(249, 115, 22, 0.12);
 
-  --learning: #8b5cf6;
-  --learning-hover: #7c3aed;
-  --learning-subtle: rgba(139, 92, 246, 0.16);
-  --learning-border: rgba(139, 92, 246, 0.35);
+  --learning: #255eff;
+  --learning-hover: #1d4cdb;
+  --learning-subtle: rgba(37, 94, 255, 0.1);
+  --learning-border: rgba(37, 94, 255, 0.3);
 
   --success: #10b981;
   --success-dark: #059669;
-  --success-bg: rgba(16, 185, 129, 0.16);
-  --success-border: rgba(16, 185, 129, 0.35);
+  --success-bg: rgba(16, 185, 129, 0.12);
+  --success-border: rgba(16, 185, 129, 0.3);
 
   --warning: #f59e0b;
   --warning-dark: #d97706;
-  --warning-bg: rgba(245, 158, 11, 0.16);
-  --warning-border: rgba(245, 158, 11, 0.35);
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning-border: rgba(245, 158, 11, 0.3);
 
-  --danger: #f43f5e;
-  --danger-dark: #e11d48;
-  --danger-bg: rgba(244, 63, 94, 0.16);
-  --danger-border: rgba(244, 63, 94, 0.35);
+  --danger: #ef4444;
+  --danger-dark: #dc2626;
+  --danger-bg: rgba(239, 68, 68, 0.12);
+  --danger-border: rgba(239, 68, 68, 0.3);
 
   --info: #0ea5e9;
-  --info-bg: rgba(14, 165, 233, 0.16);
-  --info-border: rgba(14, 165, 233, 0.35);
+  --info-bg: rgba(14, 165, 233, 0.12);
+  --info-border: rgba(14, 165, 233, 0.3);
 
-  /* Crystal-Clear High-Contrast Typography (WCAG AAA) */
-  --text-primary: #ffffff;
-  --text-secondary: #94a3b8;
+  /* Crystal-Clear High-Contrast Typography */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
   --text-muted: #64748b;
-  --text-subtle: #475569;
-  --text-inverse: #0b0f19;
+  --text-subtle: #94a3b8;
+  --text-inverse: #ffffff;
 
-  /* Clearly Visible Borders & Edge Definition */
-  --border: rgba(255, 255, 255, 0.12);
-  --border-hover: rgba(139, 92, 246, 0.5);
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-control: rgba(255, 255, 255, 0.18);
-  --border-control-hover: rgba(6, 182, 212, 0.6);
-  --border-card: rgba(255, 255, 255, 0.12);
-  --border-focus: #06b6d4;
+  /* Mavens-i Edge Definition & Hairline Borders */
+  --border: rgba(148, 163, 184, 0.28);
+  --border-hover: rgba(37, 94, 255, 0.5);
+  --border-subtle: rgba(148, 163, 184, 0.16);
+  --border-control: rgba(148, 163, 184, 0.35);
+  --border-control-hover: rgba(37, 94, 255, 0.6);
+  --border-card: rgba(148, 163, 184, 0.22);
+  --border-focus: #255eff;
 
   /* Smooth Glassmorphism Tokens */
-  --glass-bg: rgba(20, 28, 46, 0.82);
-  --glass-border: rgba(255, 255, 255, 0.14);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.55), 0 0 16px rgba(139, 92, 246, 0.14);
+  --glass-bg: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(148, 163, 184, 0.25);
+  --glass-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.08), 0 0 16px rgba(37, 94, 255, 0.06);
   --glass-blur: blur(16px);
 
-  /* Soft Ambient Elevation & Smooth Skeuomorphic Depth */
-  --highlight-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.45), 0 0 12px rgba(139, 92, 246, 0.08);
-  --shadow-lg: 0 12px 30px -4px rgba(0, 0, 0, 0.6), 0 0 24px rgba(139, 92, 246, 0.14);
-  --shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.4);
+  /* Soft Ambient Elevation & Mavens Depth */
+  --highlight-top: inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.08), 0 0 10px rgba(37, 94, 255, 0.04);
+  --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.1), 0 0 20px rgba(37, 94, 255, 0.06);
+  --shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
 
-  --shadow-card: 0 2px 8px -1px rgba(0, 0, 0, 0.4), 0 1px 3px 0 rgba(0, 0, 0, 0.25), var(--highlight-top);
-  --shadow-raised: 0 8px 24px -4px rgba(0, 0, 0, 0.55), var(--highlight-top);
-  --shadow-raised-hover: 0 12px 32px -4px rgba(0, 0, 0, 0.65), 0 0 20px rgba(139, 92, 246, 0.2), var(--highlight-top);
-  --shadow-floating: 0 20px 48px -8px rgba(0, 0, 0, 0.75), 0 0 30px rgba(139, 92, 246, 0.25), var(--highlight-top);
+  --shadow-card: 0 2px 8px -1px rgba(0, 0, 0, 0.06), 0 1px 3px 0 rgba(0, 0, 0, 0.04), var(--highlight-top);
+  --shadow-raised: 0 8px 24px -4px rgba(0, 0, 0, 0.08), var(--highlight-top);
+  --shadow-raised-hover: 0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 0 20px rgba(37, 94, 255, 0.1), var(--highlight-top);
+  --shadow-floating: 0 20px 48px -8px rgba(0, 0, 0, 0.15), 0 0 25px rgba(37, 94, 255, 0.12), var(--highlight-top);
 
-  --shadow-sunken: inset 0 2px 4px 0 rgba(0, 0, 0, 0.4);
-  --shadow-pressed: inset 0 2px 6px 0 rgba(0, 0, 0, 0.5);
+  --shadow-sunken: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  --shadow-pressed: inset 0 2px 6px 0 rgba(0, 0, 0, 0.08);
 
-  --shadow-btn-primary: 0 2px 10px -1px rgba(139, 92, 246, 0.45), 0 0 14px rgba(139, 92, 246, 0.25);
-  --shadow-btn-primary-hover: 0 4px 18px -2px rgba(139, 92, 246, 0.65), 0 0 22px rgba(6, 182, 212, 0.35);
-  --shadow-btn-primary-active: inset 0 2px 4px 0 rgba(0, 0, 0, 0.4);
+  --shadow-btn-primary: 0 4px 14px -2px rgba(37, 94, 255, 0.35), 0 0 12px rgba(249, 115, 22, 0.15);
+  --shadow-btn-primary-hover: 0 6px 20px -2px rgba(37, 94, 255, 0.5), 0 0 20px rgba(249, 115, 22, 0.25);
+  --shadow-btn-primary-active: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2);
 
-  --shadow-btn-secondary: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
-  --shadow-btn-secondary-hover: 0 4px 12px 0 rgba(139, 92, 246, 0.3);
-  --shadow-btn-secondary-active: inset 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --shadow-btn-secondary: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
+  --shadow-btn-secondary-hover: 0 4px 14px 0 rgba(37, 94, 255, 0.15);
+  --shadow-btn-secondary-active: inset 0 1px 3px 0 rgba(0, 0, 0, 0.1);
 
   /* 8px Spacing Grid */
   --space-0-5: 4px;
@@ -136,9 +141,9 @@
   --space-12: 96px;
 
   /* Backward Compatibility Color Aliases */
-  --color-primary-900: #1e1b4b;
-  --color-primary-800: #312e81;
-  --color-primary-700: #4338ca;
+  --color-primary-900: #1e2b85;
+  --color-primary-800: #1e3a8a;
+  --color-primary-700: #1d4ed8;
   --color-primary-600: var(--primary);
   --color-primary-500: var(--primary);
   --color-primary-100: var(--primary-subtle);
@@ -175,61 +180,34 @@
   --color-text-inverse: var(--text-inverse);
 }
 
-
-
-/* ==========================================================================
-   Global Smooth High-Contrast UI Theme Enforcement
-   ========================================================================== */
-[data-theme="cyberpunk"],
+/* Optional Dark Theme for explicit dark mode toggle */
 [data-theme="dark"],
-[data-theme="light"],
-[data-theme="emerald"] {
-  /* Inherit and lock all smooth high-contrast tokens */
-  --bg-primary: #0b0f19;
-  --bg-secondary: #111827;
-  --bg-sunken: #070a12;
+.theme-dark {
+  --bg-primary: #020617;
+  --bg-secondary: #071a45;
+  --bg-sunken: #01040f;
 
-  --surface: #141c2e;
-  --surface-raised: #1c263d;
-  --surface-hover: #222e49;
-  --surface-active: #2b3a5a;
-  --surface-glass: rgba(20, 28, 46, 0.85);
-
-  --accent-gradient: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
-  --accent-gradient-hover: linear-gradient(135deg, #7c3aed 0%, #0891b2 100%);
-  --accent-gradient-subtle: linear-gradient(135deg, rgba(139, 92, 246, 0.16) 0%, rgba(6, 182, 212, 0.16) 100%);
-  --accent-gradient-text: linear-gradient(135deg, #a78bfa 0%, #38bdf8 100%);
-
-  --primary: #8b5cf6;
-  --primary-hover: #7c3aed;
-  --primary-active: #6d28d9;
-  --primary-subtle: rgba(139, 92, 246, 0.16);
-
-  --secondary: #06b6d4;
-  --secondary-hover: #0891b2;
-  --secondary-active: #0e7490;
-  --secondary-subtle: rgba(6, 182, 212, 0.16);
-
-  --accent: #f43f5e;
-  --accent-hover: #e11d48;
-  --accent-active: #be123c;
-  --accent-subtle: rgba(244, 63, 94, 0.16);
+  --surface: #0a1f4d;
+  --surface-raised: #0f2760;
+  --surface-hover: #143580;
+  --surface-active: #1c459e;
+  --surface-glass: rgba(7, 26, 69, 0.88);
 
   --text-primary: #ffffff;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   --text-subtle: #475569;
-  --text-inverse: #0b0f19;
+  --text-inverse: #020617;
 
-  --border: rgba(255, 255, 255, 0.12);
-  --border-hover: rgba(139, 92, 246, 0.5);
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-card: rgba(255, 255, 255, 0.12);
-  --border-focus: #06b6d4;
+  --border: rgba(148, 163, 184, 0.18);
+  --border-hover: rgba(37, 94, 255, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-card: rgba(148, 163, 184, 0.18);
+  --border-focus: #255eff;
 
-  --glass-bg: rgba(20, 28, 46, 0.82);
-  --glass-border: rgba(255, 255, 255, 0.14);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.55), 0 0 16px rgba(139, 92, 246, 0.14);
+  --glass-bg: rgba(7, 26, 69, 0.85);
+  --glass-border: rgba(148, 163, 184, 0.22);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.55), 0 0 20px rgba(37, 94, 255, 0.18);
 }
 
 /* Constants common to all themes */
@@ -400,6 +378,22 @@ button {
   border: none;
   background: none;
   touch-action: manipulation;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s ease,
+              border-color 0.2s ease,
+              color 0.2s ease,
+              filter 0.2s ease;
+  will-change: transform;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+
+button:not(:disabled):active {
+  transform: translateY(0.5px) scale(0.98);
 }
 
 input, select, textarea {
@@ -550,15 +544,66 @@ input, select, textarea {
 .animate-drawer-enter { animation: drawerEnter 0.28s var(--ease-spring) forwards; }
 .animate-toast-enter { animation: toastEnter 0.2s var(--ease-spring) forwards; }
 
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 0.9s linear infinite !important;
+  display: inline-block;
+  will-change: transform;
+}
+
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    var(--surface) 0%,
-    var(--surface-raised) 50%,
-    var(--surface) 100%
+    rgba(226, 232, 240, 0.45) 0%,
+    rgba(241, 245, 249, 0.95) 30%,
+    rgba(37, 94, 255, 0.1) 50%,
+    rgba(241, 245, 249, 0.95) 70%,
+    rgba(226, 232, 240, 0.45) 100%
   );
-  background-size: 200% 100%;
-  animation: shimmer 1.6s infinite linear;
+  background-size: 250% 100%;
+  animation: dynamicShimmer 1.8s infinite ease-in-out;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes dynamicShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+[data-theme="dark"] .skeleton-shimmer,
+.theme-dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(30, 41, 59, 0.6) 0%,
+    rgba(51, 65, 85, 0.8) 35%,
+    rgba(37, 94, 255, 0.18) 50%,
+    rgba(51, 65, 85, 0.8) 65%,
+    rgba(30, 41, 59, 0.6) 100%
+  );
+  background-size: 250% 100%;
+}
+
+.dynamic-fade-in {
+  animation: dynamicFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes dynamicFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Reduced Motion Support */
@@ -571,14 +616,80 @@ input, select, textarea {
   }
   .animate-float,
   .animate-pulse,
-  .skeleton-shimmer {
+  .skeleton-shimmer,
+  .shimmer-active,
+  .scanner-beam,
+  .ai-orb {
     animation: none !important;
   }
+  .animate-spin {
+    animation-duration: 4s !important;
+  }
+}
+
+/* Accessible High-Contrast Focus Visible Rings Across All Interactive Controls */
+:focus-visible {
+  outline: 2px solid var(--primary, #255eff) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px var(--primary-subtle, rgba(37, 94, 255, 0.22)) !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--primary, #255eff) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px var(--primary-subtle, rgba(37, 94, 255, 0.22)) !important;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
 }
 
 /* --------------------------------------------------------------------------
    5. Skeuomorphic Buttons & Card Primitives
    -------------------------------------------------------------------------- */
+
+.btn-kinetic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s ease,
+              border-color 0.2s ease,
+              color 0.2s ease,
+              opacity 0.2s ease;
+  position: relative;
+  outline: none;
+}
+
+.btn-kinetic:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.btn-kinetic:not(:disabled):active {
+  transform: translateY(0.5px) scale(0.98);
+}
+
+.btn-kinetic:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.55 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
 
 .btn-skeuo {
   display: inline-flex;
@@ -698,13 +809,40 @@ input, select, textarea {
   border: 1px solid var(--border-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.22s ease;
   position: relative;
   overflow: hidden;
+  will-change: transform;
+}
+
+.card-skeuo::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #255eff 50%, #f97316 80%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.card-skeuo:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-raised-hover);
+  border-color: var(--border-hover);
+}
+
+.card-skeuo:hover::after {
+  opacity: 0.95;
 }
 
 .card-skeuo.interactive:hover {
-  transform: translateY(-2px);
+  transform: translateY(-4px);
   box-shadow: var(--shadow-raised-hover);
   border-color: var(--primary-hover);
 }
@@ -754,9 +892,11 @@ input, select, textarea {
 
 .app-layout {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  background-color: var(--bg-primary);
+  background-color: var(--bg-secondary);
   position: relative;
+  width: 100%;
 }
 
 .app-sidebar {
@@ -1025,10 +1165,34 @@ input, select, textarea {
 
 .page-container {
   flex: 1;
-  padding: 1.75rem 1.75rem 2.5rem;
-  max-width: var(--container-max-width);
+  padding: 2rem 1.5rem 3.5rem;
+  max-width: 1360px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
+}
+
+.mavens-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.mavens-menu-item:hover {
+  background-color: #f1f5f9;
+  color: #255eff;
 }
 
 .grid-2 {
@@ -1422,6 +1586,7 @@ img, video, canvas, svg {
 .gradient-text {
   background: var(--accent-gradient-text);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   display: inline-block;
 }
@@ -1546,7 +1711,7 @@ img, video, canvas, svg {
 .ticker-content {
   display: inline-flex;
   gap: 1.5rem;
-  animation: tickerScroll 35s linear infinite;
+  animation: tickerScroll 85s linear infinite;
 }
 
 .ticker-content:hover {
@@ -1731,7 +1896,7 @@ img, video, canvas, svg {
 .ticker-content {
   display: flex;
   width: max-content;
-  animation: tickerScroll 30s linear infinite;
+  animation: tickerScroll 85s linear infinite;
 }
 
 .ticker-wrap:hover .ticker-content {
@@ -1770,9 +1935,1294 @@ img, video, canvas, svg {
   .ticker-content,
   .streaming-cursor,
   .ai-thinking-shimmer,
-  .typing-dot {
+  .typing-dot,
+  .rotating-badge-text-svg,
+  .logo-track,
+  .mavens-hero-grid {
     animation: none !important;
   }
 }
 
+/* ==========================================================================
+   Mavens-i Enterprise UI Design System Components
+   ========================================================================== */
 
+/* Top Announcement Bar */
+.mavens-announcement-bar {
+  background: linear-gradient(90deg, #071a45 0%, #0b2f74 62%, #f97316 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  position: relative;
+  z-index: 101;
+}
+
+.mavens-announcement-inner {
+  max-width: 1240px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding-right: 2rem;
+  text-align: center;
+}
+
+.mavens-announcement-btn {
+  background: none;
+  border: none;
+  color: #fed7aa;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  margin-left: 0.5rem;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.mavens-announcement-btn:hover {
+  color: #ffffff;
+}
+
+.mavens-announcement-close {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.8);
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+}
+
+.mavens-announcement-close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Gradient Typography */
+.mavens-gradient-text {
+  background: linear-gradient(135deg, #ffffff 0%, #9bb7ff 45%, #f97316 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.mavens-gradient-text-alt {
+  background: linear-gradient(135deg, #255eff 0%, #f97316 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+/* Mavens-i Signature Cards */
+.mavens-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, rgba(244, 247, 255, 0.94) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: rgba(37, 94, 255, 0.08) 0px 1px 0px 0px inset,
+              rgba(255, 255, 255, 0.8) 0px 0px 0px 1px inset,
+              rgba(0, 0, 0, 0.06) 0px 14px 36px;
+  backdrop-filter: blur(12px);
+  color: #0f172a;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.mavens-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(37, 94, 255, 0.45);
+  box-shadow: rgba(37, 94, 255, 0.15) 0px 1px 0px 0px inset,
+              rgba(37, 94, 255, 0.12) 0px 0px 24px,
+              rgba(0, 0, 0, 0.1) 0px 20px 48px;
+}
+
+[data-theme="dark"] .mavens-card,
+.theme-dark .mavens-card {
+  background: linear-gradient(145deg, rgba(14, 32, 75, 0.95) 0%, rgba(5, 15, 40, 0.94) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: rgba(37, 94, 255, 0.1) 0px 1px 0px 0px inset,
+              rgba(255, 255, 255, 0.08) 0px 0px 0px 1px inset,
+              rgba(0, 0, 0, 0.35) 0px 20px 50px;
+  color: #ffffff;
+}
+
+/* Mavens-i Card Specular Top Highlight */
+.mavens-specular-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, #255eff 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Mavens-i Card Bottom-Left Corner Bracket */
+.mavens-corner-bracket {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  border-left: 1.5px solid rgba(37, 94, 255, 0.5);
+  border-bottom: 1.5px solid rgba(37, 94, 255, 0.5);
+  border-bottom-left-radius: 8px;
+  pointer-events: none;
+  z-index: 2;
+  transition: border-color 0.3s ease;
+}
+
+.mavens-card:hover .mavens-corner-bracket {
+  border-color: #f97316;
+}
+
+/* Mavens-i Card Hover Radial Glow */
+.mavens-card-glow {
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(37, 94, 255, 0.2), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.mavens-card:hover .mavens-card-glow {
+  opacity: 1;
+}
+
+/* Mavens Icon Pod with Dual Glowing Backing */
+.mavens-icon-pod {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(37, 94, 255, 0.16) 0%, rgba(249, 115, 22, 0.1) 100%);
+  border: 1px solid rgba(37, 94, 255, 0.26);
+  box-shadow: 0 0 16px rgba(37, 94, 255, 0.18);
+  color: #9bb7ff;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+
+.mavens-card:hover .mavens-icon-pod {
+  transform: scale(1.08);
+  border-color: rgba(249, 115, 22, 0.4);
+  color: #ffffff;
+}
+
+.mavens-icon-pod-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(11, 47, 116, 0.4), rgba(249, 115, 22, 0.25));
+  filter: blur(14px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.mavens-card:hover .mavens-icon-pod-glow {
+  opacity: 1;
+}
+
+/* Mavens-i Signature Spinning Emblem Badge */
+.rotating-badge-wrapper {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rotating-badge-glow {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(140, 180, 255, 0.3), transparent 70%);
+  filter: blur(16px);
+  pointer-events: none;
+}
+
+.rotating-badge-text-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  animation: spinSlow 20s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.rotating-badge-center {
+  position: absolute;
+  inset: 12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 24px rgba(140, 180, 255, 0.45);
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(180, 210, 255, 0.8);
+}
+
+/* Mavens-i Animated Grid Hero Overlay */
+.mavens-hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 0.5px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30%, black 70%, transparent 100%);
+  pointer-events: none;
+  animation: gridFloat 25s linear infinite;
+}
+
+@keyframes gridFloat {
+  0% { background-position: 0 0; }
+  100% { background-position: 36px 36px; }
+}
+
+/* CareerPilot Interactive Orbital Blueprint Constellation */
+.orbital-scaler {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.orbital-wrapper {
+  position: relative;
+  width: 500px;
+  height: 500px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+}
+
+@media (max-width: 560px) {
+  .orbital-scaler {
+    overflow: hidden;
+  }
+}
+
+/* Blueprint Grid Backdrop */
+.orbital-blueprint-backdrop {
+  position: absolute;
+  inset: -20px;
+  border-radius: 36px;
+  background-color: rgba(6, 21, 62, 0.45);
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 32px 32px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 40px rgba(7, 26, 69, 0.8);
+  pointer-events: none;
+  z-index: 1;
+  mask-image: radial-gradient(circle at center, black 65%, transparent 100%);
+  -webkit-mask-image: radial-gradient(circle at center, black 65%, transparent 100%);
+}
+
+.ai-core {
+  width: 120px;
+  height: 120px;
+  border-radius: 28px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.95);
+  z-index: 10;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  background: linear-gradient(145deg, rgba(37, 99, 235, 0.35), rgba(15, 23, 42, 0.75));
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.5),
+              0 0 60px rgba(37, 99, 235, 0.45);
+  cursor: pointer;
+  animation: coreBreathe 4.5s ease-in-out infinite;
+  position: relative;
+}
+
+.ai-core:hover {
+  transform: scale(1.06);
+  border-color: #f97316;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.7),
+              inset 0 1px 0 rgba(255, 255, 255, 0.6),
+              0 0 90px rgba(249, 115, 22, 0.5);
+}
+
+.ai-core.pulse-active {
+  animation: corePulseActive 0.8s ease-out;
+}
+
+.ai-core-ripple {
+  position: absolute;
+  inset: -15px;
+  border-radius: 36px;
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  pointer-events: none;
+  animation: coreRipple 3s ease-out infinite;
+}
+
+@keyframes coreBreathe {
+  0%, 100% {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5),
+                0 0 50px rgba(37, 99, 235, 0.4);
+  }
+  50% {
+    box-shadow: 0 25px 75px rgba(0, 0, 0, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.65),
+                0 0 80px rgba(37, 99, 235, 0.6);
+  }
+}
+
+@keyframes coreRipple {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes corePulseActive {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.8); }
+  50% { transform: scale(1.12); box-shadow: 0 0 40px 10px rgba(249, 115, 22, 0.9); }
+  100% { transform: scale(1); }
+}
+
+.icon-node {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.95);
+  background: linear-gradient(145deg, rgba(30, 58, 138, 0.6), rgba(15, 23, 42, 0.85));
+  backdrop-filter: blur(20px) saturate(160%);
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.35),
+              0 0 30px rgba(37, 99, 235, 0.2);
+  cursor: pointer;
+  transition: border-color 0.35s ease, box-shadow 0.35s ease;
+  z-index: 12;
+}
+
+.icon-node:hover {
+  border-color: #f97316;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 32px rgba(249, 115, 22, 0.6);
+}
+
+.icon-node.node-active {
+  border-color: #f97316 !important;
+  background: linear-gradient(145deg, rgba(249, 115, 22, 0.25), rgba(15, 23, 42, 0.9)) !important;
+  box-shadow: 0 0 26px rgba(249, 115, 22, 0.7),
+              0 0 50px rgba(249, 115, 22, 0.35),
+              inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  animation-duration: 2.8s !important;
+}
+
+.icon-node svg {
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.85));
+  transition: transform 0.3s ease;
+}
+
+.icon-node.node-active svg {
+  color: #fed7aa;
+  filter: drop-shadow(0 0 8px #f97316);
+  transform: scale(1.1);
+}
+
+.icon-label {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  white-space: nowrap;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+}
+
+/* Individual Organic Satellite Float Physics */
+@keyframes orbitFloat1 {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-3px, -7px, 0); }
+}
+
+@keyframes orbitFloat2 {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(4px, -8px, 0); }
+}
+
+@keyframes orbitFloat3 {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(4px, 6px, 0); }
+}
+
+@keyframes orbitFloat4 {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-4px, 6px, 0); }
+}
+
+.connection-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Streaming Lasers Dash Animation */
+@keyframes dashStreamNormal {
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+
+@keyframes dashStreamActive {
+  to {
+    stroke-dashoffset: -36;
+  }
+}
+
+/* Mavens-i Logo Marquee */
+.logo-marquee {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+}
+
+.logo-track {
+  display: flex;
+  align-items: center;
+  gap: 3.5rem;
+  width: max-content;
+  animation: logoScroll 32s linear infinite;
+}
+
+.logo-marquee:hover .logo-track {
+  animation-play-state: paused;
+}
+
+@keyframes logoScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.logo-item {
+  height: 28px;
+  opacity: 0.7;
+  filter: brightness(0) invert(1);
+  transition: all 0.3s ease;
+  user-select: none;
+}
+
+.logo-item:hover {
+  opacity: 1;
+  filter: none;
+  transform: scale(1.08);
+}
+
+/* Mavens Certified / Trust Accreditation Box */
+.certified-box {
+  border-radius: 8px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(244, 247, 255, 0.92) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  box-shadow: rgba(37, 94, 255, 0.08) 0px 1px 0px 0px inset,
+              rgba(255, 255, 255, 0.7) 0px 0px 0px 1px inset,
+              rgba(0, 0, 0, 0.06) 0px 15px 35px;
+  padding: 1rem 1.25rem;
+  position: relative;
+  overflow: hidden;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .certified-box,
+.theme-dark .certified-box {
+  background: linear-gradient(145deg, rgba(14, 32, 75, 0.92) 0%, rgba(5, 15, 40, 0.9) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: rgba(37, 94, 255, 0.1) 0px 1px 0px 0px inset,
+              rgba(255, 255, 255, 0.1) 0px 0px 0px 1px inset,
+              rgba(0, 0, 0, 0.3) 0px 20px 50px;
+  color: #ffffff;
+}
+
+.certified-box .specular-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #255eff, transparent);
+}
+
+/* ==========================================================================
+   MAVENS-I ENTERPRISE COMPONENT SUITE (ACCURATE TO REFERENCE WEBSITE)
+   ========================================================================== */
+
+/* 1. Floating Job Search & Multi-Filter Bar */
+.mavens-job-search-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 0 20px rgba(37, 94, 255, 0.03);
+  padding: 0.65rem 0.85rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  width: 100%;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.mavens-job-search-card:focus-within {
+  border-color: #255eff;
+  box-shadow: 0 12px 35px -5px rgba(37, 94, 255, 0.12);
+}
+
+.mavens-search-input-wrap {
+  flex: 1.5;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.mavens-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  font-size: 0.95rem;
+  color: #0f172a;
+  background: transparent;
+}
+
+.mavens-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.mavens-filter-select-wrap {
+  flex: 1;
+  min-width: 170px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 1px solid #e2e8f0;
+}
+
+@media (max-width: 768px) {
+  .mavens-filter-select-wrap {
+    border-left: none;
+    border-top: 1px solid #f1f5f9;
+  }
+}
+
+.mavens-filter-select {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+}
+
+.mavens-btn-find-jobs {
+  background: linear-gradient(135deg, #1e2b85 0%, #ea580c 100%);
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: 10px;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  white-space: nowrap;
+}
+
+.mavens-btn-find-jobs:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
+}
+
+/* 2. Mavens-i Precise Job / Role Cards */
+.mavens-job-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.25rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.mavens-job-card:hover {
+  transform: translateY(-3px);
+  border-color: #255eff;
+  box-shadow: 0 12px 28px rgba(37, 94, 255, 0.08), 0 0 1px rgba(37, 94, 255, 0.3);
+}
+
+.mavens-job-icon-pod {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #255eff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(37, 94, 255, 0.25);
+}
+
+.mavens-badge-featured {
+  color: #10b981;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.mavens-badge-open {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.mavens-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mavens-tag-pill.blue {
+  background: #eff6ff;
+  color: #255eff;
+}
+
+.mavens-tag-pill.orange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.mavens-tag-pill.gray {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.mavens-btn-apply {
+  border: 1.5px solid #ea580c;
+  color: #ea580c;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 0.45rem 1.15rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.mavens-btn-apply:hover {
+  background: #ea580c;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);
+}
+
+/* 3. Deep Navy AI Solution Showcase Cards (Carousel from Image 4) */
+.mavens-dark-solution-card {
+  background: linear-gradient(145deg, #07153b 0%, #030b22 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 1.75rem;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mavens-dark-solution-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(37, 94, 255, 0.5);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 25px rgba(37, 94, 255, 0.2);
+}
+
+.mavens-dark-solution-card .card-highlight-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #255eff, #f97316, transparent);
+}
+
+/* 4. Benefits Cards (from Image 1) */
+.mavens-benefit-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+  transition: all 0.25s ease;
+}
+
+.mavens-benefit-card:hover {
+  transform: translateY(-3px);
+  border-color: #255eff;
+  box-shadow: 0 12px 30px rgba(37, 94, 255, 0.08);
+}
+
+/* Buttons */
+.mavens-btn-primary {
+  background: linear-gradient(135deg, #1e2b85 0%, #ea580c 100%);
+  color: #ffffff !important;
+  font-weight: 700;
+  padding: 0.65rem 1.45rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, 0.25);
+  transition: all 0.2s ease;
+}
+
+.mavens-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.35);
+}
+
+.mavens-btn-secondary {
+  background: #ffffff;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1;
+  font-weight: 600;
+  padding: 0.65rem 1.45rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.mavens-btn-secondary:hover {
+  border-color: #255eff;
+  color: #255eff !important;
+  background: #f8fafc;
+}
+
+/* ==========================================================================
+   Abekus.ai Design System & Signature Template Styles
+   ========================================================================== */
+
+:root {
+  --lx-ink: #0E1116;
+  --lx-ink-soft: #161A22;
+  --lx-blue: #2B57FF;
+  --lx-blue-deep: #1436C4;
+  --lx-blue-soft: rgba(43, 87, 255, 0.09);
+  --lx-gold: #FFC400;
+  --lx-gold-text: #9E7400;
+  --lx-gold-soft: rgba(255, 196, 0, 0.13);
+  --lx-green: #137A44;
+  --lx-green-soft: rgba(19, 122, 68, 0.10);
+  --lx-violet: #7A5AF8;
+  --lx-violet-soft: rgba(122, 90, 248, 0.10);
+  --lx-rose: #E11D48;
+  --lx-rose-soft: rgba(225, 29, 72, 0.10);
+  --lx-paper: #FFFFFF;
+  --lx-canvas: #FAFAFC;
+  --lx-surface-2: #F7F8FA;
+  --lx-surface-3: #EDEFF3;
+  --lx-surface-4: #F1F4F8;
+  --lx-line: #E2E6EC;
+  --lx-line-2: #EDEFF3;
+  --lx-line-3: #DFE3EB;
+  --lx-txt-1: #0E1116;
+  --lx-txt-2: #4E5768;
+  --lx-txt-3: #7E899C;
+  --lx-txt-4: #A3ADC0;
+  --shadow-lx-deck: 0 20px 48px rgba(14, 17, 22, 0.14), 0 4px 12px rgba(14, 17, 22, 0.06);
+  --shadow-lx-deck-dark: 0 24px 50px rgba(0, 0, 0, 0.35);
+  --shadow-lx-card: 0 16px 36px -6px rgba(14, 17, 22, 0.10), 0 4px 12px rgba(14, 17, 22, 0.04);
+  --shadow-lx-pill: 0 10px 24px rgba(14, 17, 22, 0.12);
+}
+
+@keyframes lx-blip {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
+}
+
+@keyframes lx-pop {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes lx-drift {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes lx-ripple {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 0.2; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+/* Abekus Buttons with Arrow Badges */
+.lx-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1.4rem;
+  background-color: var(--lx-blue);
+  color: #ffffff !important;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 5px 0 var(--lx-blue-deep), 0 14px 26px rgba(43, 87, 255, 0.28);
+  transition: all 0.15s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.lx-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 0 var(--lx-blue-deep), 0 18px 32px rgba(43, 87, 255, 0.35);
+  color: #ffffff !important;
+}
+.lx-btn-primary:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--lx-blue-deep), 0 6px 14px rgba(43, 87, 255, 0.25);
+}
+.lx-btn-primary .arrow-circle {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--lx-blue);
+  font-size: 1rem;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+.lx-btn-primary:hover .arrow-circle {
+  background: var(--lx-ink);
+  color: #ffffff;
+}
+
+.lx-btn-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.5rem 1.4rem;
+  background-color: var(--lx-gold);
+  color: var(--lx-ink) !important;
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(255, 196, 0, 0.35);
+  transition: all 0.2s ease;
+}
+.lx-btn-gold:hover {
+  background-color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(255, 196, 0, 0.45);
+}
+.lx-btn-gold .arrow-circle {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--lx-ink);
+  color: #ffffff;
+  font-size: 1rem;
+}
+
+.lx-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.75rem;
+  background: transparent;
+  color: var(--lx-ink);
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: 9999px;
+  border: 1.5px solid var(--lx-line);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.lx-btn-outline:hover {
+  background: var(--lx-ink);
+  color: #ffffff !important;
+  border-color: var(--lx-ink);
+}
+
+/* Abekus Filter Tablist */
+.lx-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.lx-filter-tab {
+  height: 40px;
+  padding: 0 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--lx-line);
+  background: #ffffff;
+  color: var(--lx-txt-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.lx-filter-tab:hover {
+  border-color: var(--lx-txt-4);
+  color: var(--lx-ink);
+}
+.lx-filter-tab.active {
+  background: var(--lx-ink);
+  color: #ffffff;
+  border-color: var(--lx-ink);
+}
+
+/* Abekus Floating Indicator Pills */
+.lx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.lx-pill-green {
+  background: var(--lx-green-soft);
+  color: var(--lx-green);
+}
+.lx-pill-blue {
+  background: var(--lx-blue-soft);
+  color: var(--lx-blue);
+}
+.lx-pill-gold {
+  background: var(--lx-gold-soft);
+  color: var(--lx-gold-text);
+}
+.lx-pill-violet {
+  background: var(--lx-violet-soft);
+  color: var(--lx-violet);
+}
+
+/* Abekus 3D Deck Card */
+.lx-deck-card {
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid var(--lx-line);
+  box-shadow: var(--shadow-lx-card);
+  transition: transform 0.25s cubic-bezier(0.22, 0.61, 0.36, 1), box-shadow 0.25s ease;
+}
+.lx-deck-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 42px -8px rgba(14, 17, 22, 0.14);
+}
+
+/* Abekus Resume Builder A4 Preview */
+.resume-paper {
+  background: #ffffff;
+  box-shadow: 0 18px 45px rgba(14, 17, 22, 0.15), 0 4px 14px rgba(14, 17, 22, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .resume-paper, .resume-paper * {
+    visibility: visible;
+  }
+  .resume-paper {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Accessibility: prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Responsive Resume Builder Layout */
+.resume-builder-grid {
+  display: grid;
+  grid-template-columns: minmax(340px, 440px) 1fr;
+  gap: 1.75rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 1024px) {
+  .resume-builder-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}
+
+.mobile-only {
+  display: none !important;
+}
+@media (max-width: 768px) {
+  .mobile-only {
+    display: block !important;
+  }
+  .mobile-only-hide {
+    display: none !important;
+  }
+}
+
+/* ==========================================================================
+   Comprehensive Mobile Responsiveness & Touch Optimization
+   ========================================================================== */
+
+/* Abekus Hero Deck Responsive Grid Layout */
+.lx-hero-deck-grid {
+  display: grid;
+  grid-template-columns: 1fr 480px;
+  gap: 2.5rem;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+@media (max-width: 1024px) {
+  .lx-hero-deck-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .lx-hero-deck-right {
+    height: 380px !important;
+    max-width: 100% !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .lx-hero-deck-right {
+    height: 340px !important;
+  }
+}
+
+/* Floating AI Advisor Responsive Placement Above Mobile Bottom Navigation */
+@media (max-width: 768px) {
+  .floating-advisor-button-wrapper {
+    bottom: calc(var(--bottom-nav-height, 64px) + var(--safe-area-bottom, 0px) + 12px) !important;
+    right: 14px !important;
+  }
+  .floating-advisor-btn {
+    width: 52px !important;
+    height: 52px !important;
+  }
+  .floating-advisor-drawer {
+    bottom: calc(var(--bottom-nav-height, 64px) + var(--safe-area-bottom, 0px) + 72px) !important;
+    right: 12px !important;
+    left: 12px !important;
+    width: auto !important;
+    max-width: calc(100vw - 24px) !important;
+    height: calc(100vh - 165px) !important;
+    max-height: 520px !important;
+    border-radius: 20px !important;
+  }
+  .app-layout main {
+    padding-bottom: calc(var(--bottom-nav-height, 64px) + var(--safe-area-bottom, 0px)) !important;
+  }
+  .footer {
+    padding-bottom: calc(var(--bottom-nav-height, 64px) + var(--safe-area-bottom, 0px) + 1.5rem) !important;
+  }
+  .page-container {
+    padding: 1rem 0.85rem !important;
+    padding-bottom: calc(var(--bottom-nav-height, 64px) + var(--safe-area-bottom, 0px) + 2rem) !important;
+  }
+  .mavens-btn-find-jobs {
+    width: 100% !important;
+  }
+}
+
+/* Opportunity Cards on Mobile Screens */
+@media (max-width: 480px) {
+  .digest-opp-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+}
+
+/* ==========================================================================
+   Mobile-First Responsiveness & Universal Anti-Horizontal Scrolling Engine
+   ========================================================================== */
+
+html, body, #root, .app-layout {
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  position: relative;
+  box-sizing: border-box;
+}
+
+/* Touch-optimized scrollable containers (tab bars, pill strips, chip filters) */
+.tab-strip-scroll,
+.filter-strip-scroll,
+.scroll-x-smooth {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tab-strip-scroll::-webkit-scrollbar,
+.filter-strip-scroll::-webkit-scrollbar,
+.scroll-x-smooth::-webkit-scrollbar {
+  display: none;
+}
+
+/* Responsive Tables */
+.table-responsive,
+.responsive-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Safe media and code elements */
+pre, code {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+img, svg, video, canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Mobile responsive layout overrides */
+@media (max-width: 992px) {
+  .resume-studio-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .grid-2,
+  .grid-3,
+  .grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  .page-container {
+    padding: 1rem 0.85rem !important;
+    padding-bottom: calc(var(--bottom-nav-height, 64px) + var(--safe-area-bottom, 0px) + 2rem) !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+}

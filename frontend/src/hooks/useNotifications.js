@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../services/api';
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification as apiDeleteNotification
+} from '../services/api';
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState([]);
@@ -7,6 +12,12 @@ export const useNotifications = () => {
   const [error, setError] = useState(null);
 
   const fetchNotifs = useCallback(async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -48,8 +59,13 @@ export const useNotifications = () => {
     setNotifications([]);
   }, []);
 
-  const deleteNotification = useCallback((id) => {
+  const deleteNotification = useCallback(async (id) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try {
+      await apiDeleteNotification(id);
+    } catch (err) {
+      console.warn('Could not delete notification from server:', err);
+    }
   }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;

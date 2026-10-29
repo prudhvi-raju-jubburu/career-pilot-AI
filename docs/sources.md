@@ -31,25 +31,35 @@ All opportunities undergo schema normalization, SHA-256 content fingerprinting, 
 
 ---
 
-### Source 2: Arbeitnow Tech Board API
-- **Endpoint**: `https://www.arbeitnow.com/api/job-board-api`
+### Source 2: Unstop India Tech Opportunities API
+- **Endpoint**: `https://unstop.com/api/public/opportunity/search-result?opportunity=internships&category=engineering&per_page=30`
 - **Terms & Legal Review**:
-  - Official public REST API documented on RapidAPI / Arbeitnow.
-  - Freely accessible for career discovery without authentication tokens.
-  - Compliant with polite polling guidelines.
-- **Category / Type**: Global & European Software Engineering Roles (`job`, `internship`).
+  - Official public discovery endpoint used by Unstop for students and developers across India.
+  - Read-only queries for educational career discovery and internship applications.
+  - Polite indexing with custom User-Agent identifying CareerPilot bot.
+- **Category / Type**: Indian Tech Engineering Internships & Developer Fresher Jobs (`internship`, `job`).
 - **Update Frequency / Schedule**: Every 4 hours (`interval: hours=4`).
 - **Rate Limit & Circuit Breaker**:
   - Throttled at max 1 request per 10 seconds.
   - Circuit breaker trips after 3 consecutive failures.
 - **Normalization Mapping**:
   - `title` ← `item.title`
-  - `company` ← `item.company_name`
-  - `description` ← HTML-sanitized `item.description`
-  - `url` ← `item.url`
-  - `location` ← `item.location`
-  - `work_mode` ← `"Remote"` if `item.remote == true` else `"Hybrid/On-site"`
-  - `skills` ← Normalized from `item.tags`
+  - `company` ← `item.organisation.name`
+  - `description` ← Plaintext clean description from Unstop listing
+  - `url` ← `https://unstop.com/{item.public_url}` or application URL
+  - `location` ← Indian Tech Hub (`Bengaluru`, `Hyderabad`, `Pune`, `Noida`, `Mumbai`, `Delhi NCR`, `Chennai`) with State and `country: "India"`
+  - `work_mode` ← `"Remote"` / `"Onsite"` / `"Hybrid"`
+  - `compensation` ← Real INR stipend (`currency: "INR"`, `min_amount`, `max_amount`)
+  - `skills` ← Normalized technical skills from job requirements tag list
+
+---
+
+### India Tech Ecosystem Eligibility Rule (`is_india_eligible`)
+All opportunities ingested across any feed undergo strict geographical validation before entering the database:
+1. **Direct Indian Hubs**: Roles located in Bengaluru, Hyderabad, Pune, Mumbai, Delhi NCR/Noida/Gurgaon, Chennai, Kolkata, Ahmedabad, etc.
+2. **India-Eligible Remote**: Remote software developer roles explicitly verified as open to India, APAC, or Worldwide.
+3. **Rejection of Foreign-Exclusive Roles**: Strict exclusion of USA-only, Europe-only, UK-only, or German-specific listings (e.g. Berlin, Munich).
+4. **Student Hackathons & CP**: Indian university hackathons (Devfolio, SIH) and global competitive programming open to Indian students (Codeforces).
 
 ---
 
@@ -156,6 +166,19 @@ CareerPilot AI strictly connects to open, compliant, public APIs and syndication
      - /api/stream/opportunities     - Status, duration, fetched/accepted counts
 ```
 
-### Telemetry Endpoints
+### Operational & Diagnostic Endpoints
+- `GET /api/sources/health`: (Protected) Comprehensive operational diagnostic reporting overall health (`healthy`, `degraded`, `unhealthy`), individual connector states (failures, circuit breakers, success rates), recent error classifications (`not_found`, `timeout`, `rate_limited`, `network_error`), and database freshness metrics.
 - `GET /api/sources/status`: Reports live operational health, items accepted, error status, and last synced timestamp for each registered connector.
 - `POST /api/sources/sync`: Authenticated endpoint allowing instant manual synchronization across all sources.
+
+---
+
+## 5. Phase 2 Resilience & Reliability Enhancements
+
+1. **Sub-Resource Failure Isolation**:
+   - In aggregators like `ATSConnector` (Greenhouse, Lever, SmartRecruiters), individual company board 404s are flagged with `record_failure=False` during HTTP requests. Defunct company boards are skipped without tripping the connector's global circuit breaker.
+2. **Safe Deadline Comparison**:
+   - Date-only deadlines (e.g. `YYYY-MM-DD`) are normalized to end-of-day UTC (`23:59:59+00:00`) so opportunities remain discoverable throughout their final calendar day regardless of local client timezones.
+3. **Idempotent Ingestion & Content Deduplication**:
+   - Updates utilize atomic upserts with SHA-256 fingerprint matching on title and company slugs, preserving user applications and saved status across ingestion runs.
+

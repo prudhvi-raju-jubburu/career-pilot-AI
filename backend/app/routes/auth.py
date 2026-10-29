@@ -30,6 +30,13 @@ def register():
             "error": "VALIDATION_ERROR"
         }), 400
 
+    if len(name) > 100:
+        return jsonify({
+            "success": False,
+            "message": "Full name cannot exceed 100 characters",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
     if not email or not EMAIL_REGEX.match(email):
         return jsonify({
             "success": False,
@@ -37,10 +44,24 @@ def register():
             "error": "VALIDATION_ERROR"
         }), 400
 
+    if len(email) > 255:
+        return jsonify({
+            "success": False,
+            "message": "Email address cannot exceed 255 characters",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
     if not password or len(password) < 6:
         return jsonify({
             "success": False,
             "message": "Password must be at least 6 characters long",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    if len(password) > 256:
+        return jsonify({
+            "success": False,
+            "message": "Password cannot exceed 256 characters",
             "error": "VALIDATION_ERROR"
         }), 400
 
@@ -66,10 +87,12 @@ def register():
             }
         }), 201
     except Exception as e:
+        import logging
+        logging.getLogger(__name__).error("Registration error: %s", str(e), exc_info=True)
         return jsonify({
             "success": False,
             "message": "Failed to create account. Please try again.",
-            "error": str(e)
+            "error": "REGISTRATION_FAILED"
         }), 500
 
 @auth_bp.route("/login", methods=["POST"])
@@ -100,6 +123,13 @@ def login():
             "message": "Invalid email or password",
             "error": "INVALID_CREDENTIALS"
         }), 401
+
+    if UserModel.is_suspended(user):
+        return jsonify({
+            "success": False,
+            "message": "Account has been suspended. Please contact platform support.",
+            "error": "ACCOUNT_SUSPENDED"
+        }), 403
 
     token = generate_token(user_id=str(user["_id"]), email=user["email"])
 

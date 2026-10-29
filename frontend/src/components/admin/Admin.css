@@ -1,0 +1,501 @@
+/* ==========================================================================
+   CareerPilot AI — Admin Command Center: Executive Light Theme
+   Clean, Modern, Accessible Operations Workspace with Fluid Micro-Animations
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Design System Tokens (Light Theme Exclusive)
+   -------------------------------------------------------------------------- */
+
+.admin-workspace {
+  --admin-bg: #f8fafc;
+  --admin-bg-gradient: radial-gradient(ellipse 70% 50% at 20% -10%, rgba(37, 99, 235, 0.05), transparent 70%),
+                       radial-gradient(ellipse 60% 50% at 80% 10%, rgba(99, 102, 241, 0.04), transparent 60%),
+                       #f8fafc;
+  --admin-sidebar-bg: #ffffff;
+  --admin-header-bg: rgba(255, 255, 255, 0.92);
+  --admin-card-bg: #ffffff;
+  --admin-card-hover: #ffffff;
+  --admin-border: #e2e8f0;
+  --admin-border-hover: #cbd5e1;
+  --admin-primary: #2563eb;
+  --admin-primary-hover: #1d4ed8;
+  --admin-primary-glow: rgba(37, 99, 235, 0.2);
+  --admin-accent: #0ea5e9;
+  --admin-text-main: #0f172a;
+  --admin-text-muted: #64748b;
+  --admin-text-dim: #94a3b8;
+  --admin-chip-bg: rgba(37, 99, 235, 0.08);
+  --admin-chip-border: rgba(37, 99, 235, 0.2);
+
+  /* Global Portal token overrides */
+  --bg-primary: #f8fafc !important;
+  --bg-secondary: #f1f5f9 !important;
+  --bg-card: #ffffff !important;
+  --bg-surface: #ffffff !important;
+  --border-subtle: #e2e8f0 !important;
+  --border-color: #e2e8f0 !important;
+  --text-primary: #0f172a !important;
+  --text-secondary: #64748b !important;
+  --text-muted: #64748b !important;
+  --primary: #2563eb !important;
+  --primary-hover: #1d4ed8 !important;
+
+  background: var(--admin-bg-gradient) !important;
+  background-color: var(--admin-bg) !important;
+  color: var(--admin-text-main) !important;
+  min-height: 100vh;
+  display: flex;
+  position: relative;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Subtle decorative grid background */
+.admin-workspace::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.025) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Typography Headings */
+.admin-workspace h1,
+.admin-workspace h2,
+.admin-workspace h3,
+.admin-workspace h4 {
+  color: var(--admin-text-main) !important;
+  letter-spacing: -0.015em;
+}
+
+.admin-workspace p,
+.admin-workspace span {
+  color: inherit;
+}
+
+/* Clear any inherited dark drop shadows */
+.admin-workspace * {
+  text-shadow: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. Keyframe Animations
+   -------------------------------------------------------------------------- */
+
+@keyframes adminFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes adminSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes adminScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseRadar {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.admin-main-content {
+  animation: adminFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  position: relative;
+  z-index: 1;
+}
+
+/* --------------------------------------------------------------------------
+   3. Card System (Executive Floating Cards)
+   -------------------------------------------------------------------------- */
+
+.admin-card,
+.admin-workspace div[style*="--bg-card"] {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px;
+  position: relative;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+.admin-card:hover,
+.admin-workspace div[style*="--bg-card"]:hover {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+}
+
+/* Subtle top accent highlight on hover */
+.admin-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #2563eb, transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.admin-card:hover::before {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   4. KPI Cards & Metric Badges
+   -------------------------------------------------------------------------- */
+
+.admin-kpi-value {
+  font-size: 2.125rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  color: #0f172a !important;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  line-height: 1.1;
+}
+
+.admin-kpi-cyan { color: #0284c7 !important; }
+.admin-kpi-emerald { color: #059669 !important; }
+.admin-kpi-amber { color: #d97706 !important; }
+.admin-kpi-purple { color: #7c3aed !important; }
+
+.admin-kpi-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #64748b !important;
+  letter-spacing: 0.01em;
+}
+
+.admin-kpi-icon-wrap {
+  padding: 0.5rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   5. Navigation & Sidebar
+   -------------------------------------------------------------------------- */
+
+.admin-sidebar {
+  width: 260px;
+  background-color: #ffffff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 999;
+  transition: transform 0.25s ease;
+}
+
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  color: #475569;
+  text-decoration: none;
+  font-size: 0.84375rem;
+  font-weight: 500;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.admin-nav-item:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  transform: translateX(3px);
+}
+
+.admin-nav-item.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 4px 14px -2px rgba(37, 99, 235, 0.35);
+}
+
+.admin-nav-item.active svg {
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   6. Buttons & Interactive Controls
+   -------------------------------------------------------------------------- */
+
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+  outline: none;
+}
+
+.admin-btn:active {
+  transform: scale(0.98);
+}
+
+.admin-btn-primary {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px -1px rgba(37, 99, 235, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.admin-btn-primary:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+  box-shadow: 0 6px 16px -2px rgba(37, 99, 235, 0.45);
+  transform: translateY(-1px);
+}
+
+.admin-btn-secondary {
+  background: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.admin-btn-secondary:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+  transform: translateY(-1px);
+}
+
+/* Pill Timeframe Segment Switcher */
+.admin-pill-group {
+  display: inline-flex;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.admin-pill-btn {
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.admin-pill-btn:hover {
+  color: #0f172a;
+}
+
+.admin-pill-btn.active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   7. Tables & Data Lists
+   -------------------------------------------------------------------------- */
+
+.admin-workspace table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.admin-workspace table thead tr {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.admin-workspace table tbody tr {
+  border-bottom: 1px solid #f1f5f9 !important;
+  transition: background-color 0.15s ease;
+}
+
+.admin-workspace table tbody tr:hover {
+  background: #f8fafc !important;
+}
+
+/* --------------------------------------------------------------------------
+   8. Form Controls & Search Inputs
+   -------------------------------------------------------------------------- */
+
+.admin-workspace input,
+.admin-workspace select,
+.admin-workspace textarea,
+.admin-select,
+.admin-input {
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-size: 0.84375rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.admin-workspace input::placeholder,
+.admin-workspace .admin-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+.admin-workspace input:focus,
+.admin-workspace select:focus,
+.admin-workspace textarea:focus,
+.admin-select:focus,
+.admin-input:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. Live Radar Dots & Status Badges
+   -------------------------------------------------------------------------- */
+
+.admin-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background-color: #10b981;
+  position: relative;
+}
+
+.admin-live-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid #10b981;
+  animation: pulseRadar 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.admin-live-dot.degraded {
+  background-color: #f59e0b;
+}
+
+.admin-live-dot.degraded::after {
+  border-color: #f59e0b;
+}
+
+.admin-live-dot.failed {
+  background-color: #ef4444;
+}
+
+.admin-live-dot.failed::after {
+  border-color: #ef4444;
+}
+
+/* --------------------------------------------------------------------------
+   10. Modal & Drawer Overlay System
+   -------------------------------------------------------------------------- */
+
+.admin-workspace .admin-modal {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.18), 0 0 1px rgba(15, 23, 42, 0.1) !important;
+  animation: adminScaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* --------------------------------------------------------------------------
+   11. Analytics Chart Tooltips & Grids (Recharts Light)
+   -------------------------------------------------------------------------- */
+
+.admin-workspace .recharts-cartesian-grid line {
+  stroke: #f1f5f9 !important;
+}
+
+.admin-workspace .recharts-cartesian-axis-tick text {
+  fill: #64748b !important;
+  font-size: 11px !important;
+}
+
+.admin-workspace .recharts-default-tooltip {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 6px -4px rgba(15, 23, 42, 0.05) !important;
+  color: #0f172a !important;
+  padding: 0.65rem 0.9rem !important;
+}
+
+/* --------------------------------------------------------------------------
+   12. Custom Scrollbar
+   -------------------------------------------------------------------------- */
+
+.admin-workspace ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.admin-workspace ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.admin-workspace ::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.15);
+  border-radius: 9999px;
+}
+
+.admin-workspace ::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 23, 42, 0.28);
+}

@@ -55,15 +55,15 @@ export default function MobileBottomNav() {
         right: 0,
         height: 'calc(var(--bottom-nav-height, 64px) + var(--safe-area-bottom, 0px))',
         paddingBottom: 'var(--safe-area-bottom, 0px)',
-        background: 'var(--surface-glass, rgba(15, 23, 42, 0.92))',
+        background: 'rgba(255, 255, 255, 0.96)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        borderTop: '1px solid var(--border-hairline, rgba(255, 255, 255, 0.08))',
+        borderTop: '1px solid #e2e8f0',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
         zIndex: 900,
-        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4)',
+        boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.06)',
       }}
     >
       {navItems.map((item) => {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Briefcase, MapPin, ArrowRight, Check, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ProgressRing from '../ui/ProgressRing';
+import { formatOpportunityLocation } from '../../utils';
 
 export default function ChatOpportunityCard({ opportunity }) {
   const navigate = useNavigate();
@@ -41,7 +42,7 @@ export default function ChatOpportunityCard({ opportunity }) {
             <span>{opportunity.company}</span>
             <span>•</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-              <MapPin size={12} /> {opportunity.location || 'Remote'}
+              <MapPin size={12} /> {formatOpportunityLocation(opportunity)}
             </span>
           </div>
         </div>

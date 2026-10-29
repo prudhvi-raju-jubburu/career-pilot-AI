@@ -14,8 +14,10 @@ export default function Button({
   size = 'md',         // 'sm' | 'md' | 'lg'
   magnetic = false,
   loading = false,
+  loadingText,
   disabled = false,
   icon,
+  iconLeft,
   iconRight,
   className = '',
   style = {},
@@ -107,11 +109,13 @@ export default function Button({
       ref={magnetic ? magneticRef : undefined}
       type={type}
       disabled={disabled || loading}
-      onClick={onClick}
+      aria-disabled={disabled || loading ? 'true' : undefined}
+      aria-busy={loading ? 'true' : undefined}
+      onClick={disabled || loading ? undefined : onClick}
       animate={magnetic ? { x, y } : undefined}
       transition={SPRINGS.snappy}
-      whileHover={disabled || loading ? {} : { scale: 1.025 }}
-      whileTap={disabled || loading ? {} : { scale: 0.97 }}
+      whileHover={disabled || loading ? {} : { scale: 1.02, y: -1 }}
+      whileTap={disabled || loading ? {} : { scale: 0.98, y: 0.5 }}
       {...(magnetic ? bind : {})}
       style={{
         display: 'inline-flex',
@@ -123,7 +127,10 @@ export default function Button({
         whiteSpace: 'nowrap',
         letterSpacing: '-0.01em',
         fontFamily: 'inherit',
-        transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        touchAction: 'manipulation',
+        transition: 'background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease',
         ...getVariantStyles(),
         ...getSizeStyles(),
         ...style,
@@ -134,11 +141,11 @@ export default function Button({
       {loading ? (
         <>
           <Loader2 className="animate-spin" size={size === 'sm' ? 14 : size === 'lg' ? 18 : 16} />
-          <span>Processing...</span>
+          <span>{loadingText || (typeof children === 'string' ? children : 'Processing...')}</span>
         </>
       ) : (
         <>
-          {icon && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon}</span>}
+          {(icon || iconLeft) && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{icon || iconLeft}</span>}
           <span>{children}</span>
           {iconRight && <span style={{ display: 'inline-flex', alignItems: 'center' }}>{iconRight}</span>}
         </>

@@ -20,7 +20,7 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
 import { useToast } from '../context/ToastContext';
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../services/api';
+import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification } from '../services/api';
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
@@ -64,6 +64,16 @@ export default function NotificationsPage() {
       toast.success('All notifications marked as read');
     } catch (err) {
       toast.error('Failed to mark all as read');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteNotification(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      toast.info('Notification removed');
+    } catch (err) {
+      toast.error('Failed to delete notification');
     }
   };
 
@@ -301,6 +311,27 @@ export default function NotificationsPage() {
                         }}
                       >
                         {notif.read ? 'Mark as unread' : 'Mark as read'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(notif.id)}
+                        title="Delete notification"
+                        style={{
+                          marginLeft: 'auto',
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          borderRadius: '4px',
+                          transition: 'color var(--transition-fast)',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--danger)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-muted)')}
+                      >
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </div>

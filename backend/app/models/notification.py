@@ -6,9 +6,24 @@ from app.config.db import Database
 
 logger = logging.getLogger(__name__)
 
+CANONICAL_NOTIFICATION_TYPES = {
+    "new_matching_opportunity",
+    "deadline_reminder",
+    "application_status_reminder",
+    "weekly_opportunity_digest",
+    "interview_reminder",
+    "application_follow_up",
+    "system_notice",
+    "system",
+    "opportunity",
+    "application",
+    "deadline"
+}
+
 class NotificationModel:
     """
-    MongoDB model for in-app user notifications and real-time alerts.
+    MongoDB model for in-app user notifications, alerts, and delivery tracking.
+    Stored in the 'notifications' collection.
     """
     COLLECTION_NAME = "notifications"
 
@@ -27,6 +42,8 @@ class NotificationModel:
             col.create_index("read")
             col.create_index([("user_id", 1), ("read", 1)])
             col.create_index([("user_id", 1), ("created_at", -1)])
+            col.create_index([("user_id", 1), ("type", 1)])
+            col.create_index("dedupe_key", unique=True, sparse=True)
             logger.info("Successfully ensured MongoDB indexes on '%s'", cls.COLLECTION_NAME)
         except Exception as e:
             logger.warning("Could not create indexes on '%s': %s", cls.COLLECTION_NAME, str(e))
@@ -42,29 +59,81 @@ class NotificationModel:
         return data
 
     @classmethod
-    def find_by_user(cls, user_id: str, limit: int = 50) -> List[dict]:
+    def find_by_user(
+        cls,
+        user_id: str,
+        unread_only: bool = False,
+        notif_type: Optional[str] = None,
+        limit: int = 50,
+        skip: int = 0
+    ) -> List[dict]:
         col = cls.get_collection()
-        # Find user-specific or global broadcast notifications
-        query = {"$or": [{"user_id": str(user_id)}, {"user_id": "broadcast"}]}
-        cursor = col.find(query).sort("created_at", -1).limit(limit)
+        query: Dict[str, Any] = {"$or": [{"user_id": str(user_id)}, {"user_id": "broadcast"}]}
+        if unread_only:
+            query["read"] = False
+        if notif_type and notif_type.lower() != "all":
+            query["type"] = notif_type.lower()
+
+        cursor = col.find(query).sort("created_at", -1).skip(skip).limit(limit)
         return [cls.to_dict(d) for d in cursor]
 
     @classmethod
-    def create_notification(cls, user_id: str, title: str, message: str, notif_type: str = "system", link: Optional[str] = None) -> dict:
+    def get_unread_count(cls, user_id: str) -> int:
         col = cls.get_collection()
+        return col.count_documents({
+            "$or": [{"user_id": str(user_id)}, {"user_id": "broadcast"}],
+            "read": False
+        })
+
+    @classmethod
+    def create_notification(
+        cls,
+        user_id: str,
+        title: str,
+        message: str,
+        notif_type: str = "system",
+        opportunity_id: Optional[str] = None,
+        link: Optional[str] = None,
+        channel: str = "in_app",
+        dedupe_key: Optional[str] = None
+    ) -> Optional[dict]:
+        """
+        Creates an in-app notification.
+        If dedupe_key is provided and already exists, skips gracefully to avoid duplicate alerts.
+        """
+        col = cls.get_collection()
+        norm_type = notif_type.lower() if notif_type else "system"
+        if norm_type not in CANONICAL_NOTIFICATION_TYPES:
+            norm_type = "system"
+
         now = datetime.now(timezone.utc).isoformat()
         doc = {
             "user_id": str(user_id),
-            "title": title,
-            "message": message,
-            "type": notif_type,
-            "link": link,
+            "title": title.strip(),
+            "message": message.strip(),
+            "type": norm_type,
+            "opportunity_id": str(opportunity_id) if opportunity_id else None,
+            "link": link or (f"/opportunities?selected={opportunity_id}" if opportunity_id else None),
             "read": False,
+            "channel": channel,
+            "delivery_status": "delivered" if channel == "in_app" else "pending",
             "created_at": now
         }
-        res = col.insert_one(doc)
-        doc["_id"] = res.inserted_id
-        return cls.to_dict(doc)
+        if dedupe_key:
+            doc["dedupe_key"] = str(dedupe_key)
+
+        try:
+            res = col.insert_one(doc)
+            doc["_id"] = res.inserted_id
+            return cls.to_dict(doc)
+        except Exception as e:
+            # Handle duplicate key violation cleanly
+            if "duplicate key" in str(e).lower() or "e11000" in str(e).lower():
+                logger.debug("Duplicate notification skipped via dedupe_key '%s'", dedupe_key)
+                existing = col.find_one({"dedupe_key": dedupe_key})
+                return cls.to_dict(existing) if existing else None
+            logger.warning("Could not insert notification: %s", str(e))
+            return None
 
     @classmethod
     def mark_read(cls, notif_id: str, user_id: str) -> bool:
@@ -85,3 +154,14 @@ class NotificationModel:
             {"$set": {"read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
         )
         return res.modified_count
+
+    @classmethod
+    def delete_notification(cls, notif_id: str, user_id: str) -> bool:
+        col = cls.get_collection()
+        query: Dict[str, Any] = {"user_id": str(user_id)}
+        if ObjectId.is_valid(notif_id):
+            query["_id"] = ObjectId(notif_id)
+        else:
+            query["_id"] = notif_id
+        res = col.delete_one(query)
+        return res.deleted_count > 0

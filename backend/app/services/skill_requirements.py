@@ -355,6 +355,24 @@ def get_role_requirements(role_name: str) -> Dict[str, Any]:
         if r_name.lower() in clean_name.lower() or clean_name.lower() in r_name.lower():
             return data
 
+    # Role synonym matching (e.g. Engineer <-> Developer)
+    synonym_name = clean_name.lower().replace("engineer", "developer").strip()
+    for r_name, data in TARGET_ROLE_REQUIREMENTS.items():
+        if r_name.lower() in synonym_name or synonym_name in r_name.lower():
+            return data
+
+    tokens = set(clean_name.lower().split())
+    best_match = None
+    best_overlap = 0
+    for r_name, data in TARGET_ROLE_REQUIREMENTS.items():
+        r_tokens = set(r_name.lower().split())
+        overlap = len(tokens.intersection(r_tokens))
+        if overlap > best_overlap:
+            best_overlap = overlap
+            best_match = data
+    if best_match and best_overlap >= 1:
+        return best_match
+
     # Default to Software Engineer if unrecognized
     return TARGET_ROLE_REQUIREMENTS["Software Engineer"]
 

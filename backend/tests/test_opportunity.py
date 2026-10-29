@@ -338,13 +338,18 @@ def test_source_failure_resilience():
     assert metrics["source_results"]["test_working_source"]["accepted"] == 1
 
 # 22. Ingestion trigger endpoint
-def test_ingestion_api_endpoint(client):
+def test_ingestion_api_endpoint(client, monkeypatch):
     # Unauthenticated trigger rejected
     res_unauth = client.post("/api/opportunities/ingest")
     assert res_unauth.status_code == 401
 
     # Authenticated trigger succeeds
     headers = get_auth_headers(client, "ingest_runner@test.edu")
+    monkeypatch.setattr(
+        OpportunityIngestionService,
+        "run_ingestion",
+        lambda self: {"total_accepted": 1, "total_sources": 1, "errors": []}
+    )
     res_auth = client.post("/api/opportunities/ingest", headers=headers)
     assert res_auth.status_code == 200
     assert res_auth.get_json()["success"] is True

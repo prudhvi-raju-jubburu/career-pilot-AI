@@ -270,30 +270,178 @@ RESOURCE_CATALOG: List[Dict[str, Any]] = [
         "description": "Interactive browser exercises covering SELECT, WHERE, complex JOINs, GROUP BY, aggregations, and table constraints."
     },
 
-    # Computer Networks & Operating Systems
+    # Python
     {
-        "id": "res-os-1",
-        "skill": "Operating Systems",
-        "title": "Operating Systems: Three Easy Pieces (Free Book)",
-        "provider": "Remzi & Andrea Arpaci-Dusseau (Univ of Wisconsin)",
-        "type": "Open Textbook",
-        "url": "https://pages.cs.wisc.edu/~remzi/OSTEP/",
-        "isFree": True,
-        "difficulty": "Intermediate",
-        "estimatedHours": 20,
-        "description": "The definitive modern CS textbook on virtualization (processes, memory), concurrency (threads, locks, semaphores), and persistence."
-    },
-    {
-        "id": "res-cn-1",
-        "skill": "Computer Networks",
-        "title": "Computer Networking Tutorial",
-        "provider": "GeeksforGeeks",
-        "type": "Article Series",
-        "url": "https://www.geeksforgeeks.org/computer-network-tutorials/",
+        "id": "res-python-1",
+        "skill": "Python",
+        "title": "The Python Tutorial (Official 3.x)",
+        "provider": "Python Software Foundation",
+        "type": "Official Documentation",
+        "url": "https://docs.python.org/3/tutorial/",
         "isFree": True,
         "difficulty": "Beginner → Intermediate",
         "estimatedHours": 10,
-        "description": "OSI and TCP/IP stack models, HTTP/HTTPS, DNS resolution, TCP handshake, and routing protocols."
+        "description": "Official comprehensive guide to Python data structures, standard library modules, classes, exceptions, and virtual environments."
+    },
+    {
+        "id": "res-python-2",
+        "skill": "Python",
+        "title": "Python for Beginners - Full Course",
+        "provider": "freeCodeCamp (YouTube)",
+        "type": "Video Course",
+        "url": "https://www.youtube.com/watch?v=eWRfhZUzrAc",
+        "isFree": True,
+        "difficulty": "Beginner",
+        "estimatedHours": 6,
+        "description": "Comprehensive video introduction to Python fundamentals, object-oriented programming, and file handling."
+    },
+
+    # SQL Practice
+    {
+        "id": "res-sql-2",
+        "skill": "SQL",
+        "title": "HackerRank SQL Domain Practice",
+        "provider": "HackerRank",
+        "type": "Practice Platform",
+        "url": "https://www.hackerrank.com/domains/sql",
+        "isFree": True,
+        "difficulty": "Beginner → Advanced",
+        "estimatedHours": 15,
+        "description": "Hands-on coding challenges for basic selects, advanced joins, aggregations, window functions, and subqueries."
+    },
+
+    # JavaScript
+    {
+        "id": "res-js-1",
+        "skill": "JavaScript",
+        "title": "MDN JavaScript Technologies Guide & Tutorials",
+        "provider": "MDN Web Docs (Mozilla)",
+        "type": "Official Documentation",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+        "isFree": True,
+        "difficulty": "Beginner → Intermediate",
+        "estimatedHours": 12,
+        "description": "Industry standard documentation covering modern ECMAScript, closures, asynchronous promises, DOM APIs, and event loops."
+    },
+    {
+        "id": "res-js-2",
+        "skill": "JavaScript",
+        "title": "JavaScript Programming - Full Course",
+        "provider": "freeCodeCamp (YouTube)",
+        "type": "Video Course",
+        "url": "https://www.youtube.com/watch?v=jS4aFq5-91M",
+        "isFree": True,
+        "difficulty": "Beginner",
+        "estimatedHours": 8,
+        "description": "In-depth interactive video covering variables, functions, objects, DOM manipulation, and asynchronous programming."
+    },
+
+    # React
+    {
+        "id": "res-react-1",
+        "skill": "React",
+        "title": "React Official Learn & Interactive Docs",
+        "provider": "Meta / React Core Team",
+        "type": "Official Documentation",
+        "url": "https://react.dev/learn",
+        "isFree": True,
+        "difficulty": "Beginner → Intermediate",
+        "estimatedHours": 12,
+        "description": "Interactive modern documentation on components, hooks (useState, useEffect, useMemo), state lifting, and component lifecycles."
+    },
+    {
+        "id": "res-react-2",
+        "skill": "React",
+        "title": "React Course 2024 - Beginner to Advanced",
+        "provider": "freeCodeCamp (YouTube)",
+        "type": "Video Course",
+        "url": "https://www.youtube.com/watch?v=bMknfKXIFA8",
+        "isFree": True,
+        "difficulty": "Beginner → Intermediate",
+        "estimatedHours": 10,
+        "description": "Project-based walkthrough building modern React single-page applications with hooks and component composition."
+    },
+
+    # Node.js
+    {
+        "id": "res-node-1",
+        "skill": "Node.js",
+        "title": "Node.js Official Learn Tutorials",
+        "provider": "OpenJS Foundation / Node.js",
+        "type": "Official Documentation",
+        "url": "https://nodejs.org/en/learn",
+        "isFree": True,
+        "difficulty": "Beginner → Intermediate",
+        "estimatedHours": 8,
+        "description": "Foundational guide to the Node.js asynchronous event loop, streams, buffers, file systems, and HTTP server creation."
+    },
+
+    # C++
+    {
+        "id": "res-cpp-1",
+        "skill": "C++",
+        "title": "Learn C++ Tutorial Series",
+        "provider": "LearnCpp.com",
+        "type": "Tutorial & Handbook",
+        "url": "https://www.learncpp.com/",
+        "isFree": True,
+        "difficulty": "Beginner → Advanced",
+        "estimatedHours": 25,
+        "description": "Comprehensive, clear tutorial covering modern C++ (C++17/20), pointers, memory allocation, STL containers, and OOP."
+    },
+
+    # Machine Learning & AI
+    {
+        "id": "res-ml-1",
+        "skill": "Machine Learning",
+        "title": "Scikit-Learn Machine Learning Tutorials",
+        "provider": "Scikit-Learn Community",
+        "type": "Official Documentation",
+        "url": "https://scikit-learn.org/stable/tutorial/index.html",
+        "isFree": True,
+        "difficulty": "Beginner → Intermediate",
+        "estimatedHours": 10,
+        "description": "Official tutorial covering supervised classification, regression, clustering, model evaluation metrics, and feature pipelines."
+    },
+    {
+        "id": "res-genai-1",
+        "skill": "Generative AI",
+        "title": "Google Gemini API Developer Documentation",
+        "provider": "Google DeepMind / Google for Developers",
+        "type": "Official Documentation",
+        "url": "https://ai.google.dev/gemini-api/docs",
+        "isFree": True,
+        "difficulty": "Beginner → Intermediate",
+        "estimatedHours": 6,
+        "description": "Official guides for integrating multimodal LLMs, prompt engineering, structured JSON outputs, function calling, and embeddings."
+    },
+
+    # Git
+    {
+        "id": "res-git-2",
+        "skill": "Git",
+        "title": "Git Official Documentation & Reference Manual",
+        "provider": "Git SCM",
+        "type": "Official Documentation",
+        "url": "https://git-scm.com/doc",
+        "isFree": True,
+        "difficulty": "Beginner → Advanced",
+        "estimatedHours": 5,
+        "description": "Official documentation covering git porcelain commands, commit workflows, remotes, merge strategies, and tags."
+    },
+
+    # GeeksforGeeks DSA
+    {
+        "id": "res-dsa-3",
+        "skill": "Data Structures & Algorithms",
+        "title": "Complete DSA Tutorial & Practice Hub",
+        "provider": "GeeksforGeeks",
+        "type": "Article & Practice",
+        "url": "https://www.geeksforgeeks.org/data-structures/",
+        "isFree": True,
+        "difficulty": "Beginner → Advanced",
+        "estimatedHours": 35,
+        "description": "Topic-wise explanations of arrays, linked lists, stacks, queues, trees, graphs, sorting, and dynamic programming."
     },
 ]
 
@@ -310,3 +458,5 @@ def get_resources_by_skill(skill_name: str) -> List[Dict[str, Any]]:
 def get_all_resources() -> List[Dict[str, Any]]:
     """Returns the complete resource catalog."""
     return RESOURCE_CATALOG
+
+get_learning_resources_for_skill = get_resources_by_skill

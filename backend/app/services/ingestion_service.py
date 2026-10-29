@@ -5,15 +5,17 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from app.scrapers.base import OpportunitySource
+from app.scrapers.ats_connector import ATSJobBoardConnector
+from app.scrapers.unstop_connector import UnstopConnector
 from app.scrapers.remotive_connector import RemotiveConnector
-from app.scrapers.arbeitnow_connector import ArbeitnowConnector
-from app.scrapers.codeforces_connector import CodeforcesConnector
 from app.scrapers.devfolio_connector import DevfolioConnector
+from app.scrapers.codeforces_connector import CodeforcesConnector
 from app.scrapers.scholarship_connector import ScholarshipConnector
 from app.models.source_run import SourceRunModel
 from app.models.opportunity import OpportunityModel
 from app.services.opportunity_service import OpportunityService
 from app.services.event_stream import EventStreamManager
+from app.utils.opportunity_normalizer import is_india_eligible
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +42,8 @@ def is_fuzzy_duplicate(candidate_title: str, candidate_org: str, existing_items:
 
 class OpportunityIngestionService:
     """
-    Production ingestion pipeline coordinating multiple real external sources.
-    Handles per-source rate-limiting, normalization, deterministic & fuzzy deduplication,
-    persistence, telemetry logging to MongoDB `source_runs`, and real-time SSE broadcasts.
+    Production ingestion pipeline coordinating multiple real external sources
+    focused on India tech roles, student internships, hackathons, and global remote opportunities.
     """
 
     def __init__(self, sources: Optional[List[OpportunitySource]] = None):
@@ -50,11 +51,9 @@ class OpportunityIngestionService:
             self.sources = sources
         else:
             self.sources = [
+                ATSJobBoardConnector(limit_per_company=3),
+                UnstopConnector(limit=30),
                 RemotiveConnector(limit=25),
-                ArbeitnowConnector(limit=25),
-                CodeforcesConnector(limit=15),
-                DevfolioConnector(limit=15),
-                ScholarshipConnector(limit=15),
             ]
 
     def run_ingestion(self) -> Dict[str, Any]:
@@ -115,6 +114,19 @@ class OpportunityIngestionService:
                             src_stats["rejected"] += 1
                             overall_stats["total_rejected"] += 1
                             logger.debug("Rejected opportunity from %s: %s", source_name, validation_err)
+                            continue
+
+                        # Filter for India tech roles & India-eligible opportunities
+                        if not is_india_eligible(
+                            normalized.get("location", {}),
+                            title=normalized.get("title", ""),
+                            description=normalized.get("description", ""),
+                            eligibility_text=normalized.get("eligibility_text", ""),
+                            source_name=source_name
+                        ):
+                            src_stats["rejected"] += 1
+                            overall_stats["total_rejected"] += 1
+                            logger.debug("Filtered out non-India opportunity from %s: %s", source_name, normalized.get("title"))
                             continue
 
                         # Check fuzzy duplicate against cache
@@ -183,6 +195,14 @@ class OpportunityIngestionService:
                 "items": newly_accepted_items[:10],
                 "message": f"{len(newly_accepted_items)} new opportunities discovered from external sources"
             })
+
+            # Match newly ingested opportunities to eligible students
+            try:
+                from app.services.notification_service import NotificationService
+                for opp_item in newly_accepted_items:
+                    NotificationService.match_new_opportunity_to_students(opp_item)
+            except Exception as match_err:
+                logger.warning("Error matching new opportunities to students: %s", str(match_err))
 
         logger.info(
             "Opportunity ingestion finished in %.2fs. Total Accepted: %d, Duplicates: %d, Rejected: %d, Expired: %d",

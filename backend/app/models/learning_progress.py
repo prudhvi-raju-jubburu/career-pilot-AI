@@ -27,7 +27,7 @@ class LearningProgressModel:
         """Retrieves all tracked learning skills for a user."""
         try:
             col = cls.get_collection()
-            cursor = col.find({"user_id": str(user_id)})
+            cursor = col.find({"user_id": user_id})
             results = []
             for doc in cursor:
                 doc["_id"] = str(doc["_id"])
@@ -41,7 +41,7 @@ class LearningProgressModel:
         """Retrieves progress document for a specific skill."""
         try:
             col = cls.get_collection()
-            doc = col.find_one({"user_id": str(user_id), "skill": skill})
+            doc = col.find_one({"user_id": user_id, "skill": skill})
             if doc:
                 doc["_id"] = str(doc["_id"])
             return doc
@@ -54,7 +54,7 @@ class LearningProgressModel:
         col = cls.get_collection()
         now = datetime.now(timezone.utc).isoformat()
 
-        update_fields = {
+        update_fields: Dict[str, Any] = {
             "updated_at": now,
         }
 
@@ -70,12 +70,12 @@ class LearningProgressModel:
             update_fields["notes"] = data["notes"]
 
         doc = col.find_one_and_update(
-            {"user_id": str(user_id), "skill": skill},
+            {"user_id": user_id, "skill": skill},
             {
                 "$set": update_fields,
                 "$setOnInsert": {
                     "created_at": now,
-                    "user_id": str(user_id),
+                    "user_id": user_id,
                     "skill": skill,
                     "status": data.get("status", "learning"),
                     "progress": data.get("progress", 0),

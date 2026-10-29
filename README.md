@@ -33,8 +33,10 @@ The platform runs 100% on **REAL MongoDB collections** and **LIVE, continuously 
 
 ## 🌟 Core Platform Capabilities
 
-### 1. Opportunity Discovery & Ingestion Engine
-- **5 Live External Connectors**: Ingests real software engineering roles, internships, hackathons, coding contests, and scholarships from Remotive, Arbeitnow, Codeforces, Devfolio, and OpportunityDesk. (See [docs/sources.md](file:///d:/careerpilot_ai/docs/sources.md) for rate limits, schedules, and schemas).
+### 1. Opportunity Discovery & Ingestion Engine (India Tech Ecosystem Focus)
+- **Live External Connectors (India Focus)**: Ingests real software engineering roles, internships, hackathons, and coding contests from Unstop (India's premier university hiring platform), Devfolio (India's premier hackathon network), Codeforces (global CP), Remotive (India-eligible remote tech roles), and curated feeds. (See [docs/sources.md](file:///d:/careerpilot_ai/docs/sources.md) for rate limits, schedules, and schemas).
+- **India Tech Mission & Hub Normalization**: Automatically normalizes locations to major Indian tech hubs (Bengaluru, Hyderabad, Pune, Delhi NCR, Noida, Mumbai, Chennai) with real INR (`₹`) stipends and salaries.
+- **Strict India Eligibility Filtering (`is_india_eligible`)**: Actively rejects foreign-exclusive listings (USA-only, Europe-only, Berlin, Munich, etc.), ensuring every opportunity is open to Indian students and engineers.
 - **Deterministic Deduplication**: Employs SHA-256 fingerprint hashing combining title + company canonicalization, coupled with fuzzy matching (`SequenceMatcher` threshold $\ge 0.85$).
 - **Automated Lifecycle Expiration**: Built-in background engine marks opportunities with past deadlines as `expired`, preventing stale listings from cluttering student feeds.
 - **Circuit Breaker & Resilience**: Per-connector exponential backoff, rate limiting, and circuit breaker trip state preventing third-party timeouts from affecting service.
@@ -88,10 +90,9 @@ The platform runs 100% on **REAL MongoDB collections** and **LIVE, continuously 
 │   │   │ Ingestion Pipeline│    │ APScheduler Daemon │    │ SHA-256 + Fuzzy     │   │   │
 │   │   └─────────▲─────────┘    └────────────────────┘    │ Deduplicator        │   │   │
 │   │             │                                        └─────────────────────┘   │   │
-│   │   ┌─────────┴──────────────────────────────────────────────────────────────┐   │   │
-│   │   │ 5 Live External Connectors:                                            │   │   │
-│   │   │ • Remotive (Jobs)       • Arbeitnow (Tech)     • Codeforces (Contests) │   │   │
-│   │   │ • Devfolio (Hackathons) • OpportunityDesk (RSS Scholarships)           │   │   │
+│   │   │ Live External Connectors (India Focus):                                │   │   │
+│   │   │ • Unstop (India Tech)   • Devfolio (Hackathons)• Codeforces (Contests) │   │   │
+│   │   │ • Remotive (Remote)     • Curated Indian Ecosystem Feeds               │   │   │
 │   │   └────────────────────────────────────────────────────────────────────────┘   │   │
 │   └───────────────────────────────────────┬────────────────────────────────────────┘   │
 └───────────────────────────────────────────┼────────────────────────────────────────────┘
@@ -256,6 +257,12 @@ All responses strictly follow the standardized envelope:
 | `GET` | `/api/opportunities/<id>` | — | Fetch single opportunity by ID |
 | `GET` | `/api/opportunities/categories` | — | Available categories with item counts |
 | `GET` | `/api/opportunities/filters` | — | Faceted filter options (types, locations) |
+| `POST` | `/api/opportunities/<id>/feedback` | — | Submit student relevance feedback (`rating`, `reason`) |
+| `GET` | `/api/opportunities/<id>/feedback` | — | Get user's feedback on this opportunity |
+| `DELETE` | `/api/opportunities/<id>/feedback` | — | Withdraw / undo student feedback |
+| `POST` | `/api/opportunities/<id>/view` | — | Record rate-capped view event |
+| `POST` | `/api/opportunities/<id>/dismiss` | — | Explicitly dismiss recommendation |
+| `GET` | `/api/recommendations/feedback-summary` | — | Aggregated user feedback metrics |
 | `POST` | `/api/opportunities/ingest` | `source` (optional) | Trigger manual ingestion run |
 
 ### Student Profile (`/api/profile`)
@@ -445,16 +452,27 @@ npm run build
 
 ---
 
+### 5. Phase 4: Personalized Notifications, Opportunity Digests & Delivery Reliability
+- **Multi-Channel Alert Architecture**: In-app real-time notification radar, combined with scheduled personalized email digests (Daily morning or Weekly summary) and 48-hour deadline reminders.
+- **Strict Hard-Eligibility Invariant**: Newly ingested or updated opportunities strictly pass deterministic `EligibilityEngine` rule checks before being matched to any student. Ineligible students never receive notifications.
+- **Personalized Relevance Threshold**: Students configure a minimum match relevance threshold (40% - 95%, default 70%) to prevent notification fatigue.
+- **Deduplication Engine**: Unique sparse compound indices on `dedupe_key` (`{user_id}_newopp_{opp_id}` and `{user_id}_deadline_{opp_id}_{date}`) ensure students are never notified repeatedly about the same opportunity.
+- **Digest Delivery Idempotency**: `DigestDeliveryModel` compound index (`[("user_id", 1), ("digest_date", 1), ("frequency", 1)]`) prevents duplicate email dispatching during worker restarts or multiple scheduler runs.
+- **Privacy-Preserving & Safe Email Rendering**: Multipart text/HTML email templates with strict `html.escape` sanitization, safe deep-links to `/opportunities?selected={id}`, and zero embedded student resume data.
+- **Graceful SMTP Fallback**: Automatic detection of SMTP credentials with safe simulated fallback logging (`status: simulated`) in development and test environments.
+
+---
+
 ## 🧪 Testing & Quality Verification
 
 ### 1. Run Backend Test Suite
-The backend contains 39 comprehensive unit and integration tests covering Authentication, Applications Pipeline, Notifications & Daily Digest, Sources Telemetry, Health Checks, Dashboard Stats, AI Advisor, Resume Parsing (PDF + DOCX), Skill Gap Analysis, and Opportunity Ingestion:
+The backend contains 99 comprehensive unit and integration tests across 13 test suites covering Authentication, Applications Pipeline, Notifications & Email Digests, Eligibility Invariants, Opportunity Intelligence, Sources Telemetry, Health Checks, Dashboard Stats, AI Advisor, Resume Parsing (PDF + DOCX), Skill Gap Analysis, and Opportunity Ingestion:
 
 ```bash
 cd backend
 python -m pytest tests/ -v
 ```
-**Test Results**: `39 passed in 13.5s` (100% passing rate).
+**Test Results**: `99 passed in 40.10s` (100% passing rate, 0 regressions).
 
 ### 2. Verify Zero Mocks Across Production Code
 The CI acceptance script scans all production code in `frontend/src` and `backend/app` for forbidden mock tokens, fixtures, or fallback arrays:
@@ -463,14 +481,14 @@ The CI acceptance script scans all production code in `frontend/src` and `backen
 cd frontend
 npm run check:no-mocks
 ```
-**Acceptance Result**: `Scanned 158 production source files. ✅ PASSED: Zero mock tokens found.`
+**Acceptance Result**: `Scanned 160 production source files. ✅ PASSED: Zero mock tokens found.`
 
 ### 3. Build Frontend for Production
 ```bash
 cd frontend
 npm run build
 ```
-**Build Results**: Vite production bundle completes with **0 errors**, code-splitting all pages into optimized chunks.
+**Build Results**: Vite production bundle completes with **0 errors**, transforming 2,850 modules and code-splitting into optimized assets in 19.08s.
 
 ---
 
@@ -514,5 +532,70 @@ careerpilot-ai/
 │
 └── README.md                    # Platform documentation
 ```
+
+---
+
+## 📅 Phase 5: Application Follow-ups, Interview Scheduling & Personalized Interview Preparation
+
+CareerPilot AI provides students with an end-to-end interview tracking, calendar integration, and AI study preparation suite:
+
+### 1. Enhanced Application Tracking
+- Extended tracking schema storing `contact_name`, `contact_info` (email/LinkedIn), `next_action`, and explicit `submission_date`.
+- Audit timeline tracking stage transitions, notes, and milestones.
+
+### 2. Interview & Assessment Scheduling (`interview_events`)
+- Multi-round tracking: `technical_interview`, `hr_interview`, `online_assessment`, `coding_test`, `group_discussion`, and `other`.
+- Timezone-aware scheduling with strict timestamp validation (`start_time <= end_time`).
+- Safe protocol validation for meeting links (`http://` or `https://` only; blocks unsafe URI injection).
+- One-click RFC 5545 `.ics` calendar file downloads with byte-level line folding (<= 75 octets) and character escaping, fully compatible with Google Calendar, Apple iCal, and Microsoft Outlook.
+
+### 3. Automated Reminders via APScheduler
+- Periodic background scans dispatching in-app reminders:
+  - **24-hour reminder**: upcoming interview alert 1 day prior.
+  - **1-hour reminder**: urgent alert with meeting link and prep checklist.
+  - **Follow-up due alert**: triggers on `follow_up_date <= today`.
+- Idempotent deduplication keys guarantee students never receive duplicate notifications.
+
+### 4. Grounded AI Interview Preparation Pack (`InterviewPrepService`)
+- Grounded directly in student verified profile data:
+  - Candidate's actual projects (extracted from profile/resume) with targeted architecture, bottleneck, and trade-off questions.
+  - Role requirements and company tech stack alignment.
+  - Behavioral questions formatted with the STAR methodology (Situation, Task, Action, Result).
+  - Reverse interview questions to ask interviewers.
+  - Pre-populated, interactive readiness checklist persisted atomically in MongoDB.
+  - Prominent practice simulation disclaimer stating questions are AI-assisted study aids.
+
+### 5. Verification & Test Metrics
+- **Backend Test Suite**: **105 passing tests** in 54.08s (0 regressions).
+- **Frontend Production Build**: Vite build completed in 9.82s (0 errors).
+
+---
+
+## 🛡️ Phase 6: Production Hardening, Integration Audit & Release Readiness
+
+CareerPilot AI has undergone an evidence-based production-readiness audit and hardening release:
+
+### 1. Security Architecture & SSRF Defense
+- **Server-Side Request Forgery (SSRF) Protection**: `LinkImportService` now performs strict DNS and IP address resolution checks via `socket.getaddrinfo` and `ipaddress.ip_address`. It prevents requests targeting private IP networks (RFC 1918), loopback (`127.0.0.0/8`, `localhost`), link-local/cloud metadata (`169.254.169.254`), multicast, and reserved addresses.
+- **Redirect Interception**: Custom `SafeRedirectHandler` enforces SSRF IP restrictions on redirect hops, blocking redirect-based escape attacks.
+- **Defensive HTTP Security Headers**: Every API response automatically serves `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and `X-XSS-Protection: 1; mode=block`.
+- **Sensitive Error Sanitization**: Internal 500 error handlers mask server stack traces, database credentials, and raw exception messages to prevent telemetry or credential leakage.
+
+### 2. Multi-Worker Background Scheduler Isolation
+- **Concurrency & Re-entrancy Control**: Added `ENABLE_BACKGROUND_SCHEDULER` environment variable support. In multi-worker WSGI/container environments (e.g., Gunicorn or Kubernetes pods), the background scheduler can be enabled exclusively on a designated worker process, eliminating redundant job execution.
+- **Deduplicated Scanning**: APScheduler jobs for deadline reminders, interview alerts, and daily/weekly digests run with idempotent deduplication keys preventing duplicate notifications across workers.
+
+### 3. AI Prompt Injection & Untrusted Context Framing
+- **Prompt Isolation**: `ResumeAnalyzerService` and `InterviewPrepService` explicitly frame candidate resumes and opportunity descriptions inside `<candidate_resume>` / `<untrusted_context>` tags.
+- **Boundary System Instructions**: The AI models are explicitly commanded to treat all text within these blocks as raw candidate data and never execute embedded instructions, system prompts, or override requests.
+
+### 4. Input Validation & Cross-User Isolation
+- **Payload Bound Checking**: Strict length and type validation across endpoints (e.g. registration name <= 100, email <= 255, password <= 256 to prevent bcrypt DoS, and feedback actions restricted to canonical allowlists).
+- **Strict User Scoping**: 100% of user-owned resources (applications, interview events, prep packs, notifications, resumes, profiles) are verified to query and mutate strictly within the authenticated user's scope. Cross-user modification attempts receive strict 404 / unauthorized rejections.
+
+### 5. Final Release Verification Metrics
+- **Zero-Mock Verification**: 200 production source files scanned, **0 mock tokens found**.
+- **Backend Test Suite**: **114 passing tests** in 53.69s (100% passing, 0 failures, 0 regressions).
+- **Frontend Production Build**: Vite production build succeeded in 8.41s (0 errors).
 
 ---

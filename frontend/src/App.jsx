@@ -18,8 +18,22 @@ const OpportunitiesPage = lazy(() => import('./pages/OpportunitiesPage'));
 const ApplicationsPage = lazy(() => import('./pages/ApplicationsPage'));
 const SkillGapPage = lazy(() => import('./pages/SkillGapPage'));
 const AICareerAdvisorPage = lazy(() => import('./pages/AICareerAdvisorPage'));
+const ResumeBuilderPage = lazy(() => import('./pages/ResumeBuilderPage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const MockTestProctoredPage = lazy(() => import('./pages/MockTestProctoredPage'));
+
+// Admin Workspace Routes
+const AdminRoute = lazy(() => import('./components/AdminRoute'));
+const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'));
+const AdminOverviewPage = lazy(() => import('./pages/admin/AdminOverviewPage'));
+const AdminUsersPage = lazy(() => import('./pages/admin/AdminUsersPage'));
+const AdminOpportunitiesPage = lazy(() => import('./pages/admin/AdminOpportunitiesPage'));
+const AdminSourcesPage = lazy(() => import('./pages/admin/AdminSourcesPage'));
+const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
+const AdminFeedbackPage = lazy(() => import('./pages/admin/AdminFeedbackPage'));
+const AdminAuditLogsPage = lazy(() => import('./pages/admin/AdminAuditLogsPage'));
+const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'));
 
 export default function App() {
   return (
@@ -70,8 +84,28 @@ export default function App() {
               }
             />
             <Route
+              path="/applications/:appId/mock-test/:testId"
+              element={
+                <ProtectedRoute>
+                  <MockTestProctoredPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/applications/:appId/mock-test"
+              element={
+                <ProtectedRoute>
+                  <MockTestProctoredPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/resume"
-              element={<Navigate to="/profile?tab=resume" replace />}
+              element={
+                <ProtectedRoute>
+                  <ResumeBuilderPage />
+                </ProtectedRoute>
+              }
             />
             <Route
               path="/skill-gap"
@@ -119,6 +153,73 @@ export default function App() {
                 <ProtectedRoute>
                   <SettingsPage />
                 </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Workspace Routes */}
+            <Route path="/admin" element={<AdminLoginPage />} />
+            <Route
+              path="/admin/overview"
+              element={
+                <AdminRoute>
+                  <AdminOverviewPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminRoute>
+                  <AdminUsersPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/opportunities"
+              element={
+                <AdminRoute>
+                  <AdminOpportunitiesPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/sources"
+              element={
+                <AdminRoute>
+                  <AdminSourcesPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                <AdminRoute>
+                  <AdminAnalyticsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/feedback"
+              element={
+                <AdminRoute>
+                  <AdminFeedbackPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/audit-logs"
+              element={
+                <AdminRoute>
+                  <AdminAuditLogsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/settings"
+              element={
+                <AdminRoute>
+                  <AdminSettingsPage />
+                </AdminRoute>
               }
             />
 

@@ -13,8 +13,9 @@ def get_applications(current_user):
     """Retrieves all tracked career applications for the authenticated student."""
     user_id = str(current_user["_id"])
     status = request.args.get("status")
+    search = request.args.get("search")
     try:
-        apps = ApplicationModel.find_by_user(user_id, status=status)
+        apps = ApplicationModel.find_by_user(user_id, status=status, search=search)
         return jsonify({
             "success": True,
             "message": "Applications retrieved successfully",
@@ -44,6 +45,20 @@ def create_application(current_user):
 
     try:
         app_doc = ApplicationModel.create_application(user_id, payload)
+        opp_id = payload.get("opportunityId") or payload.get("opportunity_id")
+        if opp_id:
+            try:
+                from app.models.feedback import FeedbackModel
+                FeedbackModel.record_event(
+                    user_id=user_id,
+                    opportunity_id=str(opp_id),
+                    event_type="application_confirmed" if payload.get("status") == "Applied" else "application_started",
+                    category=payload.get("type"),
+                    company=payload.get("company")
+                )
+            except Exception as fe:
+                logger.debug("Non-blocking feedback event capture skipped: %s", str(fe))
+
         EventStreamManager.broadcast("application_created", {
             "user_id": user_id,
             "application": app_doc
@@ -64,7 +79,7 @@ def create_application(current_user):
 @application_bp.route("/<app_id>", methods=["GET"])
 @token_required
 def get_application(current_user, app_id):
-    """Retrieves a single application by ID."""
+    """Retrieves a single application by ID with ownership verification."""
     user_id = str(current_user["_id"])
     app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
     if not app_doc:
@@ -73,13 +88,47 @@ def get_application(current_user, app_id):
             "message": "Application not found",
             "error": "NOT_FOUND"
         }), 404
+
+    # Backfill preparation trigger for existing Applied applications that lack a prep pack
+    if app_doc.get("status") == "Applied" and app_doc.get("prep_status") in ("not_requested", None, ""):
+        ApplicationModel.ensure_applied_prep_triggered(app_id, user_id)
+        app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id) or app_doc
+
     return jsonify({
         "success": True,
         "message": "Application retrieved successfully",
         "data": app_doc
     }), 200
 
-@application_bp.route("/<app_id>", methods=["PUT"])
+@application_bp.route("/<app_id>/job-description", methods=["PUT", "PATCH"])
+@token_required
+def update_application_job_description(current_user, app_id):
+    """Updates the student-tailored job description for an application without mutating shared opportunity."""
+    user_id = str(current_user["_id"])
+    payload = request.get_json(silent=True) or {}
+    job_desc = payload.get("job_description") if "job_description" in payload else payload.get("jobDescription")
+    if job_desc is None:
+        return jsonify({
+            "success": False,
+            "message": "job_description is required",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    updated = ApplicationModel.update_job_description(app_id, user_id, str(job_desc))
+    if not updated:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    return jsonify({
+        "success": True,
+        "message": "Application job description updated successfully",
+        "data": updated
+    }), 200
+
+@application_bp.route("/<app_id>", methods=["PUT", "PATCH"])
 @token_required
 def update_application(current_user, app_id):
     """Updates application details, notes, or target deadlines."""
@@ -175,3 +224,667 @@ def delete_application(current_user, app_id):
             "message": "Failed to delete application",
             "error": str(e)
         }), 500
+
+# -----------------------------------------------------------------------------
+# Phase 5: Interview Scheduling & Event Management Endpoints
+# -----------------------------------------------------------------------------
+
+@application_bp.route("/events", methods=["GET"])
+@token_required
+def get_all_user_events(current_user):
+    """Retrieves all interview and assessment events for the authenticated student."""
+    user_id = str(current_user["_id"])
+    try:
+        from app.models.interview_event import InterviewEventModel
+        events = InterviewEventModel.find_by_user(user_id)
+        return jsonify({
+            "success": True,
+            "message": "Interview events retrieved successfully",
+            "data": events
+        }), 200
+    except Exception as e:
+        logger.exception("Error getting interview events for user %s: %s", user_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to retrieve interview events",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/events", methods=["GET"])
+@token_required
+def get_application_events(current_user, app_id):
+    """Retrieves all interview events linked to a specific application."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.models.interview_event import InterviewEventModel
+        events = InterviewEventModel.find_by_application(app_id, user_id=user_id)
+        return jsonify({
+            "success": True,
+            "message": "Events retrieved successfully",
+            "data": events
+        }), 200
+    except Exception as e:
+        logger.exception("Error getting events for application %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to retrieve interview events",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/events", methods=["POST"])
+@token_required
+def create_interview_event(current_user, app_id):
+    """Creates a new interview or assessment event linked to an application."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    if not payload.get("title") or not payload.get("start_time") or not payload.get("end_time"):
+        return jsonify({
+            "success": False,
+            "message": "Title, start_time, and end_time are required",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    try:
+        from app.models.interview_event import InterviewEventModel
+        event_doc = InterviewEventModel.create_event(user_id, app_id, payload)
+        return jsonify({
+            "success": True,
+            "message": "Interview event scheduled successfully",
+            "data": event_doc
+        }), 201
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "VALIDATION_ERROR"
+        }), 400
+    except Exception as e:
+        logger.exception("Error creating interview event for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to schedule interview event",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/events/<event_id>", methods=["PUT", "PATCH"])
+@token_required
+def update_interview_event(current_user, app_id, event_id):
+    """Updates or reschedules an interview event."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        from app.models.interview_event import InterviewEventModel
+        updated = InterviewEventModel.update_event(event_id, user_id, payload)
+        if not updated:
+            return jsonify({
+                "success": False,
+                "message": "Interview event not found",
+                "error": "NOT_FOUND"
+            }), 404
+        return jsonify({
+            "success": True,
+            "message": "Interview event updated successfully",
+            "data": updated
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "VALIDATION_ERROR"
+        }), 400
+    except Exception as e:
+        logger.exception("Error updating interview event %s: %s", event_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to update interview event",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/events/<event_id>", methods=["DELETE"])
+@token_required
+def delete_interview_event(current_user, app_id, event_id):
+    """Deletes or cancels an interview event."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.models.interview_event import InterviewEventModel
+        deleted = InterviewEventModel.delete_event(event_id, user_id)
+        if not deleted:
+            return jsonify({
+                "success": False,
+                "message": "Interview event not found",
+                "error": "NOT_FOUND"
+            }), 404
+        return jsonify({
+            "success": True,
+            "message": "Interview event deleted successfully"
+        }), 200
+    except Exception as e:
+        logger.exception("Error deleting interview event %s: %s", event_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to delete interview event",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/events/<event_id>/calendar.ics", methods=["GET"])
+@token_required
+def export_event_calendar(current_user, app_id, event_id):
+    """Exports an interview event as an RFC 5545 compliant .ics calendar file."""
+    user_id = str(current_user["_id"])
+    from app.models.interview_event import InterviewEventModel
+    from app.services.calendar_service import CalendarExportService
+    from flask import Response
+
+    event = InterviewEventModel.find_by_id(event_id, user_id=user_id)
+    if not event or str(event.get("application_id")) != str(app_id):
+        return jsonify({
+            "success": False,
+            "message": "Interview event not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        ics_content = CalendarExportService.generate_ics(event)
+        filename = f"interview_{event_id}.ics"
+        return Response(
+            ics_content,
+            mimetype="text/calendar",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "text/calendar; charset=utf-8"
+            }
+        )
+    except Exception as e:
+        logger.exception("Error generating calendar file for event %s: %s", event_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to export calendar event",
+            "error": str(e)
+        }), 500
+
+# -----------------------------------------------------------------------------
+# Phase 5: Grounded Interview Preparation & Checklist Endpoints
+# -----------------------------------------------------------------------------
+
+@application_bp.route("/<app_id>/prep", methods=["GET", "POST"])
+@token_required
+def get_or_generate_interview_prep(current_user, app_id):
+    """Retrieves or generates a personalized AI interview preparation pack."""
+    user_id = str(current_user["_id"])
+    payload = request.get_json(silent=True) or {}
+    force_refresh = bool(payload.get("force_refresh", False)) if request.method == "POST" else False
+
+    # Enforce application ownership
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_prep_service import InterviewPrepService
+        prep_pack = InterviewPrepService.get_or_generate_prep_pack(
+            user_id=user_id,
+            application_id=app_id,
+            force_refresh=force_refresh
+        )
+        return jsonify({
+            "success": True,
+            "message": "Interview preparation pack retrieved successfully",
+            "data": prep_pack
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "NOT_FOUND"
+        }), 404
+    except Exception as e:
+        logger.exception("Error generating interview prep for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to generate interview preparation pack",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/prep/retry", methods=["POST"])
+@application_bp.route("/<app_id>/prep/generate", methods=["POST"])
+@token_required
+def retry_interview_prep(current_user, app_id):
+    """Explicitly re-triggers or retries interview preparation generation with forced refresh."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_prep_service import InterviewPrepService
+        prep_pack = InterviewPrepService.get_or_generate_prep_pack(
+            user_id=user_id,
+            application_id=app_id,
+            force_refresh=True
+        )
+        return jsonify({
+            "success": True,
+            "message": "Interview preparation pack generated successfully",
+            "data": prep_pack
+        }), 200
+    except Exception as e:
+        logger.exception("Error retrying interview prep for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to generate interview preparation pack",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/prep/checklist", methods=["PATCH", "POST"])
+@token_required
+def toggle_interview_checklist_item(current_user, app_id):
+    """Atomically toggles completion status for an interview prep checklist item."""
+    user_id = str(current_user["_id"])
+    payload = request.get_json(silent=True) or {}
+    task_id = payload.get("taskId") or payload.get("task_id")
+    completed = payload.get("completed")
+
+    if not task_id or completed is None:
+        return jsonify({
+            "success": False,
+            "message": "taskId and completed status are required",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    try:
+        from app.services.interview_prep_service import InterviewPrepService
+        updated_pack = InterviewPrepService.toggle_checklist_item(
+            user_id=user_id,
+            application_id=app_id,
+            task_id=task_id,
+            completed=bool(completed)
+        )
+        if not updated_pack:
+            return jsonify({
+                "success": False,
+                "message": "Interview preparation pack not found",
+                "error": "NOT_FOUND"
+            }), 404
+        return jsonify({
+            "success": True,
+            "message": "Checklist updated successfully",
+            "data": updated_pack
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "NOT_FOUND"
+        }), 404
+    except Exception as e:
+        logger.exception("Error toggling checklist item for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to update checklist item",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/prep/add-skill-to-roadmap", methods=["POST"])
+@token_required
+def add_skill_to_prep_roadmap(current_user, app_id):
+    """Adds a targeted skill learning milestone to the application prep checklist and roadmap."""
+    user_id = str(current_user["_id"])
+    payload = request.get_json(silent=True) or {}
+    skill_name = (payload.get("skill_name") or payload.get("skill") or "").strip()
+
+    if not skill_name:
+        return jsonify({
+            "success": False,
+            "message": "skill_name is required",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    # Enforce application ownership
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.interview_prep_service import InterviewPrepService
+        updated_pack = InterviewPrepService.add_skill_to_roadmap(
+            user_id=user_id,
+            application_id=app_id,
+            skill_name=skill_name
+        )
+        return jsonify({
+            "success": True,
+            "message": f"Skill '{skill_name}' added to preparation roadmap",
+            "data": updated_pack
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "NOT_FOUND"
+        }), 404
+    except Exception as e:
+        logger.exception("Error adding skill to roadmap for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to add skill to roadmap",
+            "error": str(e)
+        }), 500
+
+
+# -----------------------------------------------------------------------------
+# Stage 5: Mock Test Engine Routes
+# -----------------------------------------------------------------------------
+
+@application_bp.route("/<app_id>/mock-tests", methods=["GET"])
+@token_required
+def get_application_mock_tests(current_user, app_id):
+    """Retrieves available mock test categories and previous attempt history for an application."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.mock_test_service import MockTestService
+        categories = MockTestService.get_available_categories(app_id, user_id)
+        attempts = MockTestService.list_previous_attempts(app_id, user_id)
+        return jsonify({
+            "success": True,
+            "data": {
+                "categories": categories,
+                "previous_attempts": attempts
+            }
+        }), 200
+    except Exception as e:
+        logger.exception("Error fetching mock tests for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to load mock tests",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/mock-tests/start", methods=["POST"])
+@token_required
+def start_application_mock_test(current_user, app_id):
+    """Starts a new mock test attempt or resumes an active in-progress attempt."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        from app.services.mock_test_service import MockTestService
+        attempt = MockTestService.start_test_attempt(app_id, user_id, payload)
+        return jsonify({
+            "success": True,
+            "message": "Mock test attempt started successfully",
+            "data": attempt
+        }), 201
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "VALIDATION_ERROR"
+        }), 400
+    except Exception as e:
+        logger.exception("Error starting mock test for app %s: %s", app_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to start mock test",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/mock-tests/<test_id>", methods=["GET"])
+@token_required
+def get_application_mock_test_attempt(current_user, app_id, test_id):
+    """Retrieves an active or completed attempt, keeping correct answers hidden while in progress."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.mock_test_service import MockTestService
+        attempt = MockTestService.get_attempt(app_id, test_id, user_id)
+        return jsonify({
+            "success": True,
+            "data": attempt
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "NOT_FOUND"
+        }), 404
+    except Exception as e:
+        logger.exception("Error retrieving mock test attempt %s: %s", test_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to load mock test attempt",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/mock-tests/<test_id>/answers", methods=["PUT", "PATCH"])
+@token_required
+def save_application_mock_test_answers(current_user, app_id, test_id):
+    """Saves answers during an active test without submitting."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    answers = payload.get("answers")
+    if answers is None or not isinstance(answers, dict):
+        return jsonify({
+            "success": False,
+            "message": "answers dictionary is required",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    try:
+        from app.services.mock_test_service import MockTestService
+        result = MockTestService.save_answers(app_id, test_id, user_id, answers)
+        return jsonify({
+            "success": True,
+            "message": "Answers saved successfully",
+            "data": result
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "BAD_REQUEST"
+        }), 400
+    except Exception as e:
+        logger.exception("Error saving answers for mock test %s: %s", test_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to save answers",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/mock-tests/<test_id>/submit", methods=["POST"])
+@token_required
+def submit_application_mock_test(current_user, app_id, test_id):
+    """Submits a mock test for grading and returns full results and explanations."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    answers = payload.get("answers")
+
+    try:
+        from app.services.mock_test_service import MockTestService
+        result = MockTestService.submit_attempt(app_id, test_id, user_id, answers)
+        return jsonify({
+            "success": True,
+            "message": "Mock test submitted and graded successfully",
+            "data": result
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "BAD_REQUEST"
+        }), 400
+    except Exception as e:
+        logger.exception("Error submitting mock test %s: %s", test_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to submit mock test",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/mock-tests/<test_id>/result", methods=["GET"])
+@token_required
+def get_application_mock_test_result(current_user, app_id, test_id):
+    """Retrieves completed test result with full explanations, topic breakdown, and revision recommendations."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    try:
+        from app.services.mock_test_service import MockTestService
+        result = MockTestService.get_attempt(app_id, test_id, user_id)
+        if result.get("status") == "in_progress":
+            return jsonify({
+                "success": False,
+                "message": "Test is still in progress. Submit the test to view results.",
+                "error": "TEST_IN_PROGRESS"
+            }), 400
+        return jsonify({
+            "success": True,
+            "data": result
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "NOT_FOUND"
+        }), 404
+    except Exception as e:
+        logger.exception("Error fetching result for mock test %s: %s", test_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to fetch test results",
+            "error": str(e)
+        }), 500
+
+@application_bp.route("/<app_id>/mock-tests/<test_id>/add-weak-topic-to-roadmap", methods=["POST"])
+@token_required
+def add_weak_topic_to_roadmap_route(current_user, app_id, test_id):
+    """Adds a weak topic identified in the mock test results directly to the application prep roadmap."""
+    user_id = str(current_user["_id"])
+    app_doc = ApplicationModel.find_by_id(app_id, user_id=user_id)
+    if not app_doc:
+        return jsonify({
+            "success": False,
+            "message": "Application not found",
+            "error": "NOT_FOUND"
+        }), 404
+
+    payload = request.get_json(silent=True) or {}
+    topic_name = (payload.get("topic") or payload.get("topic_name") or "").strip()
+    if not topic_name:
+        return jsonify({
+            "success": False,
+            "message": "topic is required",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    try:
+        from app.services.mock_test_service import MockTestService
+        updated_pack = MockTestService.add_weak_topic_to_roadmap(app_id, test_id, user_id, topic_name)
+        return jsonify({
+            "success": True,
+            "message": f"Topic '{topic_name}' added to preparation roadmap",
+            "data": updated_pack
+        }), 200
+    except ValueError as ve:
+        return jsonify({
+            "success": False,
+            "message": str(ve),
+            "error": "NOT_FOUND"
+        }), 404
+    except Exception as e:
+        logger.exception("Error adding weak topic to roadmap for test %s: %s", test_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to add topic to roadmap",
+            "error": str(e)
+        }), 500
+
+

@@ -132,22 +132,15 @@ export default function Topbar({ onToggleMobile, onOpenCmd }) {
                 fontSize: '1rem',
               }}
             >
-              <div
+              <img
+                src="/careerpilot-logo.png"
+                alt="CareerPilot AI"
                 style={{
-                  width: '28px',
                   height: '28px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  flexShrink: 0,
+                  width: 'auto',
+                  objectFit: 'contain',
                 }}
-              >
-                <Compass size={16} />
-              </div>
-              <span>CareerPilot</span>
+              />
             </Link>
 
             {/* Desktop Search Input */}

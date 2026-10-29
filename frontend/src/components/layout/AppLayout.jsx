@@ -1,79 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import Sidebar from './Sidebar';
-import Topbar from './Topbar';
+import React, { useState } from 'react';
+import Navbar from '../Navbar';
+import Footer from '../Footer';
 import MobileBottomNav from './MobileBottomNav';
 import NetworkStatusBanner from '../NetworkStatusBanner';
 import { CommandPalette } from '../ui/CommandPalette';
 
 export default function AppLayout({ children }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem('careerpilot_sidebar_collapsed') === 'true';
-  });
-
-  const handleToggleCollapse = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem('careerpilot_sidebar_collapsed', String(next));
-      return next;
-    });
-  };
-
-  // Close mobile drawer on Escape key and prevent background scroll
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && mobileOpen) {
-        setMobileOpen(false);
-      }
-    };
-    if (mobileOpen) {
-      document.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
-    };
-  }, [mobileOpen]);
 
   return (
-    <div className="app-layout">
+    <div
+      className="app-layout"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        backgroundColor: 'var(--bg-secondary)',
+        color: 'var(--text-primary)',
+        width: '100%',
+        position: 'relative',
+      }}
+    >
       <NetworkStatusBanner />
 
-      {/* Mobile Drawer Overlay */}
-      {mobileOpen && (
-        <div
-          className="mobile-overlay"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Main Sidebar */}
-      <Sidebar
-        mobileOpen={mobileOpen}
-        onCloseMobile={() => setMobileOpen(false)}
-        collapsed={collapsed}
-        onToggleCollapse={handleToggleCollapse}
-      />
+      {/* Top Navbar on all authenticated pages */}
+      <Navbar onOpenCmd={() => setCmdOpen(true)} />
 
       {/* Main App Workspace Area */}
-      <div className="app-main-wrapper">
-        <Topbar
-          onToggleMobile={() => setMobileOpen((prev) => !prev)}
-          onOpenCmd={() => setCmdOpen(true)}
-        />
-        <main className="animate-fade-in" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          {children}
-        </main>
-      </div>
+      <main
+        className="animate-fade-in"
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minWidth: 0,
+          width: '100%',
+        }}
+      >
+        {children}
+      </main>
+
+      {/* Footer across all pages */}
+      <Footer />
+
+      {/* Mobile Bottom Navigation for quick thumb reach on mobile */}
+      <MobileBottomNav />
 
       {/* Global Command Palette */}
-      <CommandPalette isOpen={cmdOpen} setIsOpen={setCmdOpen} />
-
-      {/* Mobile Bottom Navigation for quick thumb reach */}
-      <MobileBottomNav />
+      {cmdOpen && (
+        <CommandPalette
+          isOpen={cmdOpen}
+          setIsOpen={setCmdOpen}
+          onClose={() => setCmdOpen(false)}
+        />
+      )}
     </div>
   );
 }

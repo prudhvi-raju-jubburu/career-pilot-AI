@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingUp,
   Target,
@@ -18,36 +19,86 @@ import {
   Compass,
   Check,
   ChevronRight,
-  Bookmark,
   ChevronDown,
   ShieldCheck,
   RefreshCw,
   FolderGit2,
-  Zap,
-  ListTodo
+  Flame,
+  BarChart3,
+  CheckCheck,
+  FileText,
+  UploadCloud,
+  HelpCircle,
+  Filter,
+  X
 } from 'lucide-react';
 import PageContainer from '../components/layout/PageContainer';
 import Card, { CardHeader, CardContent, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge, { PriorityBadge } from '../components/ui/Badge';
-import ProgressBar, { CircularProgress } from '../components/ui/ProgressBar';
-import Drawer from '../components/ui/Drawer';
+import ProgressBar from '../components/ui/ProgressBar';
 import Modal from '../components/ui/Modal';
 import Input from '../components/ui/Input';
-import SearchInput from '../components/ui/SearchInput';
 import { useToast } from '../context/ToastContext';
-import { getProfile, updateProfile, getSkillGap, analyzeSkillGap, getLearningProgress, updateLearningProgress } from '../services/api';
 import {
-  CANONICAL_ROLES,
-  normalizeSkill,
-  skillsMatch,
-  VERIFIED_RESOURCES,
-  PRACTICAL_PROJECTS,
-  TOPIC_SEQUENCES
-} from '../services/skillCatalog';
-import SkillRadarChart from '../components/skillgap/SkillRadarChart';
-import InteractiveLearningTimeline from '../components/skillgap/InteractiveLearningTimeline';
+  getProfile,
+  updateProfile,
+  getSkillGap,
+  analyzeSkillGap,
+  getLearningProgress,
+  updateLearningProgress,
+  getOpportunities,
+  getSupportedRoles
+} from '../services/api';
 
+import SkillCategoryCoverageChart from '../components/skillgap/SkillCategoryCoverageChart';
+import SkillRequirementComparisonChart from '../components/skillgap/SkillRequirementComparisonChart';
+import SkillGapDistributionChart from '../components/skillgap/SkillGapDistributionChart';
+import ResumeUploadModal from '../components/skillgap/ResumeUploadModal';
+import PersonalizedRoadmapSection from '../components/skillgap/PersonalizedRoadmapSection';
+import LearningResourcesDrawer from '../components/skillgap/LearningResourcesDrawer';
+
+import './SkillGapPage.css';
+
+const POPULAR_ROLES = [
+  { label: 'Software Engineer', icon: '💻' },
+  { label: 'Full Stack Developer', icon: '🌐' },
+  { label: 'Backend Developer', icon: '⚙️' },
+  { label: 'Frontend Developer', icon: '🎨' },
+  { label: 'Cloud & DevOps Engineer', icon: '☁️' },
+  { label: 'Data Scientist', icon: '📊' },
+];
+
+// High-performance animated number counter
+function AnimatedNumber({ value, suffix = '', duration = 0.7 }) {
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    const target = Number(value) || 0;
+    if (target === 0) {
+      setCurrent(0);
+      return;
+    }
+    const startTime = performance.now();
+    let frameId;
+
+    const tick = (now) => {
+      const elapsed = (now - startTime) / 1000;
+      const progress = Math.min(elapsed / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setCurrent(Math.round(target * ease));
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(tick);
+      }
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [value, duration]);
+
+  return <>{current}{suffix}</>;
+}
 
 export default function SkillGapPage() {
   const toast = useToast();
@@ -55,1211 +106,1295 @@ export default function SkillGapPage() {
   // Core State
   const [profile, setProfile] = useState(null);
   const [targetRole, setTargetRole] = useState('Software Engineer');
-  const [targetOpportunity, setTargetOpportunity] = useState('');
-  const [customRoleInput, setCustomRoleInput] = useState('');
-  const [isCustomRole, setIsCustomRole] = useState(false);
+  const [supportedRoles, setSupportedRoles] = useState([]);
+  const [targetOpportunityId, setTargetOpportunityId] = useState('');
+  const [opportunitiesList, setOpportunitiesList] = useState([]);
+
+  // Data Loading & Analysis States
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-
-  // Analysis result
   const [analysisData, setAnalysisData] = useState(null);
 
-  // Detail Drawer State
-  const [selectedSkill, setSelectedSkill] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  // Learning Progress State (keyed by skill name)
+  const [learningProgress, setLearningProgress] = useState({});
 
-  // Learning Progress State (synced with backend & localStorage)
-  const [learningProgress, setLearningProgress] = useState(() => {
-    const saved = localStorage.getItem('careerpilot_skill_progress');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
-    }
-    return {
-      Docker: { status: 'learning', progress: 60, completedTopics: ['Containers vs Virtual Machines', 'Writing clean Dockerfiles', 'Exposing Ports'] },
-    };
-  });
+  // Modals & Drawers
+  const [resumeModalOpen, setResumeModalOpen] = useState(false);
+  const [resourcesDrawerOpen, setResourcesDrawerOpen] = useState(false);
+  const [resourceSkill, setResourceSkill] = useState('');
+  const [activeResourcesList, setActiveResourcesList] = useState([]);
 
-  // Modal to add skill to profile
-  const [showAddSkillModal, setShowAddSkillModal] = useState(false);
+  const [addSkillModalOpen, setAddSkillModalOpen] = useState(false);
   const [newSkillName, setNewSkillName] = useState('');
-  const [newSkillCategory, setNewSkillCategory] = useState('technical');
+  const [newSkillCategory, setNewSkillCategory] = useState('programming_languages');
+  const [addingSkill, setAddingSkill] = useState(false);
 
-  // Load initial student profile & run initial analysis
+  // View All Gaps Modal
+  const [allGapsModalOpen, setAllGapsModalOpen] = useState(false);
+  const [modalGapSearch, setModalGapSearch] = useState('');
+  const [modalGapFilter, setModalGapFilter] = useState('all');
+
+  // Filters for Skills Inventory
+  const [inventorySearch, setInventorySearch] = useState('');
+  const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState('all');
+  const [inventoryStatusFilter, setInventoryStatusFilter] = useState('all');
+
+  // Priority Gaps Main View Filter (all | high | medium)
+  const [gapFilter, setGapFilter] = useState('all');
+
+  // Visual Analytics Active Tab
+  const [analyticsTab, setAnalyticsTab] = useState('categories'); // 'categories' | 'requirements' | 'distribution'
+
+  // Load Initial Profile, Supported Roles, Opportunities, and Initial Analysis
   useEffect(() => {
-    async function loadData() {
+    async function initDashboard() {
       try {
         setLoading(true);
-        const profileRes = await getProfile();
+
+        // Fetch profile
         let studentProfile = null;
-        if (profileRes?.data) {
-          studentProfile = profileRes.data;
+        try {
+          const profRes = await getProfile();
+          studentProfile = profRes?.data || profRes;
           setProfile(studentProfile);
-          // Check student preferred target role
-          const savedRole = studentProfile.preferences?.targetRoles?.value?.[0];
-          if (savedRole) {
-            setTargetRole(savedRole);
-          }
+        } catch (e) {
+          console.warn('Could not load profile:', e);
         }
 
-        // Fetch backend skill gap
-        const initialRole = studentProfile?.preferences?.targetRoles?.value?.[0] || 'Software Engineer';
-        const gapRes = await getSkillGap(initialRole);
-        if (gapRes?.data) {
-          setAnalysisData(gapRes.data);
-          if (gapRes.data.userProgress) {
-            const progressMap = {};
-            gapRes.data.userProgress.forEach((item) => {
-              progressMap[item.skill] = {
-                status: item.status,
-                progress: item.progress,
-                completedTopics: item.completed_topics || [],
-              };
-            });
-            if (Object.keys(progressMap).length > 0) {
-              setLearningProgress((prev) => ({ ...prev, ...progressMap }));
-            }
+        // Determine default target role from student preferences
+        let initialRole = 'Software Engineer';
+        if (studentProfile?.preferences) {
+          const prefRoles = studentProfile.preferences.targetRoles || studentProfile.preferences.target_roles;
+          if (Array.isArray(prefRoles) && prefRoles.length > 0) {
+            initialRole = typeof prefRoles[0] === 'string' ? prefRoles[0] : (prefRoles[0].value || 'Software Engineer');
+          } else if (prefRoles?.value && Array.isArray(prefRoles.value) && prefRoles.value.length > 0) {
+            initialRole = prefRoles.value[0];
           }
         }
+        setTargetRole(initialRole);
+
+        // Fetch supported roles
+        try {
+          const rolesRes = await getSupportedRoles();
+          const rList = rolesRes?.data || rolesRes;
+          if (Array.isArray(rList)) {
+            setSupportedRoles(rList);
+          }
+        } catch (e) {}
+
+        // Fetch live opportunities for comparison dropdown
+        try {
+          const oppsRes = await getOpportunities({ limit: 12, status: 'active' });
+          const oList = oppsRes?.data?.opportunities || oppsRes?.data || oppsRes?.opportunities || [];
+          if (Array.isArray(oList)) {
+            setOpportunitiesList(oList);
+          }
+        } catch (e) {}
+
+        // Fetch initial skill gap analysis
+        await fetchAnalysis(initialRole, null, studentProfile);
       } catch (err) {
-        console.warn('Backend skill gap error, utilizing client catalog fallback:', err.message);
-        runClientFallbackAnalysis('Software Engineer', null);
+        console.error('Error initializing SkillGapPage:', err);
+        toast.error('Failed to initialize skill intelligence dashboard.');
       } finally {
         setLoading(false);
       }
     }
-    loadData();
+
+    initDashboard();
   }, []);
 
-  // Sync learning progress to localStorage
-  useEffect(() => {
-    localStorage.setItem('careerpilot_skill_progress', JSON.stringify(learningProgress));
-  }, [learningProgress]);
-
-  // Client-side fallback analyzer ensuring 100% resilience
-  const runClientFallbackAnalysis = (role, opportunity) => {
-    const extractedSkills = extractSkillsFromProfile(profile);
-    const requiredList = [
-      { name: 'Data Structures & Algorithms', importance: 'Critical', category: 'Core', prereqs: [] },
-      { name: 'Python', importance: 'Critical', category: 'Language', prereqs: [] },
-      { name: 'C++', importance: 'High', category: 'Language', prereqs: [] },
-      { name: 'SQL', importance: 'High', category: 'Database', prereqs: [] },
-      { name: 'REST APIs', importance: 'High', category: 'Development', prereqs: ['Python'] },
-      { name: 'Docker', importance: 'Critical', category: 'DevOps', prereqs: [] },
-      { name: 'System Design', importance: 'High', category: 'Engineering', prereqs: ['REST APIs', 'SQL'] },
-      { name: 'Redis', importance: 'Medium', category: 'Caching', prereqs: ['SQL'] },
-      { name: 'AWS', importance: 'Medium', category: 'Cloud', prereqs: ['Docker'] },
-    ];
-
-    const matched = [];
-    const missing = [];
-    let score = 0;
-
-    requiredList.forEach((req) => {
-      const has = extractedSkills.some((s) => skillsMatch(s, req.name));
-      if (has) {
-        matched.push({ name: req.name, category: req.category, importance: req.importance, status: 'MATCHED' });
-        score += req.importance === 'Critical' ? 25 : 15;
-      } else {
-        missing.push({
-          name: req.name,
-          category: req.category,
-          importance: req.importance,
-          priority: req.importance,
-          status: 'MISSING',
-          estimatedEffort: '1–2 weeks',
-          whyLearn: `Essential foundational technology for modern ${role} workflows.`,
-          whyMatters: `Elevates your resume from academic theory to commercial production readiness.`,
-          resources: VERIFIED_RESOURCES.filter((r) => skillsMatch(r.skill, req.name)),
-          project: PRACTICAL_PROJECTS[req.name] || PRACTICAL_PROJECTS.Docker,
-          topics: TOPIC_SEQUENCES[req.name] || [
-            { level: 1, title: 'Fundamentals', topics: ['Core Concepts', 'Syntax & Setup'] },
-            { level: 2, title: 'Development', topics: ['Building Real Apps', 'Best Practices'] },
-            { level: 3, title: 'Production', topics: ['Optimization', 'Deployment'] },
-          ],
-        });
-      }
-    });
-
-    const finalScore = Math.min(Math.max(score, 20), 95);
-    const nowSkills = missing.filter((m) => m.priority === 'Critical');
-    const nextSkills = missing.filter((m) => m.priority === 'High');
-    const afterSkills = missing.filter((m) => m.priority === 'Medium' || m.priority === 'Low');
-
-    setAnalysisData({
-      targetRole: role,
-      roleDescription: 'Develop reliable, scalable software solutions by mastering core computer science foundations, algorithms, and production engineering.',
-      readinessScore: finalScore,
-      readinessTier: finalScore >= 80 ? 'Interview Ready' : finalScore >= 60 ? 'Strong Contender' : 'Building Foundations',
-      stats: {
-        totalRequired: requiredList.length,
-        matchedCount: matched.length,
-        partialCount: 0,
-        missingCount: missing.length,
-      },
-      matchedSkills: matched,
-      partialSkills: [],
-      missingSkills: missing,
-      prioritySpotlight: [...nowSkills, ...nextSkills].slice(0, 4),
-      roadmap: {
-        now: nowSkills.length > 0 ? nowSkills : missing.slice(0, 1),
-        next: nextSkills.length > 0 ? nextSkills : missing.slice(1, 3),
-        afterThat: afterSkills,
-        capstoneProject: PRACTICAL_PROJECTS.Docker,
-      },
-      futureSkills: [
-        { name: 'System Design & Distributed Systems', reason: 'Critical for high-volume backend microservices.', category: 'Architecture', badge: 'Recommended Future Skill' },
-        { name: 'Cloud Native AWS / Serverless', reason: 'Deploying zero-cold-start cloud APIs globally.', category: 'Cloud', badge: 'Recommended Future Skill' },
-        { name: 'AI-Assisted Development', reason: 'Accelerating test creation and boilerplate velocity with LLMs.', category: 'AI Tools', badge: 'Recommended Future Skill' },
-      ],
-    });
-  };
-
-  const extractSkillsFromProfile = (prof) => {
-    if (!prof?.skills) return ['Python', 'C++', 'SQL', 'React', 'Flask', 'MongoDB', 'Git'];
-    const list = [];
-    Object.values(prof.skills).forEach((cat) => {
-      if (Array.isArray(cat?.value)) list.push(...cat.value);
-      else if (Array.isArray(cat)) list.push(...cat);
-    });
-    return list.length > 0 ? list : ['Python', 'C++', 'SQL', 'React', 'Flask', 'MongoDB', 'Git'];
-  };
-
-  // Re-run analysis on target role change
-  const handleRoleChange = async (newRole) => {
-    setTargetRole(newRole);
-    setAnalyzing(true);
+  // Fetch or Refresh Skill Gap Analysis
+  const fetchAnalysis = async (roleToAnalyze, oppIdToAnalyze, currentProfile = profile) => {
     try {
-      const res = await analyzeSkillGap({
-        targetRole: newRole,
-        targetOpportunity: targetOpportunity ? { name: targetOpportunity } : null,
-      });
-      if (res?.data) {
-        setAnalysisData(res.data);
-        toast.info(`Updated skill gap for ${newRole}`);
+      setAnalyzing(true);
+      const res = await getSkillGap(roleToAnalyze, oppIdToAnalyze);
+      const data = res?.data || res;
+      if (data && (res?.success || data.skillCoverage !== undefined || data.targetRole)) {
+        setAnalysisData(data);
+
+        // Hydrate learning progress map from returned userProgress
+        if (Array.isArray(data.userProgress)) {
+          const progMap = {};
+          data.userProgress.forEach(item => {
+            if (item && item.skill) {
+              progMap[item.skill] = item;
+            }
+          });
+          setLearningProgress(progMap);
+        }
       }
-    } catch (e) {
-      runClientFallbackAnalysis(newRole, targetOpportunity);
+    } catch (err) {
+      console.error('Error fetching skill gap:', err);
+      toast.error('Failed to calculate skill gap analysis.');
     } finally {
       setAnalyzing(false);
     }
   };
 
-  const handleCustomRoleSubmit = (e) => {
-    e.preventDefault();
-    if (customRoleInput.trim()) {
-      handleRoleChange(customRoleInput.trim());
-      setIsCustomRole(false);
+  // Switch Target Role
+  const handleRoleSelect = (roleName) => {
+    setTargetRole(roleName);
+    fetchAnalysis(roleName, targetOpportunityId);
+  };
+
+  // Switch Target Opportunity
+  const handleOpportunityChange = (oppId) => {
+    setTargetOpportunityId(oppId);
+    fetchAnalysis(targetRole, oppId || null);
+  };
+
+  // Trigger Full Manual Analysis Refresh
+  const handleRunAnalysis = () => {
+    fetchAnalysis(targetRole, targetOpportunityId);
+    toast.success('Skill intelligence refreshed against latest profile evidence.');
+  };
+
+  // Handle Extraction Confirmed from ResumeUploadModal
+  const handleExtractionConfirmed = async () => {
+    try {
+      const profRes = await getProfile();
+      const updatedProf = profRes?.data?.data || profRes?.data;
+      setProfile(updatedProf);
+      await fetchAnalysis(targetRole, targetOpportunityId, updatedProf);
+    } catch (e) {
+      fetchAnalysis(targetRole, targetOpportunityId);
     }
   };
 
-  // Open Skill Detail Drawer
-  const handleOpenSkillDetail = (skillItem) => {
-    // Merge topics & project if not already populated
-    const norm = normalizeSkill(skillItem.name);
-    const enriched = {
-      ...skillItem,
-      topics: skillItem.topics || TOPIC_SEQUENCES[norm] || [
-        { level: 1, title: 'Fundamentals', topics: ['Core Concepts & Architecture', 'Syntax & Setup'] },
-        { level: 2, title: 'Development', topics: ['Practical Application Build', 'Best Practices & Debugging'] },
-        { level: 3, title: 'Production', topics: ['Performance Tuning', 'Deployment & CI/CD'] },
-      ],
-      resources: skillItem.resources?.length > 0 ? skillItem.resources : VERIFIED_RESOURCES.filter((r) => skillsMatch(r.skill, norm)),
-      project: skillItem.project || PRACTICAL_PROJECTS[norm] || PRACTICAL_PROJECTS.Docker,
-    };
-    setSelectedSkill(enriched);
-    setDrawerOpen(true);
-  };
-
-  // Progress Update Handlers
-  const handleToggleTopic = async (skillName, topic) => {
-    const current = learningProgress[skillName] || { status: 'learning', progress: 0, completedTopics: [] };
-    const topics = current.completedTopics || [];
-    const hasTopic = topics.includes(topic);
-    const updatedTopics = hasTopic ? topics.filter((t) => t !== topic) : [...topics, topic];
-
-    // Compute progress % based on total topics in sequence
-    const allTopics = selectedSkill?.topics?.flatMap((t) => t.topics) || [];
-    const totalCount = allTopics.length || 5;
-    const newProgress = Math.min(Math.round((updatedTopics.length / totalCount) * 100), 100);
-    const newStatus = newProgress === 100 ? 'completed' : newProgress > 0 ? 'learning' : 'not_started';
-
-    const updatedData = {
-      ...current,
-      status: newStatus,
-      progress: newProgress,
-      completedTopics: updatedTopics,
-    };
-
-    setLearningProgress((prev) => ({ ...prev, [skillName]: updatedData }));
+  // Handle Milestone / Skill Learning Progress Update
+  const handleUpdateProgress = async (skillName, progressPayload) => {
+    // Optimistic local update
+    setLearningProgress(prev => ({
+      ...prev,
+      [skillName]: {
+        ...(prev[skillName] || {}),
+        ...progressPayload,
+        skill: skillName,
+      }
+    }));
 
     try {
-      await updateLearningProgress(skillName, updatedData);
+      await updateLearningProgress(skillName, progressPayload);
     } catch (err) {
-      // Local storage already synced via useEffect
-    }
-
-    if (newProgress === 100) {
-      toast.success(`🎉 Congratulations on completing ${skillName}!`);
+      console.error('Failed to persist progress to backend:', err);
+      toast.error(`Could not save progress for ${skillName}`);
     }
   };
 
-  const handleSetSkillStatus = async (skillName, status) => {
-    const current = learningProgress[skillName] || { status: 'not_started', progress: 0, completedTopics: [] };
-    const newProgress = status === 'completed' ? 100 : status === 'learning' ? Math.max(current.progress, 25) : 0;
+  // Open Resource Drawer for a specific skill
+  const handleOpenResources = (skillName) => {
+    setResourceSkill(skillName);
 
-    const updatedData = {
-      ...current,
-      status,
-      progress: newProgress,
-    };
+    // Look for verified resources in missingSkills or matchedSkills
+    let resources = [];
+    if (analysisData) {
+      const allSkills = [
+        ...(analysisData.missingSkills || []),
+        ...(analysisData.partialSkills || []),
+        ...(analysisData.matchedSkills || []),
+      ];
+      const match = allSkills.find(s => s.name?.toLowerCase() === skillName.toLowerCase());
+      if (match?.resources && match.resources.length > 0) {
+        resources = match.resources;
+      }
+    }
 
-    setLearningProgress((prev) => ({ ...prev, [skillName]: updatedData }));
-    toast.info(`Marked ${skillName} as ${status.replace('_', ' ')}`);
-
-    try {
-      await updateLearningProgress(skillName, updatedData);
-    } catch (err) {}
+    setActiveResourcesList(resources);
+    setResourcesDrawerOpen(true);
   };
 
-  // Add Skill to Student Profile
-  const handleAddSkillToProfile = async (e) => {
+  // Add Skill to Roadmap from Card
+  const handleAddToRoadmap = (skillName) => {
+    handleUpdateProgress(skillName, {
+      status: 'in_progress',
+      progress: 10,
+      target_role: targetRole,
+    });
+    toast.success(`Added ${skillName} to your personalized roadmap!`);
+  };
+
+  // Add Missing Skill Manually to Profile
+  const handleAddCustomSkillToProfile = async (e) => {
     e.preventDefault();
     if (!newSkillName.trim()) return;
 
-    const skillToAdd = newSkillName.trim();
     try {
-      const updatedProfile = { ...profile };
-      if (!updatedProfile.skills) updatedProfile.skills = {};
-      if (!updatedProfile.skills[newSkillCategory]) {
-        updatedProfile.skills[newSkillCategory] = { value: [], source: 'manual' };
+      setAddingSkill(true);
+      const skillToSave = newSkillName.trim();
+
+      // Retrieve existing skills
+      const currentSkillsObj = profile?.skills || {};
+      const categoryList = Array.isArray(currentSkillsObj[newSkillCategory])
+        ? currentSkillsObj[newSkillCategory]
+        : (currentSkillsObj[newSkillCategory]?.value || []);
+
+      if (categoryList.includes(skillToSave)) {
+        toast.error(`${skillToSave} is already listed in your profile.`);
+        setAddingSkill(false);
+        return;
       }
-      const existing = updatedProfile.skills[newSkillCategory].value || [];
-      if (!existing.includes(skillToAdd)) {
-        updatedProfile.skills[newSkillCategory].value = [...existing, skillToAdd];
-        await updateProfile(updatedProfile);
-        setProfile(updatedProfile);
-        toast.success(`Added ${skillToAdd} to your verified profile!`);
-        handleRoleChange(targetRole);
-      }
-    } catch (err) {
-      toast.error('Could not save skill to profile.');
-    } finally {
+
+      const updatedCategory = [...categoryList, skillToSave];
+      const updatedSkills = {
+        ...currentSkillsObj,
+        [newSkillCategory]: updatedCategory
+      };
+
+      await updateProfile({ skills: updatedSkills });
+      toast.success(`Added ${skillToSave} to your verified profile.`);
+
       setNewSkillName('');
-      setShowAddSkillModal(false);
+      setAddSkillModalOpen(false);
+
+      // Refresh profile & analysis
+      const profRes = await getProfile();
+      const updatedProf = profRes?.data?.data || profRes?.data;
+      setProfile(updatedProf);
+      fetchAnalysis(targetRole, targetOpportunityId, updatedProf);
+    } catch (err) {
+      console.error('Failed to add custom skill:', err);
+      toast.error('Failed to add skill to profile.');
+    } finally {
+      setAddingSkill(false);
     }
   };
 
-  const studentSkillsList = extractSkillsFromProfile(profile);
+  // Filtered Skills Inventory
+  const filteredInventory = useMemo(() => {
+    if (!analysisData?.skillsInventory) return [];
+    return analysisData.skillsInventory.filter(item => {
+      if (inventorySearch) {
+        const q = inventorySearch.toLowerCase();
+        const matchesName = item.name?.toLowerCase().includes(q);
+        const matchesContext = item.context?.toLowerCase().includes(q);
+        const matchesCategory = item.category?.toLowerCase().includes(q);
+        if (!matchesName && !matchesContext && !matchesCategory) return false;
+      }
+      if (inventoryCategoryFilter !== 'all' && item.category !== inventoryCategoryFilter) {
+        return false;
+      }
+      if (inventoryStatusFilter !== 'all') {
+        if (inventoryStatusFilter === 'demonstrated' && item.evidenceType !== 'demonstrated') return false;
+        if (inventoryStatusFilter === 'listed' && item.evidenceType !== 'listed') return false;
+        if (inventoryStatusFilter === 'unverified' && item.evidenceType !== 'needs_verification') return false;
+      }
+      return true;
+    });
+  }, [analysisData?.skillsInventory, inventorySearch, inventoryCategoryFilter, inventoryStatusFilter]);
 
-  const timelineItems = React.useMemo(() => {
-    if (!analysisData?.roadmap) return [];
-    const items = [];
-    ['now', 'next', 'afterThat'].forEach((stage) => {
-      (analysisData.roadmap[stage] || []).forEach((sk) => {
-        items.push({
-          skillName: sk.name,
-          priority: sk.priority ? sk.priority.toLowerCase() : (stage === 'now' ? 'high' : 'medium'),
-          difficulty: stage === 'now' ? 'Foundational' : stage === 'next' ? 'Intermediate' : 'Advanced',
-          whyImportant: sk.whyMatters || sk.whyLearn,
-          estimatedHours: sk.estimatedHours || (stage === 'now' ? '12-16' : '20-25'),
-          topics: TOPIC_SEQUENCES[sk.name]?.map((t) => t.title) || [
-            `${sk.name} Core Architecture & Syntax`,
-            `${sk.name} Practical Project Implementation`,
-            `${sk.name} Performance & Production Deployment`,
-          ],
-        });
+  // Filtered Priority Gaps for main view
+  const filteredGaps = useMemo(() => {
+    if (!analysisData?.priorityGaps) return [];
+    if (gapFilter === 'all') return analysisData.priorityGaps;
+    if (gapFilter === 'high') {
+      return analysisData.priorityGaps.filter(g => g.priority === 'Critical' || g.priority === 'High');
+    }
+    if (gapFilter === 'medium') {
+      return analysisData.priorityGaps.filter(g => g.priority === 'Medium' || g.priority === 'Low');
+    }
+    return analysisData.priorityGaps;
+  }, [analysisData?.priorityGaps, gapFilter]);
+
+  // Modal filtered gaps
+  const modalFilteredGaps = useMemo(() => {
+    if (!analysisData?.priorityGaps) return [];
+    return analysisData.priorityGaps.filter(g => {
+      if (modalGapSearch) {
+        const q = modalGapSearch.toLowerCase();
+        const mName = g.name?.toLowerCase().includes(q);
+        const mCat = g.category?.toLowerCase().includes(q);
+        const mWhy = (g.whyMatters || g.whyLearn || '').toLowerCase().includes(q);
+        if (!mName && !mCat && !mWhy) return false;
+      }
+      if (modalGapFilter !== 'all') {
+        if (modalGapFilter.toLowerCase() !== g.priority?.toLowerCase()) return false;
+      }
+      return true;
+    });
+  }, [analysisData?.priorityGaps, modalGapSearch, modalGapFilter]);
+
+  // KPI Calculations
+  const stats = analysisData?.stats || {};
+  const coveragePercent = analysisData?.skillCoverage || 0;
+  const verifiedCount = stats.totalIdentifiedSkills || (analysisData?.skillsInventory?.length) || 0;
+  const priorityGapsCount = stats.priorityGapCount || (analysisData?.missingSkills?.length) || 0;
+
+  const totalRoadmapMilestones = useMemo(() => {
+    if (!analysisData?.structuredRoadmap) return 0;
+    return analysisData.structuredRoadmap.reduce((acc, p) => acc + (p.milestones?.length || 0), 0);
+  }, [analysisData?.structuredRoadmap]);
+
+  const completedMilestonesCount = useMemo(() => {
+    if (!analysisData?.structuredRoadmap) return 0;
+    let count = 0;
+    analysisData.structuredRoadmap.forEach(phase => {
+      (phase.milestones || []).forEach(m => {
+        const p = learningProgress[m.skill];
+        if (p?.status === 'completed' || m.status === 'completed') {
+          count += 1;
+        }
       });
     });
-    return items;
-  }, [analysisData]);
+    return count;
+  }, [analysisData?.structuredRoadmap, learningProgress]);
 
-  const handleToggleTimelineTopic = (skillName, topicTitle) => {
-    const current = learningProgress[skillName] || { status: 'learning', progress: 20, completedTopics: [] };
-    const alreadyDone = (current.completedTopics || []).includes(topicTitle);
-    const updatedTopics = alreadyDone
-      ? current.completedTopics.filter((t) => t !== topicTitle)
-      : [...(current.completedTopics || []), topicTitle];
+  const activePathsCount = useMemo(() => {
+    return Object.values(learningProgress).filter(p => p.status === 'in_progress' || p.status === 'learning').length;
+  }, [learningProgress]);
 
-    const totalTopics = (TOPIC_SEQUENCES[skillName]?.length) || 3;
-    const newProgress = Math.min(100, Math.round((updatedTopics.length / totalTopics) * 100));
-    const newStatus = newProgress === 100 ? 'completed' : newProgress > 0 ? 'learning' : 'not_started';
-
-    const updatedData = {
-      ...current,
-      status: newStatus,
-      progress: newProgress,
-      completedTopics: updatedTopics,
-    };
-
-    setLearningProgress((prev) => {
-      const next = { ...prev, [skillName]: updatedData };
+  // Last Analysis Timestamp String
+  const lastAnalysisDateStr = useMemo(() => {
+    const meta = analysisData?.resumeMeta;
+    if (meta?.uploadedAt) {
       try {
-        localStorage.setItem('careerpilot_skill_progress', JSON.stringify(next));
+        return new Date(meta.uploadedAt).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
       } catch (e) {}
-      return next;
-    });
+    }
+    if (profile?.updated_at) {
+      try {
+        return new Date(profile.updated_at).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      } catch (e) {}
+    }
+    return 'Recent';
+  }, [analysisData?.resumeMeta, profile?.updated_at]);
 
-    updateLearningProgress(skillName, updatedData).catch(() => {});
-  };
-
+  if (loading) {
+    return (
+      <PageContainer>
+        <div style={{ padding: '5rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
+          <RefreshCw className="w-10 h-10 animate-spin" style={{ color: 'var(--primary, #255eff)' }} />
+          <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+            Analyzing student profile evidence & opportunity requirements...
+          </p>
+          <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>Loading skill intelligence dashboard</p>
+        </div>
+      </PageContainer>
+    );
+  }
 
   return (
-    <PageContainer style={{ maxWidth: '1440px' }}>
-      {/* =====================================================================
-          1. HEADER & TARGET ROLE SELECTION
-          ===================================================================== */}
-      <div style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem' }}>
-              <Badge variant="purple" size="sm" dot>
-                Personalized Learning Engine
-              </Badge>
-              {analyzing && (
-                <span style={{ fontSize: '0.75rem', color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <RefreshCw size={12} className="spin" /> Recalculating...
-                </span>
-              )}
+    <PageContainer>
+      <div className="skillgap-dashboard">
+        {/* =========================================================================
+            1. DASHBOARD HEADER & ROLE CONTROLS
+        ========================================================================= */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="skillgap-header-card"
+        >
+          <div className="skillgap-header-top">
+            <div className="skillgap-header-title-group">
+              <div className="skillgap-header-icon-badge">
+                <Target className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="skillgap-header-title">Skill Gap Intelligence</h1>
+                <p className="skillgap-header-subtitle">
+                  Understand verified proficiencies, benchmark role demands, and accelerate career readiness.
+                </p>
+              </div>
             </div>
-            <h1 className="text-h1" style={{ margin: 0, color: 'var(--text-primary)' }}>
-              Skill Gap &amp; Learning Roadmap
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem', marginTop: '0.35rem', maxWidth: '680px' }}>
-              Discover exact missing competencies for your target career role, organized into a priority timeline with verified resources and practical projects.
-            </p>
-          </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={<Plus size={16} />}
-              onClick={() => setShowAddSkillModal(true)}
-            >
-              Add Skill to Profile
-            </Button>
-          </div>
-        </div>
-
-        {/* Target Role & Target Opportunity Control Bar */}
-        <Card variant="raised" style={{ padding: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: '1 1 220px', minWidth: 0 }}>
-              <div
-                style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--primary-subtle)',
-                  color: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
+            <div className="skillgap-header-actions">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setResumeModalOpen(true)}
+                iconLeft={<UploadCloud className="w-4 h-4" style={{ color: 'var(--primary, #255eff)' }} />}
+                style={{ fontSize: '0.775rem', height: '36px' }}
               >
-                <Target size={22} />
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-                  Target Career Role
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '2px', minWidth: 0 }}>
-                  {!isCustomRole ? (
-                    <select
-                      value={targetRole}
-                      onChange={(e) => {
-                        if (e.target.value === '__custom__') {
-                          setIsCustomRole(true);
-                        } else {
-                          handleRoleChange(e.target.value);
-                        }
-                      }}
-                      style={{
-                        fontSize: '0.95rem',
-                        fontWeight: 700,
-                        color: 'var(--text-primary)',
-                        backgroundColor: 'var(--surface-raised)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '0.35rem 0.65rem',
-                        cursor: 'pointer',
-                        outline: 'none',
-                        maxWidth: '100%',
-                      }}
+                Update Resume
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleRunAnalysis}
+                disabled={analyzing}
+                iconLeft={<RefreshCw className={`w-4 h-4 ${analyzing ? 'animate-spin' : ''}`} />}
+                style={{ fontSize: '0.775rem', height: '36px' }}
+              >
+                {analyzing ? 'Analyzing...' : 'Refresh Intelligence'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Meta Status Badges */}
+          <div className="skillgap-meta-row">
+            <div className="skillgap-meta-item">
+              <ShieldCheck className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+              <span>Evidence: <strong style={{ color: 'var(--text-primary)' }}>{analysisData?.resumeMeta?.hasResume ? 'Resume Verified' : 'Profile Direct'}</strong></span>
+            </div>
+            <span>•</span>
+            <div className="skillgap-meta-item">
+              <Clock className="w-3.5 h-3.5" />
+              <span>Last analyzed: <strong style={{ color: 'var(--text-primary)' }}>{lastAnalysisDateStr}</strong></span>
+            </div>
+            {analysisData?.targetOpportunity && (
+              <>
+                <span>•</span>
+                <Badge variant="primary" className="text-[11px] py-0.5">
+                  Target Opportunity: {analysisData.targetOpportunity}
+                </Badge>
+              </>
+            )}
+          </div>
+
+          {/* Controls Bar: Popular Roles & Opportunity Comparator */}
+          <div className="skillgap-controls-bar">
+            <div>
+              <span style={{ fontSize: '0.725rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.4rem' }}>
+                Target Career Benchmark:
+              </span>
+              <div className="skillgap-role-chips">
+                {POPULAR_ROLES.map((r) => {
+                  const isSelected = targetRole === r.label;
+                  return (
+                    <button
+                      key={r.label}
+                      type="button"
+                      onClick={() => handleRoleSelect(r.label)}
+                      className={`skillgap-role-chip ${isSelected ? 'active' : ''}`}
                     >
-                      {CANONICAL_ROLES.map((role) => (
-                        <option key={role} value={role}>
-                          {role}
-                        </option>
-                      ))}
-                      <option value="__custom__">+ Enter Custom Role...</option>
-                    </select>
-                  ) : (
-                    <form onSubmit={handleCustomRoleSubmit} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        placeholder="e.g. Distributed Systems Engineer"
-                        value={customRoleInput}
-                        onChange={(e) => setCustomRoleInput(e.target.value)}
-                        autoFocus
-                        style={{
-                          fontSize: '0.875rem',
-                          padding: '0.35rem 0.65rem',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid var(--primary)',
-                          backgroundColor: 'var(--bg-secondary)',
-                          color: 'var(--text-primary)',
-                          maxWidth: '180px',
-                        }}
-                      />
-                      <Button variant="primary" size="sm" type="submit">
-                        Set
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setIsCustomRole(false)}>
-                        Cancel
-                      </Button>
-                    </form>
-                  )}
-                </div>
+                      <span>{r.icon}</span>
+                      <span>{r.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Optional Target Opportunity Input */}
-            <div style={{ flex: '1 1 200px', minWidth: 0, width: '100%' }}>
-              <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
-                Target Opportunity (Optional)
+            <div className="skillgap-compare-wrapper">
+              <span className="skillgap-live-indicator" title="Live Role Comparator Active" />
+              <span className="skillgap-live-badge">LIVE</span>
+              <span className="skillgap-compare-label">
+                <Briefcase className="w-3.5 h-3.5" style={{ color: 'var(--primary, #255eff)' }} />
+                <span>Compare with Live Job:</span>
               </span>
-              <div style={{ marginTop: '2px' }}>
-                <input
-                  type="text"
-                  placeholder="e.g. Stripe SDE Intern, Google 2026..."
-                  value={targetOpportunity}
-                  onChange={(e) => setTargetOpportunity(e.target.value)}
-                  onBlur={() => targetOpportunity && handleRoleChange(targetRole)}
-                  style={{
-                    width: '100%',
-                    fontSize: '0.875rem',
-                    padding: '0.35rem 0.65rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)',
-                    backgroundColor: 'var(--surface-raised)',
-                    color: 'var(--text-primary)',
-                  }}
+              <select
+                value={targetOpportunityId}
+                onChange={(e) => handleOpportunityChange(e.target.value)}
+                className="skillgap-compare-select"
+                title="Select a live job to compare benchmarks"
+              >
+                <option value="">General Industry Standard (Default)</option>
+                {opportunitiesList.map(opp => (
+                  <option key={opp.id} value={opp.id}>
+                    {opp.title} — {opp.organization?.name || opp.company || 'Job'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* =========================================================================
+            2. ANIMATED KPI HERO SCORECARD (5 CARDS WITH COUNTUP — IMAGE 2)
+        ========================================================================= */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: { staggerChildren: 0.08 }
+            }
+          }}
+          className="skillgap-kpi-grid"
+        >
+          {/* KPI 1: Verified Skills (Emerald) */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } }
+            }}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            className="skillgap-kpi-card emerald"
+          >
+            <div className="skillgap-kpi-icon-wrap emerald">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div className="skillgap-kpi-content">
+              <span className="skillgap-kpi-label">Verified Skills</span>
+              <div className="skillgap-kpi-value">
+                <AnimatedNumber value={verifiedCount} />
+              </div>
+              <span className="skillgap-kpi-sub">Profile & project verified</span>
+            </div>
+          </motion.div>
+
+          {/* KPI 2: Target-Role Skill Coverage (Blue) */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } }
+            }}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            className="skillgap-kpi-card blue"
+          >
+            <div className="skillgap-kpi-icon-wrap blue">
+              <Target className="w-5 h-5" />
+            </div>
+            <div className="skillgap-kpi-content">
+              <span className="skillgap-kpi-label">Target Coverage</span>
+              <div className="skillgap-kpi-value" style={{ color: 'var(--primary, #255eff)' }}>
+                <AnimatedNumber value={coveragePercent} suffix="%" />
+              </div>
+              <div className="skillgap-kpi-progress">
+                <div
+                  className="skillgap-kpi-progress-bar blue"
+                  style={{ width: `${Math.min(coveragePercent, 100)}%` }}
                 />
               </div>
+              <span className="skillgap-kpi-sub" style={{ marginTop: '3px' }}>
+                {stats.matchedCount || 0} of {stats.totalRequired || 0} distinct skills matched
+              </span>
             </div>
-          </div>
-        </Card>
-      </div>
+          </motion.div>
 
-      {/* =====================================================================
-          2. SKILL OVERVIEW & COMPETENCY RADAR (RECHARTS)
-          ===================================================================== */}
-      {analysisData && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-          <Card variant="raised" style={{ borderTop: '4px solid var(--primary)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <CardContent style={{ padding: '1.75rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                <Badge variant={analysisData.readinessScore >= 80 ? 'success' : analysisData.readinessScore >= 60 ? 'primary' : 'warning'} size="sm">
-                  {analysisData.readinessTier}
-                </Badge>
-                <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                  Market Benchmark Fit
+          {/* KPI 3: Priority Skill Gaps (Amber) */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } }
+            }}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            className="skillgap-kpi-card amber"
+          >
+            <div className="skillgap-kpi-icon-wrap amber">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div className="skillgap-kpi-content">
+              <span className="skillgap-kpi-label">Priority Gaps</span>
+              <div className="skillgap-kpi-value" style={{ color: '#f59e0b' }}>
+                <AnimatedNumber value={priorityGapsCount} />
+              </div>
+              <span className="skillgap-kpi-sub">Critical unmet prerequisites</span>
+            </div>
+          </motion.div>
+
+          {/* KPI 4: Milestones Completed (Cyan) */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } }
+            }}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            className="skillgap-kpi-card cyan"
+          >
+            <div className="skillgap-kpi-icon-wrap cyan">
+              <CheckCheck className="w-5 h-5" />
+            </div>
+            <div className="skillgap-kpi-content">
+              <span className="skillgap-kpi-label">Milestones Done</span>
+              <div className="skillgap-kpi-value">
+                <AnimatedNumber value={completedMilestonesCount} />
+                <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginLeft: '4px' }}>
+                  / {totalRoadmapMilestones}
                 </span>
               </div>
-              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0.2rem 0' }}>
-                {analysisData.targetRole} Readiness: {analysisData.readinessScore}%
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5, margin: '0.4rem 0 1.25rem' }}>
-                {analysisData.roleDescription}
-              </p>
+              <span className="skillgap-kpi-sub">Curriculum goals achieved</span>
+            </div>
+          </motion.div>
 
-              {/* Counter statistics & gauge */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', marginTop: '1rem' }}>
-                <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--success)' }}>
-                      {analysisData.stats.matchedCount}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Matched Skills</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--warning)' }}>
-                      {analysisData.stats.missingCount}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Missing Gaps</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)' }}>
-                      {analysisData.stats.totalRequired}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600 }}>Required Skills</div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <CircularProgress
-                    value={analysisData.readinessScore}
-                    size={100}
-                    strokeWidth={9}
-                    variant={analysisData.readinessScore >= 80 ? 'success' : analysisData.readinessScore >= 60 ? 'primary' : 'warning'}
-                  />
-                  <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '0.45rem' }}>
-                    BENCHMARK
-                  </span>
-                </div>
+          {/* KPI 5: Active Learning Paths (Violet) */}
+          <motion.div
+            variants={{
+              hidden: { opacity: 0, y: 16 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } }
+            }}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            className="skillgap-kpi-card violet"
+          >
+            <div className="skillgap-kpi-icon-wrap violet">
+              <Flame className="w-5 h-5" />
+            </div>
+            <div className="skillgap-kpi-content">
+              <span className="skillgap-kpi-label">Active Learning</span>
+              <div className="skillgap-kpi-value" style={{ color: '#8b5cf6' }}>
+                <AnimatedNumber value={activePathsCount} />
               </div>
-            </CardContent>
-          </Card>
+              <span className="skillgap-kpi-sub">Skills currently in progress</span>
+            </div>
+          </motion.div>
+        </motion.div>
 
-          {/* Recharts Radar Chart */}
-          <SkillRadarChart
-            targetRole={targetRole}
-            studentSkills={studentSkillsList}
-          />
+        {/* Explainable Policy Banner */}
+        <div className="skillgap-policy-banner">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <HelpCircle className="w-4 h-4" style={{ color: 'var(--primary, #255eff)', flexShrink: 0 }} />
+            <span>
+              <strong>Target-Role Skill Coverage:</strong> Matched required proficiencies divided by total distinct required skills for this benchmark. Coverage measures curriculum alignment and does not represent an automated hiring decision.
+            </span>
+          </div>
+          <Badge variant="outline" className="text-[10px] hidden sm:inline-flex">
+            Transparent Analytics
+          </Badge>
         </div>
-      )}
 
-
-      {/* =====================================================================
-          3. SKILL GAP COMPARISON (MATCHED vs MISSING)
-          ===================================================================== */}
-      {analysisData && (
-        <div className="grid-2" style={{ marginBottom: '2.5rem' }}>
-          {/* Matched Skills */}
-          <Card variant="default">
-            <CardHeader>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                <CheckCircle2 size={18} color="var(--success)" />
-                <CardTitle style={{ fontSize: '1.05rem' }}>
-                  Verified Skills in Your Profile ({analysisData.matchedSkills.length})
-                </CardTitle>
-              </div>
-              <Badge variant="success" size="sm">MATCHED</Badge>
-            </CardHeader>
-            <CardContent>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                Skills already extracted from your verified resume or added manually.
+        {/* =========================================================================
+            3. VISUAL SKILL ANALYTICS HUB
+        ========================================================================= */}
+        <div className="skillgap-analytics-card">
+          <div className="skillgap-analytics-header">
+            <div>
+              <h2 className="skillgap-analytics-title">
+                <BarChart3 className="w-5 h-5" style={{ color: 'var(--primary, #255eff)' }} />
+                Visual Skill Analytics
+              </h2>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                Comparative benchmarks across domain categories and qualification depths
               </p>
-              <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
-                {analysisData.matchedSkills.map((sk) => (
-                  <Badge key={sk.name} variant="success" size="md">
-                    ✓ {sk.name}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Missing Skills */}
-          <Card variant="default">
-            <CardHeader>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-                <AlertTriangle size={18} color="var(--warning)" />
-                <CardTitle style={{ fontSize: '1.05rem' }}>
-                  High-Impact Missing Skills ({analysisData.missingSkills.length})
-                </CardTitle>
-              </div>
-              <Badge variant="warning" size="sm">ACTION REQUIRED</Badge>
-            </CardHeader>
-            <CardContent>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-                Click any skill to view why it matters, topic sequence, and project blueprints.
+            {/* Interactive Tab Switcher */}
+            <div className="skillgap-analytics-tabs">
+              <button
+                type="button"
+                id="skillgap-tab-categories"
+                onClick={() => setAnalyticsTab('categories')}
+                className={`skillgap-tab-btn ${analyticsTab === 'categories' ? 'active' : ''}`}
+              >
+                Category Coverage
+              </button>
+              <button
+                type="button"
+                id="skillgap-tab-requirements"
+                onClick={() => setAnalyticsTab('requirements')}
+                className={`skillgap-tab-btn ${analyticsTab === 'requirements' ? 'active' : ''}`}
+              >
+                Evidence vs Target
+              </button>
+              <button
+                type="button"
+                id="skillgap-tab-distribution"
+                onClick={() => setAnalyticsTab('distribution')}
+                className={`skillgap-tab-btn ${analyticsTab === 'distribution' ? 'active' : ''}`}
+              >
+                Gap Distribution
+              </button>
+            </div>
+          </div>
+
+          {/* Chart Display Area */}
+          <div className="skillgap-chart-viewport">
+            {analyticsTab === 'categories' && (
+              <SkillCategoryCoverageChart
+                categoryBreakdown={analysisData?.categoryBreakdown}
+                targetRole={targetRole}
+              />
+            )}
+            {analyticsTab === 'requirements' && (
+              <SkillRequirementComparisonChart
+                skillComparison={analysisData?.skillComparison}
+              />
+            )}
+            {analyticsTab === 'distribution' && (
+              <SkillGapDistributionChart
+                missingSkills={analysisData?.missingSkills}
+                partialSkills={analysisData?.partialSkills}
+                futureSkills={analysisData?.futureSkills}
+                onOpenAllGaps={() => setShowGapsModal(true)}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* =========================================================================
+            4. COMPACT PRIORITY SKILL GAPS (TOP 4 + VIEW ALL GAPS DRAWER)
+        ========================================================================= */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div className="skillgap-section-head">
+            <div>
+              <h2 className="skillgap-section-title">
+                <Sparkles className="w-5 h-5" style={{ color: '#f59e0b' }} />
+                Priority Skill Gaps
+              </h2>
+              <p className="skillgap-section-sub">
+                Top actionable proficiencies prioritized by employer demand and satisfied prerequisites
               </p>
-              <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
-                {analysisData.missingSkills.map((sk) => (
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              {/* Priority Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '2px' }}>
+                {['all', 'high', 'medium'].map(f => (
                   <button
-                    key={sk.name}
+                    key={f}
                     type="button"
-                    onClick={() => handleOpenSkillDetail(sk)}
+                    onClick={() => setGapFilter(f)}
                     style={{
-                      background: 'none',
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '6px',
+                      fontSize: '0.725rem',
+                      fontWeight: 600,
+                      textTransform: 'capitalize',
                       border: 'none',
-                      padding: 0,
                       cursor: 'pointer',
+                      background: gapFilter === f ? 'var(--primary, #255eff)' : 'transparent',
+                      color: gapFilter === f ? '#ffffff' : 'var(--text-secondary)',
+                      transition: 'all 0.15s ease'
                     }}
-                    title={`Click for ${sk.name} learning roadmap`}
                   >
-                    <Badge variant={sk.priority === 'Critical' ? 'danger' : 'warning'} size="md">
-                      + {sk.name} <span style={{ opacity: 0.75, fontSize: '0.7rem' }}>({sk.priority})</span>
-                    </Badge>
+                    {f}
                   </button>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
-      {/* =====================================================================
-          4. PRIORITY SKILLS SPOTLIGHT (TOP 3-5)
-          ===================================================================== */}
-      {analysisData?.prioritySpotlight?.length > 0 && (
-        <div style={{ marginBottom: '2.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-            <Zap size={20} color="var(--primary)" />
-            <h3 className="text-h3" style={{ margin: 0, fontSize: '1.2rem' }}>
-              Top Priority Skills to Focus on First
-            </h3>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
-            {analysisData.prioritySpotlight.map((skill, idx) => {
-              const currentProgress = learningProgress[skill.name]?.progress || 0;
-              const isLearning = learningProgress[skill.name]?.status === 'learning';
-              const isDone = learningProgress[skill.name]?.status === 'completed';
-
-              return (
-                <Card
-                  key={skill.name}
-                  variant="raised"
-                  className="hover-lift"
-                  style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-                  onClick={() => handleOpenSkillDetail(skill)}
+              {/* View All Gaps Toggle */}
+              {analysisData?.priorityGaps && analysisData.priorityGaps.length > 4 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAllGapsModalOpen(true)}
+                  iconRight={<ChevronRight className="w-3.5 h-3.5" />}
+                  style={{ fontSize: '0.75rem', height: '32px' }}
                 >
-                  <CardContent style={{ padding: '1.25rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.65rem' }}>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                        #{idx + 1} RECOMMENDED
-                      </span>
-                      <PriorityBadge priority={skill.priority} size="sm" />
-                    </div>
-
-                    <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.4rem' }}>
-                      {skill.name}
-                    </h4>
-
-                    <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.45, margin: '0 0 0.85rem' }}>
-                      {skill.whyLearn}
-                    </p>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <Clock size={13} /> {skill.estimatedEffort || '1–2 weeks'}
-                      </span>
-                      <span>Level: {skill.recommendedLevel || 'Intermediate'}</span>
-                    </div>
-
-                    <ProgressBar value={currentProgress} size="sm" showPercentage={false} />
-                  </CardContent>
-
-                  <div
-                    style={{
-                      padding: '0.75rem 1.25rem',
-                      borderTop: '1px solid var(--border)',
-                      backgroundColor: 'var(--bg-secondary)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: isDone ? 'var(--success)' : isLearning ? 'var(--primary)' : 'var(--text-muted)' }}>
-                      {isDone ? '✓ Completed' : isLearning ? `In Progress (${currentProgress}%)` : 'Not Started'}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                      Roadmap <ChevronRight size={13} />
-                    </span>
-                  </div>
-                </Card>
-              );
-            })}
+                  View All ({analysisData.priorityGaps.length})
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* =====================================================================
-          5. PERSONALIZED LEARNING ROADMAP (INTERACTIVE TIMELINE & MILESTONES)
-          ===================================================================== */}
-      {analysisData?.roadmap && (
-        <div style={{ marginBottom: '3rem' }}>
-          <InteractiveLearningTimeline
-            roadmap={timelineItems}
-            learningProgress={learningProgress}
-            onToggleTopic={handleToggleTimelineTopic}
-            onOpenSkillDrawer={(skName) => {
-              const matched = analysisData.missingSkills.find((s) => s.name === skName) || { name: skName };
-              handleOpenSkillDetail(matched);
-            }}
-          />
+          {/* Top 4 Compact Cards */}
+          {filteredGaps.length > 0 ? (
+            <div className="skillgap-compact-gaps-grid">
+              {filteredGaps.slice(0, 4).map((gap, idx) => {
+                const isTracked = !!learningProgress[gap.name];
 
-          {/* Step 4: CAPSTONE PRACTICAL PROJECT */}
-          {analysisData.roadmap.capstoneProject && (
-            <Card variant="raised" style={{ borderLeft: '4px solid var(--success)', marginTop: '1.5rem' }}>
-              <CardContent style={{ padding: '1.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <Badge variant="success" size="sm">STAGE 4: CAPSTONE PRACTICE PROJECT</Badge>
-                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)' }}>
-                    Tie all newly learned skills into a portfolio deliverable
-                  </span>
-                </div>
-                <div style={{ marginTop: '0.75rem' }}>
-                  <h4 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.35rem' }}>
-                    {analysisData.roadmap.capstoneProject.title}
-                  </h4>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 0.75rem', lineHeight: 1.5 }}>
-                    {analysisData.roadmap.capstoneProject.description}
-                  </p>
-                  <div style={{ fontSize: '0.78125rem', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '0.35rem' }}>
-                    Key Technical Deliverables:
+                return (
+                  <div key={gap.name || idx} className="skillgap-compact-card">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div className="skillgap-card-top-row">
+                        <div>
+                          <h3 className="skillgap-card-title">{gap.name}</h3>
+                          <span className="skillgap-card-cat-badge">{gap.category}</span>
+                        </div>
+                        <PriorityBadge priority={gap.priority} />
+                      </div>
+
+                      <p className="skillgap-one-liner" title={gap.whyMatters || gap.whyLearn}>
+                        {gap.whyMatters || gap.whyLearn || `Critical proficiency required for ${targetRole} positions.`}
+                      </p>
+
+                      <div className="skillgap-meta-pills">
+                        <span className="skillgap-pill-tag amber">
+                          <Clock className="w-3 h-3" />
+                          <span>{gap.estimatedEffort || '1–2 weeks'}</span>
+                        </span>
+                        <span className="skillgap-pill-tag blue">
+                          <span>{gap.requirementType || 'Required'}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="skillgap-card-action-bar">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenResources(gap.name)}
+                        iconLeft={<BookOpen className="w-3.5 h-3.5 text-primary-500" />}
+                        style={{ fontSize: '0.725rem', height: '30px', padding: '0 0.5rem' }}
+                      >
+                        Curriculum
+                      </Button>
+
+                      <Button
+                        variant={isTracked ? 'outline' : 'primary'}
+                        size="sm"
+                        onClick={() => handleAddToRoadmap(gap.name)}
+                        iconLeft={isTracked ? <Check className="w-3.5 h-3.5" style={{ color: '#10b981' }} /> : <Plus className="w-3.5 h-3.5" />}
+                        style={{ fontSize: '0.725rem', height: '30px' }}
+                      >
+                        {isTracked ? 'On Roadmap' : 'Add to Roadmap'}
+                      </Button>
+                    </div>
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.78125rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                    {analysisData.roadmap.capstoneProject.requirements?.map((req, rIdx) => (
-                      <li key={rIdx}>{req}</li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="p-8 text-center border-border">
+              <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2 opacity-80" />
+              <h4 className="text-sm font-semibold text-text-primary">No Gaps Found in This Tier</h4>
+              <p className="text-xs text-secondary mt-1">
+                You have demonstrated verified proficiency across all evaluated skills in this priority tier.
+              </p>
             </Card>
           )}
         </div>
-      )}
 
+        {/* =========================================================================
+            5. PERSONALIZED LEARNING ROADMAP
+        ========================================================================= */}
+        <PersonalizedRoadmapSection
+          structuredRoadmap={analysisData?.structuredRoadmap}
+          targetRole={targetRole}
+          learningProgress={learningProgress}
+          onUpdateProgress={handleUpdateProgress}
+          onOpenResources={handleOpenResources}
+        />
 
-      {/* =====================================================================
-          6. RECOMMENDED VERIFIED RESOURCES
-          ===================================================================== */}
-      <div style={{ marginBottom: '3rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-          <BookOpen size={20} color="var(--primary)" />
-          <div>
-            <h3 className="text-h3" style={{ margin: 0, fontSize: '1.25rem' }}>
-              Verified Learning Resources
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0' }}>
-              Curated official documentation and reputable open-source handbooks. Zero fabricated links or instructors.
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
-          {VERIFIED_RESOURCES.slice(0, 6).map((res) => (
-            <Card key={res.id} variant="raised" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <CardContent style={{ padding: '1.35rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <Badge variant="primary" size="sm">{res.skill}</Badge>
-                  <span style={{ fontSize: '0.71875rem', fontWeight: 700, color: 'var(--success)' }}>
-                    {res.isFree ? 'Free' : 'Paid'}
-                  </span>
-                </div>
-
-                <h4 style={{ fontSize: '0.975rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.35rem', lineHeight: 1.35 }}>
-                  {res.title}
-                </h4>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, marginBottom: '0.65rem' }}>
-                  By {res.provider} • {res.type}
-                </div>
-
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.45, margin: '0 0 0.85rem' }}>
-                  {res.description}
-                </p>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  <span>⏱ ~{res.estimatedHours} hours</span>
-                  <span>Level: {res.difficulty}</span>
-                </div>
-              </CardContent>
-
-              <div style={{ padding: '0.85rem 1.35rem', borderTop: '1px solid var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
-                <a
-                  href={res.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ textDecoration: 'none', width: '100%', display: 'block' }}
-                >
-                  <Button variant="secondary" size="sm" style={{ width: '100%' }} icon={<ExternalLink size={14} />}>
-                    Open Resource ↗
-                  </Button>
-                </a>
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* =====================================================================
-          7. PRACTICAL PROJECTS BLUEPRINTS
-          ===================================================================== */}
-      <div style={{ marginBottom: '3rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-          <FolderGit2 size={20} color="var(--primary)" />
-          <div>
-            <h3 className="text-h3" style={{ margin: 0, fontSize: '1.25rem' }}>
-              Practical Practice Projects
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0' }}>
-              Hands-on projects designed to demonstrate capability on your resume and in technical interview deep-dives.
-            </p>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
-          {Object.entries(PRACTICAL_PROJECTS).slice(0, 3).map(([skillKey, proj]) => (
-            <Card key={skillKey} variant="raised" style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                <Badge variant="purple" size="sm">{skillKey}</Badge>
-                <Badge variant="neutral" size="sm">{proj.estimatedDays}</Badge>
-              </div>
-
-              <h4 style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.4rem' }}>
-                {proj.title}
-              </h4>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.45, margin: '0 0 0.85rem' }}>
-                {proj.description}
+        {/* =========================================================================
+            6. VERIFIED SKILLS INVENTORY (SEARCHABLE & FILTERABLE)
+        ========================================================================= */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div className="skillgap-section-head">
+            <div>
+              <h2 className="skillgap-section-title">
+                <Layers className="w-5 h-5" style={{ color: 'var(--primary, #255eff)' }} />
+                Verified Skills Inventory
+              </h2>
+              <p className="skillgap-section-sub">
+                Full catalog of verified competencies, evidence sources, and career relevance
               </p>
+            </div>
 
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
-                Requirements:
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginBottom: '1rem' }}>
-                {proj.requirements.map((req, rIdx) => (
-                  <div key={rIdx} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    <span style={{ color: 'var(--primary)', fontWeight: 800 }}>•</span>
-                    <span>{req}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
-                <strong>Deliverable:</strong> {proj.deliverable}
-              </div>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* =====================================================================
-          8. LEARNING PROGRESS TRACKER
-          ===================================================================== */}
-      <div style={{ marginBottom: '3rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-          <ListTodo size={20} color="var(--primary)" />
-          <div>
-            <h3 className="text-h3" style={{ margin: 0, fontSize: '1.25rem' }}>
-              Your Active Learning Progress
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0' }}>
-              Track completed topics and milestones across your target skill roadmap.
-            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAddSkillModalOpen(true)}
+              iconLeft={<Plus className="w-3.5 h-3.5" style={{ color: 'var(--primary, #255eff)' }} />}
+              style={{ fontSize: '0.75rem', height: '32px' }}
+            >
+              Add Missing Skill
+            </Button>
           </div>
-        </div>
 
-        <Card variant="raised" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {Object.entries(learningProgress).map(([skName, prog]) => (
-              <div
-                key={skName}
-                style={{
-                  padding: '1.15rem',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--surface-raised)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                  <div>
-                    <strong style={{ fontSize: '1rem', color: 'var(--text-primary)' }}>{skName}</strong>
-                    <span style={{ marginLeft: '0.65rem', fontSize: '0.75rem', fontWeight: 700, color: prog.status === 'completed' ? 'var(--success)' : 'var(--primary)' }}>
-                      {prog.status === 'completed' ? '✓ Completed' : 'In Progress'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <Button
-                      variant={prog.status === 'learning' ? 'primary' : 'ghost'}
-                      size="sm"
-                      onClick={() => handleSetSkillStatus(skName, 'learning')}
-                    >
-                      Learning
-                    </Button>
-                    <Button
-                      variant={prog.status === 'completed' ? 'success' : 'secondary'}
-                      size="sm"
-                      onClick={() => handleSetSkillStatus(skName, 'completed')}
-                    >
-                      {prog.status === 'completed' ? '✓ Completed' : 'Mark Complete'}
-                    </Button>
-                  </div>
-                </div>
-
-                <ProgressBar
-                  value={prog.progress}
-                  variant={prog.status === 'completed' ? 'success' : 'primary'}
-                  size="md"
-                  label={`${prog.completedTopics?.length || 0} Topics Completed`}
+          {/* Filter Bar */}
+          <Card className="p-3 bg-card border-border shadow-sm">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+              <div style={{ position: 'relative' }}>
+                <Search className="w-4 h-4" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                <input
+                  type="text"
+                  placeholder="Search skills or context..."
+                  value={inventorySearch}
+                  onChange={(e) => setInventorySearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '0.75rem',
+                    padding: '0.5rem 0.75rem 0.5rem 2.25rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    outline: 'none'
+                  }}
                 />
               </div>
-            ))}
-          </div>
-        </Card>
-      </div>
 
-      {/* =====================================================================
-          9. FUTURE SKILLS SECTION
-          ===================================================================== */}
-      {analysisData?.futureSkills?.length > 0 && (
-        <div style={{ marginBottom: '2.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-            <Sparkles size={20} color="var(--accent)" />
-            <div>
-              <h3 className="text-h3" style={{ margin: 0, fontSize: '1.25rem' }}>
-                Recommended Future Skills
-              </h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0' }}>
-                Forward-looking capabilities that distinguish high-performing engineers. These are recommended future milestones, not immediate prerequisites.
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
-            {analysisData.futureSkills.map((fs) => (
-              <Card key={fs.name} variant="raised" style={{ padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <Badge variant="accent" size="sm">
-                    Recommended Future Skill
-                  </Badge>
-                  <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>{fs.category}</span>
-                </div>
-                <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 0.35rem' }}>
-                  {fs.name}
-                </h4>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
-                  {fs.reason}
-                </p>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
-          10. INTERACTIVE SKILL DETAIL DRAWER
-          ===================================================================== */}
-      {selectedSkill && (
-        <Drawer
-          isOpen={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          title={selectedSkill.name}
-          subtitle={`Personalized Learning & Implementation Roadmap`}
-          width="560px"
-          footer={
-            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-              <Button
-                variant={learningProgress[selectedSkill.name]?.status === 'completed' ? 'success' : 'primary'}
-                size="md"
-                onClick={() => {
-                  const currentStatus = learningProgress[selectedSkill.name]?.status;
-                  handleSetSkillStatus(selectedSkill.name, currentStatus === 'completed' ? 'learning' : 'completed');
-                }}
+              {/* Category Filter */}
+              <select
+                value={inventoryCategoryFilter}
+                onChange={(e) => setInventoryCategoryFilter(e.target.value)}
+                className="skillgap-role-select"
+                style={{ width: '100%' }}
               >
-                {learningProgress[selectedSkill.name]?.status === 'completed' ? '✓ Completed' : 'Start Learning'}
-              </Button>
-              <Button variant="ghost" size="md" onClick={() => setDrawerOpen(false)}>
-                Close
-              </Button>
+                <option value="all">All Categories</option>
+                <option value="Programming Languages">Programming Languages</option>
+                <option value="Databases">Databases</option>
+                <option value="Frameworks & Development">Frameworks & Development</option>
+                <option value="Computer Science Fundamentals">CS Fundamentals</option>
+                <option value="Cloud & DevOps">Cloud & DevOps</option>
+                <option value="Data Science & AI">Data Science & AI</option>
+                <option value="Testing & Software Engineering">Testing & Engineering</option>
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={inventoryStatusFilter}
+                onChange={(e) => setInventoryStatusFilter(e.target.value)}
+                className="skillgap-role-select"
+                style={{ width: '100%' }}
+              >
+                <option value="all">All Evidence Types</option>
+                <option value="demonstrated">Demonstrated (Project / Work)</option>
+                <option value="listed">Listed on Resume</option>
+                <option value="unverified">Needs Verification</option>
+              </select>
             </div>
-          }
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '1rem' }}>
-            {/* Priority & Metadata Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <PriorityBadge priority={selectedSkill.priority} size="md" />
-              <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <span>⏱ Effort: {selectedSkill.estimatedEffort || '1–2 weeks'}</span>
-                <span>Target: {selectedSkill.recommendedLevel || 'Intermediate'}</span>
-              </div>
-            </div>
+          </Card>
 
-            {/* Why learn this? */}
-            <div style={{ padding: '1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--surface-raised)', border: '1px solid var(--border)' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
-                Why learn this?
-              </div>
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-primary)', margin: '0 0 0.65rem', lineHeight: 1.5 }}>
-                {selectedSkill.whyLearn}
-              </p>
+          {/* Inventory Grid */}
+          {filteredInventory.length > 0 ? (
+            <div className="skillgap-inventory-grid">
+              {filteredInventory.map((item, idx) => {
+                const isDemonstrated = item.evidenceType === 'demonstrated';
+                const isListed = item.evidenceType === 'listed';
 
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>
-                Why it matters for your goal:
-              </div>
-              <p style={{ fontSize: '0.84375rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.45 }}>
-                {selectedSkill.whyMatters}
-              </p>
-            </div>
-
-            {/* 5-Level Learning Sequence */}
-            <div>
-              <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-                Structured Learning Progression
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {selectedSkill.topics?.map((lvl) => (
-                  <div
-                    key={lvl.level}
-                    style={{
-                      padding: '0.85rem',
-                      borderRadius: 'var(--radius-md)',
-                      backgroundColor: 'var(--bg-secondary)',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
-                      Level {lvl.level} — {lvl.title}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                      {lvl.topics.map((tpc) => {
-                        const isChecked = learningProgress[selectedSkill.name]?.completedTopics?.includes(tpc);
-
-                        return (
-                          <label
-                            key={tpc}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.5rem',
-                              fontSize: '0.8125rem',
-                              color: isChecked ? 'var(--text-muted)' : 'var(--text-primary)',
-                              textDecoration: isChecked ? 'line-through' : 'none',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={!!isChecked}
-                              onChange={() => handleToggleTopic(selectedSkill.name, tpc)}
-                              style={{ cursor: 'pointer', accentColor: 'var(--primary)' }}
-                            />
-                            <span>{tpc}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recommended Resources */}
-            {selectedSkill.resources?.length > 0 && (
-              <div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.75rem' }}>
-                  Recommended Verified Resources
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {selectedSkill.resources.map((res) => (
-                    <div
-                      key={res.title}
-                      style={{
-                        padding: '0.85rem 1rem',
-                        borderRadius: 'var(--radius-md)',
-                        backgroundColor: 'var(--surface-raised)',
-                        border: '1px solid var(--border)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: '0.75rem',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                          {res.title}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {res.provider} • {res.type} • {res.isFree ? 'Free' : 'Paid'}
-                        </div>
+                return (
+                  <div key={idx} className="skillgap-inventory-card">
+                    <div className="skillgap-inventory-header">
+                      <div className="skillgap-inventory-title-group">
+                        <span className="skillgap-inventory-title">{item.name}</span>
+                        <span className="skillgap-inventory-cat">{item.category}</span>
                       </div>
-                      <a href={res.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                        <Button variant="secondary" size="sm" icon={<ExternalLink size={13} />}>
-                          Open
-                        </Button>
-                      </a>
+                      <Badge
+                        variant={item.relevance === 'required' ? 'primary' : 'outline'}
+                        className="text-[10px] capitalize"
+                      >
+                        {item.relevance}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Practice Project */}
-            {selectedSkill.project && (
-              <div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                  Practice Project
-                </div>
-                <div style={{ padding: '1rem', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                    {selectedSkill.project.title}
+                    <p className="skillgap-inventory-desc">{item.context}</p>
+
+                    <div className="skillgap-inventory-footer">
+                      <span className={`skillgap-evidence-status ${isDemonstrated ? 'demonstrated' : isListed ? 'listed' : 'unverified'}`}>
+                        {isDemonstrated ? (
+                          <>
+                            <CheckCircle2 style={{ width: '13px', height: '13px', color: '#10b981' }} />
+                            <span>Demonstrated</span>
+                          </>
+                        ) : isListed ? (
+                          <>
+                            <FileText style={{ width: '13px', height: '13px', color: '#0ea5e9' }} />
+                            <span>On Resume</span>
+                          </>
+                        ) : (
+                          <>
+                            <HelpCircle style={{ width: '13px', height: '13px', color: '#f59e0b' }} />
+                            <span>Unverified</span>
+                          </>
+                        )}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenResources(item.name)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--primary, #255eff)',
+                          fontSize: '0.725rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '2px',
+                          padding: 0
+                        }}
+                      >
+                        <span>Resources</span>
+                        <ChevronRight style={{ width: '12px', height: '12px' }} />
+                      </button>
+                    </div>
                   </div>
-                  <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', margin: '0 0 0.5rem', lineHeight: 1.4 }}>
-                    {selectedSkill.project.description}
-                  </p>
-                  <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                    {selectedSkill.project.requirements?.slice(0, 3).map((r, i) => (
-                      <li key={i}>{r}</li>
-                    ))}
-                  </ul>
-                </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center bg-card border border-border rounded-xl">
+              <Search className="w-8 h-8 text-secondary opacity-40 mx-auto mb-2" />
+              <p className="text-xs font-medium text-text-primary">No skills matched your search or filters.</p>
+              <p className="text-[11px] text-secondary mt-1">Try resetting search filters or add a new skill.</p>
+            </div>
+          )}
+        </div>
+
+        {/* =========================================================================
+            7. EMERGING SKILLS & CAREER OPPORTUNITIES
+        ========================================================================= */}
+        {analysisData?.emergingRecommendations && analysisData.emergingRecommendations.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <div className="skillgap-section-head">
+              <div>
+                <h2 className="skillgap-section-title">
+                  <Flame className="w-5 h-5" style={{ color: '#6366f1' }} />
+                  Emerging Skills & Future Technologies
+                </h2>
+                <p className="skillgap-section-sub">
+                  Modern engineering frameworks and architectural competencies to future-proof your career trajectory
+                </p>
               </div>
-            )}
-          </div>
-        </Drawer>
-      )}
+              <Badge variant="outline" className="text-xs">
+                Forward-Looking
+              </Badge>
+            </div>
 
-      {/* =====================================================================
-          11. ADD SKILL TO PROFILE MODAL
-          ===================================================================== */}
-      <Modal
-        isOpen={showAddSkillModal}
-        onClose={() => setShowAddSkillModal(false)}
-        title="Add Skill to Your Profile"
-      >
-        <form onSubmit={handleAddSkillToProfile}>
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
-              Skill Name
-            </label>
-            <Input
-              placeholder="e.g. Docker, TypeScript, Redis..."
-              value={newSkillName}
-              onChange={(e) => setNewSkillName(e.target.value)}
-              autoFocus
-            />
-          </div>
+            <div className="skillgap-emerging-grid">
+              {analysisData.emergingRecommendations.map((future, idx) => (
+                <div key={idx} className="skillgap-emerging-card">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div className="skillgap-emerging-header">
+                      <span className="skillgap-emerging-title">{future.name}</span>
+                      <span className="skillgap-emerging-cat">{future.category || 'Emerging'}</span>
+                    </div>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
-              Category
-            </label>
-            <select
-              value={newSkillCategory}
-              onChange={(e) => setNewSkillCategory(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.65rem 0.85rem',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-primary)',
-              }}
-            >
-              <option value="programmingLanguages">Programming Languages</option>
-              <option value="technical">Technical Core</option>
-              <option value="frameworks">Frameworks &amp; Libraries</option>
-              <option value="databases">Databases &amp; Caching</option>
-              <option value="cloud">Cloud &amp; DevOps</option>
-              <option value="tools">Tools &amp; Infrastructure</option>
-            </select>
-          </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.45, margin: 0 }}>
+                      {future.reason}
+                    </p>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-            <Button variant="secondary" onClick={() => setShowAddSkillModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit">
-              Save to Profile
-            </Button>
+                    {future.suggestedProject && (
+                      <div className="skillgap-emerging-project-box">
+                        <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>
+                          Recommended Project:
+                        </strong>
+                        {future.suggestedProject}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="skillgap-emerging-footer">
+                    <span style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <Clock className="w-3.5 h-3.5" />
+                      ~{future.estimatedEffort || '1–2 weeks'}
+                    </span>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddToRoadmap(future.name)}
+                      style={{ fontSize: '0.725rem', height: '28px', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add to Plan</span>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </form>
-      </Modal>
+        )}
+
+        {/* =========================================================================
+            MODALS & DRAWERS
+        ========================================================================= */}
+        {/* Resume Upload Modal */}
+        <ResumeUploadModal
+          isOpen={resumeModalOpen}
+          onClose={() => setResumeModalOpen(false)}
+          onExtractionConfirmed={handleExtractionConfirmed}
+        />
+
+        {/* Curated Learning Resources Drawer */}
+        <LearningResourcesDrawer
+          isOpen={resourcesDrawerOpen}
+          onClose={() => setResourcesDrawerOpen(false)}
+          skillName={resourceSkill}
+          resources={activeResourcesList}
+          onAddToRoadmap={handleAddToRoadmap}
+        />
+
+        {/* Add Skill to Profile Modal */}
+        <Modal
+          isOpen={addSkillModalOpen}
+          onClose={() => setAddSkillModalOpen(false)}
+          title="Add Verified Skill to Student Profile"
+          size="sm"
+        >
+          <form onSubmit={handleAddCustomSkillToProfile} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: '0.35rem' }}>
+                Skill or Technology Name:
+              </label>
+              <Input
+                placeholder="e.g. Docker, TypeScript, Redis, GraphQL"
+                value={newSkillName}
+                onChange={(e) => setNewSkillName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', display: 'block', marginBottom: '0.35rem' }}>
+                Category:
+              </label>
+              <select
+                value={newSkillCategory}
+                onChange={(e) => setNewSkillCategory(e.target.value)}
+                className="skillgap-role-select"
+                style={{ width: '100%' }}
+              >
+                <option value="programming_languages">Programming Languages</option>
+                <option value="frameworks">Frameworks & Libraries</option>
+                <option value="databases">Databases & Storage</option>
+                <option value="cloud">Cloud & Infrastructure</option>
+                <option value="devops">DevOps & Tooling</option>
+                <option value="ai_ml">Data Science & AI</option>
+                <option value="tools">Testing & Engineering Tools</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
+              <Button variant="ghost" onClick={() => setAddSkillModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" disabled={addingSkill || !newSkillName.trim()}>
+                {addingSkill ? 'Adding...' : 'Save to Profile'}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+
+        {/* View All Gaps Modal */}
+        {allGapsModalOpen && (
+          <div className="skillgap-gaps-modal-overlay" onClick={() => setAllGapsModalOpen(false)}>
+            <div className="skillgap-gaps-modal-box" onClick={(e) => e.stopPropagation()}>
+              <div className="skillgap-gaps-modal-header">
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
+                    All Priority Skill Gaps ({analysisData?.priorityGaps?.length || 0})
+                  </h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                    Complete list of unmet required and preferred proficiencies for {targetRole}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAllGapsModalOpen(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    padding: '0.35rem',
+                    borderRadius: '8px'
+                  }}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="skillgap-gaps-modal-body">
+                {/* Search & Filter Toolbar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
+                    <Search className="w-4 h-4" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+                    <input
+                      type="text"
+                      placeholder="Search gap by skill name or category..."
+                      value={modalGapSearch}
+                      onChange={(e) => setModalGapSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        fontSize: '0.775rem',
+                        padding: '0.5rem 0.75rem 0.5rem 2.25rem',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {['all', 'critical', 'high', 'medium', 'low'].map(f => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setModalGapFilter(f)}
+                        style={{
+                          padding: '0.3rem 0.65rem',
+                          borderRadius: '8px',
+                          fontSize: '0.725rem',
+                          fontWeight: 600,
+                          textTransform: 'capitalize',
+                          border: '1px solid var(--border)',
+                          cursor: 'pointer',
+                          background: modalGapFilter === f ? 'var(--primary, #255eff)' : 'var(--surface)',
+                          color: modalGapFilter === f ? '#ffffff' : 'var(--text-secondary)',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Gaps Grid inside modal */}
+                {modalFilteredGaps.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.85rem' }}>
+                    {modalFilteredGaps.map((gap, idx) => {
+                      const isTracked = !!learningProgress[gap.name];
+                      return (
+                        <div key={idx} className="skillgap-compact-card">
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div className="skillgap-card-top-row">
+                              <div>
+                                <h4 className="skillgap-card-title">{gap.name}</h4>
+                                <span className="skillgap-card-cat-badge">{gap.category}</span>
+                              </div>
+                              <PriorityBadge priority={gap.priority} />
+                            </div>
+
+                            <p className="skillgap-one-liner" title={gap.whyMatters || gap.whyLearn}>
+                              {gap.whyMatters || gap.whyLearn || `Identified requirement for ${targetRole}.`}
+                            </p>
+
+                            <div className="skillgap-meta-pills">
+                              <span className="skillgap-pill-tag amber">
+                                <Clock className="w-3 h-3" />
+                                <span>{gap.estimatedEffort || '1–2 weeks'}</span>
+                              </span>
+                              <span className="skillgap-pill-tag blue">
+                                <span>{gap.requirementType || 'Required'}</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="skillgap-card-action-bar">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setAllGapsModalOpen(false);
+                                handleOpenResources(gap.name);
+                              }}
+                              style={{ fontSize: '0.725rem', height: '30px', display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0 0.5rem' }}
+                            >
+                              <BookOpen className="w-3.5 h-3.5 text-primary-500" />
+                              <span>Resources</span>
+                            </Button>
+
+                            <Button
+                              variant={isTracked ? 'outline' : 'primary'}
+                              size="sm"
+                              onClick={() => handleAddToRoadmap(gap.name)}
+                              style={{ fontSize: '0.725rem', height: '30px', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                            >
+                              {isTracked ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5" style={{ color: '#10b981' }} />
+                                  <span>On Roadmap</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>Add to Roadmap</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <Search className="w-8 h-8 opacity-40 mx-auto mb-2" />
+                    <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>No gaps matching this filter</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </PageContainer>
   );
 }

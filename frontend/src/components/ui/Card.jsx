@@ -8,6 +8,9 @@ import React from 'react';
  * @param {boolean} disabled
  */
 export function Card({
+  title,
+  subtitle,
+  actions,
   children,
   variant = 'default',
   selected = false,
@@ -17,8 +20,13 @@ export function Card({
   onClick,
   ...props
 }) {
+  const isMavens = variant === 'mavens';
+  const hasHeaderProps = Boolean(title || subtitle || actions);
+
   const getVariantClass = () => {
     switch (variant) {
+      case 'mavens':
+        return 'mavens-card';
       case 'raised':
         return 'raised';
       case 'interactive':
@@ -52,18 +60,53 @@ export function Card({
       }
     : {};
 
+  const isClickable = Boolean(onClick && !disabled);
+
   return (
     <div
-      className={`card-skeuo ${getVariantClass()} ${className}`}
+      className={`${isMavens ? 'mavens-card' : 'card-skeuo'} ${getVariantClass()} ${className}`}
       style={{
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        cursor: isClickable ? 'pointer' : undefined,
         ...selectedStyles,
         ...disabledStyles,
         ...style,
       }}
       onClick={!disabled ? onClick : undefined}
+      tabIndex={isClickable ? (props.tabIndex ?? 0) : props.tabIndex}
+      role={isClickable ? (props.role || 'button') : props.role}
+      aria-disabled={disabled ? 'true' : undefined}
+      onKeyDown={(e) => {
+        if (isClickable && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick?.(e);
+        }
+        props.onKeyDown?.(e);
+      }}
       {...props}
     >
-      {children}
+      {isMavens && (
+        <>
+          <div className="mavens-specular-line" />
+          <div className="mavens-corner-bracket" />
+          <div className="mavens-card-glow" />
+        </>
+      )}
+      {hasHeaderProps && (
+        <CardHeader>
+          <div>
+            {title && <CardTitle>{title}</CardTitle>}
+            {subtitle && <CardDescription>{subtitle}</CardDescription>}
+          </div>
+          {actions && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              {actions}
+            </div>
+          )}
+        </CardHeader>
+      )}
+      {hasHeaderProps ? <CardContent>{children}</CardContent> : children}
     </div>
   );
 }

@@ -37,6 +37,20 @@ class ProfileModel:
         return cls.to_dict(doc)
 
     @classmethod
+    def confirm_resume_extraction(
+        cls,
+        user_id: str,
+        confirmed_data: dict,
+        selected_fields: Optional[list] = None,
+        field_choices: Optional[dict] = None
+    ) -> dict:
+        """
+        Applies student-reviewed and approved resume extraction fields to their profile.
+        """
+        doc = ProfileService.merge_confirmed_resume_data(user_id, confirmed_data, selected_fields, field_choices)
+        return cls.to_dict(doc)
+
+    @classmethod
     def update_profile(cls, user_id: str, updates: dict) -> dict:
         """Updates student profile fields, marking changed fields with source 'manual'."""
         doc = ProfileService.update_profile_for_user(user_id, updates)

@@ -12,7 +12,8 @@ import {
   Sparkles,
   Database,
   Trash2,
-  Download
+  Download,
+  AlertCircle
 } from 'lucide-react';
 import PageContainer from '../components/layout/PageContainer';
 import Card from '../components/ui/Card';
@@ -20,23 +21,35 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
 import { useAuth } from '../hooks/useAuth';
-import { getProfile, updateProfile } from '../services/api';
+import {
+  getProfile,
+  updateProfile,
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  triggerDigestSend
+} from '../services/api';
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('account');
   const [loading, setLoading] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [testingDigest, setTestingDigest] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   
-  // Notification states
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [internshipNotifs, setInternshipNotifs] = useState(true);
-  const [hackathonNotifs, setHackathonNotifs] = useState(true);
+  // Notification states (Backed by Mongo Student Profile & NotificationPreferenceModel)
+  const [inAppEnabled, setInAppEnabled] = useState(true);
+  const [emailDigestEnabled, setEmailDigestEnabled] = useState(true);
+  const [digestFrequency, setDigestFrequency] = useState('daily');
+  const [preferredTime, setPreferredTime] = useState('09:00');
+  const [userTimezone, setUserTimezone] = useState('Asia/Kolkata');
+  const [categories, setCategories] = useState(['job', 'internship', 'hackathon', 'scholarship']);
+  const [minMatchScore, setMinMatchScore] = useState(70);
   const [deadlineReminders, setDeadlineReminders] = useState(true);
 
   // AI & Matching settings
@@ -64,7 +77,28 @@ export default function SettingsPage() {
         setLoading(false);
       }
     };
+
+    const loadNotificationPrefs = async () => {
+      try {
+        const res = await getNotificationPreferences();
+        if (res?.data) {
+          const p = res.data;
+          if (p.in_app_enabled !== undefined) setInAppEnabled(p.in_app_enabled);
+          if (p.email_digest_enabled !== undefined) setEmailDigestEnabled(p.email_digest_enabled);
+          if (p.digest_frequency) setDigestFrequency(p.digest_frequency);
+          if (p.preferred_time) setPreferredTime(p.preferred_time);
+          if (p.timezone) setUserTimezone(p.timezone);
+          if (Array.isArray(p.categories) && p.categories.length > 0) setCategories(p.categories);
+          if (p.min_match_score !== undefined) setMinMatchScore(p.min_match_score);
+          if (p.deadline_reminders !== undefined) setDeadlineReminders(p.deadline_reminders);
+        }
+      } catch (e) {
+        console.warn('Could not load server notification preferences:', e);
+      }
+    };
+
     loadProfileData();
+    loadNotificationPrefs();
 
     // Load local settings if present
     const savedSettings = localStorage.getItem('careerpilot_settings');
@@ -88,17 +122,6 @@ export default function SettingsPage() {
     setSavedSuccess(false);
 
     try {
-      // Save local preferences
-      const settingsPayload = {
-        emailAlerts,
-        internshipNotifs,
-        hackathonNotifs,
-        deadlineReminders,
-        strictEligibility,
-        aiSuggestions,
-      };
-      localStorage.setItem('careerpilot_settings', JSON.stringify(settingsPayload));
-
       // Update personal info if modified
       await updateProfile({
         personal: {
@@ -112,9 +135,48 @@ export default function SettingsPage() {
       setTimeout(() => setSavedSuccess(false), 3500);
     } catch (err) {
       console.error('Failed to save settings:', err);
-      // Still show success for local state
+      setSavedSuccess(false);
+      setErrorMessage(err?.response?.data?.message || 'Failed to persist settings. Please check your network and try again.');
+      setTimeout(() => setErrorMessage(''), 4500);
+    }
+  };
+
+  const handleSaveNotificationPreferences = async (e) => {
+    e?.preventDefault();
+    setSavedSuccess(false);
+    try {
+      await updateNotificationPreferences({
+        in_app_enabled: inAppEnabled,
+        email_digest_enabled: emailDigestEnabled,
+        digest_frequency: digestFrequency,
+        preferred_time: preferredTime,
+        timezone: userTimezone,
+        categories: categories,
+        min_match_score: minMatchScore,
+        deadline_reminders: deadlineReminders
+      });
+
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3500);
+    } catch (err) {
+      console.error('Failed to save notification preferences:', err);
+      setSavedSuccess(false);
+      setErrorMessage(err?.response?.data?.message || 'Failed to update notification preferences.');
+      setTimeout(() => setErrorMessage(''), 4500);
+    }
+  };
+
+  const handleTriggerTestDigest = async () => {
+    setTestingDigest(true);
+    try {
+      const res = await triggerDigestSend(digestFrequency);
+      const data = res?.data || {};
+      const total = (data.sent || 0) + (data.simulated || 0);
+      alert(`Digest execution triggered!\nFrequency: ${digestFrequency}\nSent/Simulated Deliveries: ${total}\nSkipped: ${data.skipped || 0}\nStatus: Completed`);
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Failed to dispatch test digest.');
+    } finally {
+      setTestingDigest(false);
     }
   };
 
@@ -175,6 +237,28 @@ export default function SettingsPage() {
           >
             <CheckCircle2 size={20} />
             <span style={{ fontWeight: 600 }}>Preferences successfully saved and applied!</span>
+          </div>
+        )}
+
+        {/* Error Banner */}
+        {errorMessage && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '1rem 1.25rem',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--radius-md)',
+              color: '#dc2626',
+              marginBottom: '1.5rem',
+              boxShadow: 'var(--shadow-raised-sm)',
+              animation: 'slideUp 0.3s ease-out',
+            }}
+          >
+            <AlertCircle size={20} />
+            <span style={{ fontWeight: 600 }}>{errorMessage}</span>
           </div>
         )}
 
@@ -269,59 +353,197 @@ export default function SettingsPage() {
         {activeTab === 'notifications' && (
           <Card variant="raised" style={{ marginBottom: '2rem' }}>
             <Card.Header>
-              <h2 className="text-h3" style={{ fontSize: '1.2rem', marginBottom: '0.25rem' }}>Notification Channels</h2>
-              <p className="text-small">Control how and when CareerPilot AI alerts you of urgent deadlines.</p>
+              <h2 className="text-h3" style={{ fontSize: '1.2rem', marginBottom: '0.25rem' }}>Notification &amp; Digest Preferences</h2>
+              <p className="text-small">Configure real-time in-app alerts, personalized email digests, and delivery schedules.</p>
             </Card.Header>
             <Card.Content style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-              {/* Toggle 1 */}
+              
+              {/* In-App Alerts */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}>
                 <div>
-                  <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>Instant Matching Email Alerts</div>
-                  <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>Get notified the moment a high-matching role (&gt;85%) matches your verified skills.</div>
-                </div>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={emailAlerts}
-                    onChange={(e) => setEmailAlerts(e.target.checked)}
-                    style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--color-primary-600)' }}
-                  />
-                </label>
-              </div>
-
-              {/* Toggle 2 */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}>
-                <div>
-                  <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>Internship &amp; Full-Time Openings</div>
-                  <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>Daily digests of eligible tech roles curated from top job boards &amp; companies.</div>
+                  <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>In-App Matching Alerts</div>
+                  <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
+                    Display telemetry alerts in the in-app notification center when newly ingested opportunities match your profile.
+                  </div>
                 </div>
                 <input
                   type="checkbox"
-                  checked={internshipNotifs}
-                  onChange={(e) => setInternshipNotifs(e.target.checked)}
+                  checked={inAppEnabled}
+                  onChange={(e) => setInAppEnabled(e.target.checked)}
                   style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--color-primary-600)' }}
                 />
               </div>
 
-              {/* Toggle 3 */}
+              {/* Email Digest Toggle */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}>
                 <div>
-                  <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>Hackathons &amp; Contests Broadcast</div>
-                  <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>Alerts for upcoming college hackathons, coding challenges, and cash prize events.</div>
+                  <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>Personalized Email Digest</div>
+                  <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
+                    Receive a clean, markdown &amp; HTML formatted email summary of top verified opportunities directly to your inbox.
+                  </div>
                 </div>
                 <input
                   type="checkbox"
-                  checked={hackathonNotifs}
-                  onChange={(e) => setHackathonNotifs(e.target.checked)}
+                  checked={emailDigestEnabled}
+                  onChange={(e) => setEmailDigestEnabled(e.target.checked)}
                   style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--color-primary-600)' }}
                 />
               </div>
 
-              {/* Toggle 4 */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {/* Digest Frequency & Schedule */}
+              {emailDigestEnabled && (
+                <div style={{ padding: '1.25rem', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: '0.4rem' }}>
+                      Digest Cadence
+                    </label>
+                    <select
+                      value={digestFrequency}
+                      onChange={(e) => setDigestFrequency(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.55rem 0.75rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--color-surface-elevated, #fff)',
+                        fontSize: '0.875rem',
+                        color: 'var(--color-text)'
+                      }}
+                    >
+                      <option value="daily">Daily Morning Digest</option>
+                      <option value="weekly">Weekly Summary Digest</option>
+                      <option value="disabled">Disabled</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: '0.4rem' }}>
+                      Preferred Delivery Time
+                    </label>
+                    <select
+                      value={preferredTime}
+                      onChange={(e) => setPreferredTime(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.55rem 0.75rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--color-surface-elevated, #fff)',
+                        fontSize: '0.875rem',
+                        color: 'var(--color-text)'
+                      }}
+                    >
+                      <option value="08:00">08:00 AM (Early Bird)</option>
+                      <option value="09:00">09:00 AM (Recommended)</option>
+                      <option value="12:00">12:00 PM (Midday)</option>
+                      <option value="18:00">06:00 PM (Evening)</option>
+                      <option value="21:00">09:00 PM (Night Summary)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.825rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: '0.4rem' }}>
+                      Student Timezone
+                    </label>
+                    <select
+                      value={userTimezone}
+                      onChange={(e) => setUserTimezone(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '0.55rem 0.75rem',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border)',
+                        backgroundColor: 'var(--color-surface-elevated, #fff)',
+                        fontSize: '0.875rem',
+                        color: 'var(--color-text)'
+                      }}
+                    >
+                      <option value="Asia/Kolkata">Asia/Kolkata (IST - UTC+5:30)</option>
+                      <option value="UTC">UTC (Coordinated Universal Time)</option>
+                      <option value="America/New_York">America/New_York (EST/EDT)</option>
+                      <option value="America/Los_Angeles">America/Los_Angeles (PST/PDT)</option>
+                      <option value="Europe/London">Europe/London (GMT/BST)</option>
+                      <option value="Asia/Singapore">Asia/Singapore (SGT - UTC+8)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Categories */}
+              <div style={{ paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem', marginBottom: '0.35rem' }}>
+                  Opportunity Categories of Interest
+                </div>
+                <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
+                  Only receive notifications and digest items for these selected tracks:
+                </div>
+                <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+                  {[
+                    { id: 'job', label: 'Full-Time Jobs' },
+                    { id: 'internship', label: 'Internships' },
+                    { id: 'hackathon', label: 'Hackathons & Contests' },
+                    { id: 'scholarship', label: 'Scholarships' }
+                  ].map((cat) => {
+                    const isChecked = categories.includes(cat.id);
+                    return (
+                      <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.875rem', color: 'var(--color-text)', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCategories([...categories, cat.id]);
+                            } else {
+                              if (categories.length > 1) {
+                                setCategories(categories.filter((c) => c !== cat.id));
+                              }
+                            }
+                          }}
+                          style={{ cursor: 'pointer', accentColor: 'var(--color-primary-600)' }}
+                        />
+                        <span>{cat.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Minimum Match Score Threshold */}
+              <div style={{ paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>
+                    Minimum Relevance Match Threshold
+                  </div>
+                  <Badge variant="primary" size="sm">
+                    {minMatchScore}% Fit Minimum
+                  </Badge>
+                </div>
+                <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
+                  Opportunities scoring below this threshold will be excluded from alerts and digests to avoid notification fatigue.
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="95"
+                  step="5"
+                  value={minMatchScore}
+                  onChange={(e) => setMinMatchScore(Number(e.target.value))}
+                  style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--color-primary-600)' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                  <span>40% (Broader Reach)</span>
+                  <span>70% (Balanced - Default)</span>
+                  <span>95% (Laser Focused)</span>
+                </div>
+              </div>
+
+              {/* Deadline Reminders */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1.25rem', borderBottom: '1px solid var(--border-subtle)' }}>
                 <div>
                   <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>Application Deadline Reminders</div>
-                  <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>Send urgent reminders 48 hours and 24 hours prior to opportunity deadlines.</div>
+                  <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
+                    Automatically receive urgency alerts 48 hours prior to closing deadlines for all saved and tracked opportunities.
+                  </div>
                 </div>
                 <input
                   type="checkbox"
@@ -331,8 +553,18 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
-                <Button variant="primary" icon={<Save size={16} />} onClick={handleSaveSettings}>
+              {/* Actions */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', paddingTop: '0.5rem' }}>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleTriggerTestDigest}
+                  disabled={testingDigest}
+                  icon={<Mail size={15} />}
+                >
+                  {testingDigest ? 'Dispatching Test Digest...' : 'Dispatch Test Digest Now'}
+                </Button>
+                <Button variant="primary" icon={<Save size={16} />} onClick={handleSaveNotificationPreferences}>
                   Save Notification Preferences
                 </Button>
               </div>

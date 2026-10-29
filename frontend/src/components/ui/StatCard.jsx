@@ -34,7 +34,13 @@ export default function StatCard({
     .join(' ');
 
   return (
-    <div
+    <motion.div
+      whileHover={{
+        y: -4,
+        boxShadow: '0 16px 36px -8px rgba(15, 23, 42, 0.12), 0 0 0 1px var(--primary)',
+        transition: { duration: 0.22, ease: 'easeOut' },
+      }}
+      whileTap={{ scale: 0.985 }}
       style={{
         background: 'var(--surface-raised)',
         border: '1px solid var(--border-hairline, var(--border))',
@@ -46,6 +52,8 @@ export default function StatCard({
         justifyContent: 'space-between',
         position: 'relative',
         overflow: 'hidden',
+        cursor: 'default',
+        transition: 'border-color 0.25s ease, box-shadow 0.25s ease',
       }}
       className={`stat-card-widget ${className}`}
     >
@@ -76,7 +84,9 @@ export default function StatCard({
         </div>
 
         {icon && (
-          <div
+          <motion.div
+            whileHover={{ scale: 1.15, rotate: 6 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 17 }}
             style={{
               width: '40px',
               height: '40px',
@@ -87,10 +97,11 @@ export default function StatCard({
               alignItems: 'center',
               justifyContent: 'center',
               color: accentColor,
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
             }}
           >
             {icon}
-          </div>
+          </motion.div>
         )}
       </div>
 
@@ -126,20 +137,23 @@ export default function StatCard({
           </div>
         )}
 
-        {/* Dynamic Sparkline */}
+        {/* Dynamic Animated Sparkline */}
         {sparklineData && sparklineData.length > 1 && (
           <svg width={width} height={height} style={{ overflow: 'visible' }}>
-            <polyline
+            <motion.path
+              d={`M ${points}`}
               fill="none"
               stroke={accentColor}
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              points={points}
+              initial={{ pathLength: 0, opacity: 0 }}
+              animate={{ pathLength: 1, opacity: 1 }}
+              transition={{ duration: 1.1, ease: 'easeOut' }}
             />
           </svg>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

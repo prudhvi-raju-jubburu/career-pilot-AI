@@ -14,6 +14,8 @@ import {
   Layers,
   Award,
   Zap,
+  FileText,
+  ArrowRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageContainer from '../components/layout/PageContainer';
@@ -27,12 +29,13 @@ import ChatOpportunityCard from '../components/chat/ChatOpportunityCard';
 import ChatRoadmapMilestone from '../components/chat/ChatRoadmapMilestone';
 import LivingAIOrb from '../components/chat/LivingAIOrb';
 import { getOpportunities, sendAdvisorMessage, getAdvisorHistory } from '../services/api';
+import { getSafeFieldValue } from '../utils';
 
 const PROMPT_SUGGESTIONS = [
-  { label: 'High-Match Roles', prompt: 'Which high-match jobs and internships best fit my current profile?', icon: Briefcase },
-  { label: 'Priority Skills', prompt: 'What are the top skills I should learn next to become competitive?', icon: Zap },
-  { label: 'Resume ATS Audit', prompt: 'How can I optimize my resume bullet points for high-tier tech companies?', icon: GraduationCap },
-  { label: 'Interview Roadmap', prompt: 'Give me a structured 3-step technical interview preparation roadmap.', icon: Layers },
+  { label: 'Tailor Resume (98% ATS)', prompt: 'Analyze my background and generate 3 high-impact Google XYZ bullet points to maximize my ATS score for a Full Stack Engineer role.', icon: FileText },
+  { label: 'Top-Match Live Roles', prompt: 'Which 10,000+ live jobs and internships best fit my current stack and location?', icon: Briefcase },
+  { label: 'Mock Interview Sprint', prompt: 'Run a 3-question technical interview sprint on React, Node.js, and system design edge cases.', icon: Zap },
+  { label: 'Recruiter Pitch Generator', prompt: 'Generate a high-converting recruiter message highlighting my verified projects and skills.', icon: Sparkles },
 ];
 
 export default function AICareerAdvisorPage() {
@@ -63,15 +66,42 @@ export default function AICareerAdvisorPage() {
         const res = await getProfile();
         if (res?.data && isMounted) {
           setProfile(res.data);
-          const name = res.data.personal?.fullName?.value || 'Prudhvi';
-          const cgpa = res.data.education?.cgpa?.value || '8.9';
-          const branch = res.data.education?.branch?.value || 'Computer Science';
+          const rawName =
+            getSafeFieldValue(res.data.personal?.full_name) ||
+            getSafeFieldValue(res.data.personal?.fullName) ||
+            '';
+          const name = rawName ? rawName.trim().split(' ')[0] : 'there';
+          const cgpa = getSafeFieldValue(res.data.education?.cgpa);
+          const branch = getSafeFieldValue(res.data.education?.branch);
+          const targetRole =
+            getSafeFieldValue(res.data.target_role) ||
+            getSafeFieldValue(res.data.preferences?.target_roles?.[0]) ||
+            getSafeFieldValue(res.data.personal?.targetRole) ||
+            'Software Engineer';
+          
+          const realSkills = [];
+          if (Array.isArray(res.data.skills)) {
+            realSkills.push(...res.data.skills);
+          } else if (res.data.skills && typeof res.data.skills === 'object') {
+            Object.values(res.data.skills).forEach((cat) => {
+              const list = Array.isArray(cat) ? cat : Array.isArray(cat?.value) ? cat.value : [];
+              realSkills.push(...list);
+            });
+          }
+
+          let profileSummaryText = `I have reviewed your career profile targeting **${targetRole}**`;
+          if (branch) profileSummaryText += ` with background in **${branch}**`;
+          if (cgpa) profileSummaryText += ` (CGPA: **${cgpa}**)`;
+          if (realSkills.length > 0) {
+            profileSummaryText += ` and verified competencies in **${realSkills.slice(0, 5).join(', ')}**`;
+          }
+          profileSummaryText += '.';
 
           setMessages([
             {
               id: 'msg-welcome',
               sender: 'assistant',
-              text: `Hello ${name}! 👋 I am your **CareerPilot AI Career Advisor**.\n\nI have reviewed your verified academic background (**${branch}**, CGPA **${cgpa}**) and technical stack (**Python, React, Node.js, MongoDB, REST APIs**).\n\nHow can I help you accelerate your career today? Feel free to ask about resume bullet point enhancements, mock interview prep, or discovering top-match opportunities!`,
+              text: `Hello ${name}! 👋 I am your **CareerPilot AI Career Advisor**.\n\n${profileSummaryText}\n\nHow can I help you accelerate your career today? Feel free to ask about resume bullet point enhancements, technical interview prep, or discovering top-match live opportunities!`,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             }
           ]);
@@ -256,36 +286,49 @@ export default function AICareerAdvisorPage() {
               showLabel={false}
             />
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                <Badge variant="primary" size="sm" dot>
-                  Mission Control Neural Advisor
-                </Badge>
-                <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                  {isStreaming ? '● STREAMING TELEMETRY' : isThinking ? '● NEURAL SYNTHESIS' : inputPrompt.trim() ? '● LISTENING' : '● ORBIT READY'}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                <span className="lx-pill lx-pill-blue">
+                  <Sparkles size={12} />
+                  <span>ABEKUS SPOTLIGHT+ ADVISOR</span>
+                </span>
+                <span className="lx-pill lx-pill-green">
+                  <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                  <span>ONLINE &amp; ACTIVE</span>
                 </span>
               </div>
-              <h1 className="text-h1" style={{ fontSize: '1.4rem', margin: 0 }}>
-                AI Flight Advisor
+              <h1 className="text-h1" style={{ fontSize: '1.45rem', fontWeight: 800, margin: 0, color: 'var(--lx-ink)' }}>
+                AI Career Advisor &amp; Pitch Generator
               </h1>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<FileText size={14} />}
+              style={{ borderRadius: '9999px', borderColor: 'var(--lx-blue)', color: 'var(--lx-blue)' }}
+              onClick={() => navigate('/resume')}
+            >
+              Resume Builder (98% ATS)
+            </Button>
             <Button
               variant="outline"
               size="sm"
               icon={<Compass size={14} />}
+              style={{ borderRadius: '9999px' }}
               onClick={() => navigate('/skill-gap')}
             >
-              Skill Gap
+              Skill Arena
             </Button>
             <Button
               variant="outline"
               size="sm"
               icon={<Briefcase size={14} />}
+              style={{ borderRadius: '9999px' }}
               onClick={() => navigate('/opportunities')}
             >
-              Discover
+              Live Jobs
             </Button>
           </div>
         </div>

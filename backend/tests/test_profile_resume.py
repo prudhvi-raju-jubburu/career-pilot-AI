@@ -374,3 +374,86 @@ def test_database_unique_index():
             assert idx_info.get("unique") is True
             break
     assert has_user_id_index
+
+def test_resume_analyze_review_mode_does_not_mutate_profile(client, monkeypatch):
+    """Verifies that calling /api/resume/analyze?save=false returns extraction for review without altering profile content."""
+    user_id, headers = register_and_get_auth(client, "review_mode@test.edu", "Review Candidate")
+
+    # Set initial manual profile
+    client.put("/api/profile", json={
+        "personal": {"full_name": "Review Candidate", "location": "Bangalore"},
+        "education": {"college": "Original Manual College", "cgpa": 9.1}
+    }, headers=headers)
+
+    # Upload valid PDF
+    pdf_file = create_sample_pdf_bytes()
+    upload_res = client.post(
+        "/api/resume/upload",
+        data={"resume": (pdf_file, "resume.pdf")},
+        headers=headers,
+        content_type="multipart/form-data"
+    )
+    assert upload_res.status_code == 200
+
+    # Mock ResumeParserService.extract_text and ResumeAnalyzerService.analyze_resume_text
+    monkeypatch.setattr(ResumeParserService, "extract_text", lambda p: "Candidate resume text with education and skills.")
+    mock_extracted = {
+        "personal": {"fullName": "Detected Different Name", "location": "Mumbai"},
+        "education": {"college": "Resume Extracted College", "cgpa": 7.5, "degree": "B.Tech"},
+        "skills": {"programmingLanguages": ["Rust", "Python"]}
+    }
+    monkeypatch.setattr(ResumeAnalyzerService, "analyze_resume_text", lambda text: mock_extracted)
+
+    # Call analyze with save=false
+    analyze_res = client.post("/api/resume/analyze?save=false", headers=headers)
+    assert analyze_res.status_code == 200
+    res_data = analyze_res.get_json()["data"]
+    assert res_data["review_mode"] is True
+    assert res_data["extracted_data"]["personal"]["fullName"] == "Detected Different Name"
+
+    # Verify that profile in database was NOT altered!
+    prof = ProfileService.get_profile_by_user_id(user_id)
+    assert prof["personal"]["full_name"] == "Review Candidate"
+    assert prof["education"]["college"] == "Original Manual College"
+    assert prof["education"]["cgpa"] == 9.1
+
+def test_confirm_extraction_selectively_applies_chosen_fields(client):
+    """Verifies that student can explicitly confirm selected fields and resolve conflicts."""
+    user_id, headers = register_and_get_auth(client, "confirm_select@test.edu", "Selective Candidate")
+
+    # Initial profile
+    client.put("/api/profile", json={
+        "personal": {"full_name": "Selective Candidate", "phone": "1111111111"},
+        "education": {"college": "Keep My College", "cgpa": 8.0},
+        "skills": {"programming_languages": ["Python"]}
+    }, headers=headers)
+
+    confirmed_payload = {
+        "confirmed_data": {
+            "personal": {"fullName": "Selective Candidate", "phone": "9999999999", "location": "Hyderabad"},
+            "education": {"college": "Resume College", "degree": "B.Tech", "cgpa": 8.9},
+            "skills": {"programmingLanguages": ["Go", "Docker"]}
+        },
+        # Choose to apply only location and degree, and resolve conflict to keep existing college
+        "selected_fields": ["personal.location", "education.degree", "skills"],
+        "field_choices": {
+            "education.college": "existing"
+        }
+    }
+
+    res = client.post("/api/resume/confirm-extraction", json=confirmed_payload, headers=headers)
+    assert res.status_code == 200
+    data = res.get_json()["data"]
+
+    prof = ProfileService.get_profile_by_user_id(user_id)
+    # Selected fields updated
+    assert prof["personal"]["location"] == "Hyderabad"
+    assert prof["education"]["degree"] == "B.Tech"
+    # College was explicitly chosen as 'existing', so remains 'Keep My College'
+    assert prof["education"]["college"] == "Keep My College"
+    # Unselected phone was NOT updated
+    assert prof["personal"]["phone"] == "1111111111"
+    # Skills merged
+    assert "Go" in prof["skills"]["programming_languages"]
+    assert "Python" in prof["skills"]["programming_languages"]
+

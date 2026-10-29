@@ -43,23 +43,31 @@ export default function AuthTemplate({
         }}
       >
         <div style={{ width: '100%', maxWidth: '440px' }}>
-          {/* Back link */}
-          <Link
-            to="/"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              color: 'var(--text-secondary)',
-              fontSize: '0.85rem',
-              textDecoration: 'none',
-              marginBottom: '2rem',
-              transition: 'color 0.2s',
-            }}
-          >
-            <ArrowLeft size={16} />
-            <span>Back to Mission Control</span>
-          </Link>
+          {/* Logo brand & Back link */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2rem' }}>
+            <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+              <img
+                src="/careerpilot-logo.png"
+                alt="CareerPilot AI"
+                style={{ height: '36px', width: 'auto', objectFit: 'contain' }}
+              />
+            </Link>
+            <Link
+              to="/"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                color: 'var(--text-secondary)',
+                fontSize: '0.82rem',
+                textDecoration: 'none',
+                transition: 'color 0.2s',
+              }}
+            >
+              <ArrowLeft size={15} />
+              <span>Back</span>
+            </Link>
+          </div>
 
           {/* Form Header */}
           <div style={{ marginBottom: '2rem' }}>
@@ -108,8 +116,8 @@ export default function AuthTemplate({
         style={{
           flex: 1.15,
           position: 'relative',
-          background: 'radial-gradient(ellipse at 40% 40%, #0d152a 0%, #06090f 100%)',
-          borderLeft: '1px solid var(--border-hairline, var(--border))',
+          background: 'linear-gradient(135deg, #020617 0%, #071a45 50%, #0b2f74 100%)',
+          borderLeft: '1px solid rgba(148, 163, 184, 0.22)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -169,26 +177,16 @@ export default function AuthTemplate({
             boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: 'var(--radius-md)',
-                background: 'linear-gradient(135deg, var(--accent-cyan), var(--primary))',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                boxShadow: '0 0 12px var(--cyan-glow)',
-              }}
-            >
-              <Compass size={20} />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '1.25rem' }}>
+            <img
+              src="/careerpilot-logo.png"
+              alt="CareerPilot AI"
+              style={{ height: '38px', width: 'auto', objectFit: 'contain' }}
+            />
             <div>
-              <div style={{ fontWeight: 800, fontSize: '1rem', fontFamily: 'var(--font-display)' }}>CareerPilot AI</div>
-              <div style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                TELEMETRY ACTIVE
+              <div style={{ fontWeight: 800, fontSize: '1rem', fontFamily: 'var(--font-display)', color: '#ffffff' }}>CareerPilot AI</div>
+              <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                DISCOVER • PREPARE • GROW
               </div>
             </div>
           </div>

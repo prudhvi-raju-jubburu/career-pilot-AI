@@ -1,0 +1,298 @@
+/* OpportunityCard.css — Interactive Animated Card & Button Styles */
+
+.opp-card-container {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 22px;
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.opp-card-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  padding: 1.5px;
+  background: linear-gradient(135deg, transparent 40%, rgba(37, 99, 235, 0.25) 80%, rgba(16, 185, 129, 0.3) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.opp-card-container:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 40px -12px rgba(37, 99, 235, 0.16), 0 8px 16px -4px rgba(15, 23, 42, 0.06);
+  border-color: rgba(191, 219, 254, 0.9);
+}
+
+.opp-card-container:hover::before {
+  opacity: 1;
+}
+
+/* Ambient Top Accent Line for High Fit */
+.opp-card-top-accent {
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 3px;
+  background: linear-gradient(90deg, #10b981 0%, #2563eb 100%);
+  border-radius: 0 0 4px 4px;
+  opacity: 0.85;
+}
+
+/* Match Score Badges */
+.opp-match-badge-emerald {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.08) 100%);
+  color: #065f46;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+  border-radius: 9999px;
+  padding: 0.28rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
+}
+
+.opp-match-beacon {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: opp-beacon-pulse 2s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+@keyframes opp-beacon-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.opp-match-badge-blue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(59, 130, 246, 0.06) 100%);
+  color: #1d4ed8;
+  border: 1px solid rgba(147, 197, 253, 0.5);
+  border-radius: 9999px;
+  padding: 0.28rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+/* Type Pill Badges */
+.opp-type-pill-internship {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  border-radius: 9999px;
+  padding: 0.22rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.opp-type-pill-job {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 9999px;
+  padding: 0.22rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* India Badge */
+.opp-india-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 0.22rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+/* Matched Resume Skill Chips */
+.opp-skill-chip-matched {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  border-radius: 7px;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  transition: all 0.18s ease;
+}
+
+.opp-skill-chip-matched:hover {
+  transform: translateY(-1px);
+  background: #d1fae5;
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.18);
+}
+
+.opp-skill-chip-other {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  transition: all 0.18s ease;
+}
+
+.opp-skill-chip-other:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Animated Buttons */
+.opp-btn-apply {
+  position: relative;
+  flex: 1.25;
+  height: 44px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.32);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.opp-btn-apply::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -60%;
+  width: 40%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    rgba(255, 255, 255, 0) 10%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(255, 255, 255, 0) 90%
+  );
+  transform: rotate(25deg);
+  pointer-events: none;
+  transition: all 0.5s ease;
+}
+
+.opp-btn-apply:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 22px rgba(37, 99, 235, 0.45);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+}
+
+.opp-btn-apply:hover::after {
+  left: 120%;
+}
+
+.opp-btn-apply:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.opp-btn-details {
+  flex: 1;
+  height: 44px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #1e293b;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.opp-btn-details:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #f8faff;
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+.opp-btn-details:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.opp-btn-bookmark {
+  width: 42px;
+  height: 42px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.opp-btn-bookmark:hover {
+  transform: scale(1.1);
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+}
+
+.opp-btn-bookmark.saved {
+  background: #eff6ff;
+  border-color: #60a5fa;
+  color: #2563eb;
+}

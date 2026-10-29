@@ -33,8 +33,8 @@ export default function FloatingAICareerAdvisor() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Do not render floating advisor on dedicated advisor page or auth pages
-  const isExcluded = location.pathname === '/ai-advisor' || location.pathname === '/login' || location.pathname === '/register';
+  // Do not render floating advisor on dedicated advisor page, auth pages, or admin routes
+  const isExcluded = location.pathname === '/ai-advisor' || location.pathname === '/login' || location.pathname === '/register' || location.pathname.startsWith('/admin');
 
   useEffect(() => {
     if (isExcluded || !user) return;
@@ -104,7 +104,8 @@ export default function FloatingAICareerAdvisor() {
         {
           id: `a-${Date.now()}`,
           sender: 'assistant',
-          text: 'I recommend focusing on building full-stack applications with strong test coverage, and reviewing your Skill Gap analysis to target missing competencies.',
+          isError: true,
+          text: 'Unable to connect to AI Career Advisor. Please check your network connection or try again shortly.',
           time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -163,14 +164,14 @@ export default function FloatingAICareerAdvisor() {
                   width: '34px',
                   height: '34px',
                   borderRadius: '50%',
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  backgroundColor: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  backdropFilter: 'blur(4px)',
+                  padding: '3px',
                 }}
               >
-                <Sparkles size={18} color="#ffffff" />
+                <img src="/careerpilot-logo.png" alt="CareerPilot" style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
               </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.2 }}>
@@ -259,10 +260,10 @@ export default function FloatingAICareerAdvisor() {
                       borderRadius: 'var(--radius-lg)',
                       fontSize: '0.85rem',
                       lineHeight: 1.5,
-                      backgroundColor: isUser ? 'var(--color-primary-600)' : 'var(--color-surface)',
-                      color: isUser ? '#ffffff' : 'var(--color-text)',
+                      backgroundColor: isUser ? 'var(--color-primary-600)' : m.isError ? 'rgba(239, 68, 68, 0.08)' : 'var(--color-surface)',
+                      color: isUser ? '#ffffff' : m.isError ? '#dc2626' : 'var(--color-text)',
                       boxShadow: isUser ? 'var(--shadow-raised-sm)' : 'var(--shadow-sm)',
-                      border: isUser ? 'none' : '1px solid var(--border-control)',
+                      border: isUser ? 'none' : m.isError ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-control)',
                     }}
                   >
                     {isUser ? m.text : formatMarkdown(m.text)}
@@ -388,7 +389,7 @@ export default function FloatingAICareerAdvisor() {
         </div>
       )}
 
-      {/* Floating Logo Badge Button */}
+      {/* Floating Logo Button */}
       <div
         className="floating-advisor-button-wrapper"
         style={{
@@ -396,70 +397,62 @@ export default function FloatingAICareerAdvisor() {
           bottom: '24px',
           right: '24px',
           zIndex: 9998,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.75rem',
         }}
       >
-        {/* Floating Tooltip Pill (visible when closed) */}
-        {!isOpen && (
-          <div
-            onClick={() => setIsOpen(true)}
-            className="floating-advisor-pill"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.45rem 0.85rem',
-              backgroundColor: 'var(--color-surface)',
-              borderRadius: 'var(--radius-full)',
-              boxShadow: 'var(--shadow-raised-md), 0 4px 12px rgba(0,0,0,0.1)',
-              border: '1px solid var(--border-control)',
-              color: 'var(--color-text)',
-              fontSize: '0.825rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              userSelect: 'none',
-              transition: 'transform var(--transition-fast)',
-            }}
-          >
-            <span
-              style={{
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                backgroundColor: '#10b981',
-                boxShadow: '0 0 8px #10b981',
-              }}
-            />
-            <span>AI Career Advisor</span>
-          </div>
-        )}
-
-        {/* Circular Glowing Floating Button */}
+        {/* Circular Floating Button with Logo */}
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="floating-advisor-btn"
-          aria-label="Toggle AI Career Advisor"
+          aria-label="Toggle CareerPilot AI Advisor"
+          title="CareerPilot AI Advisor"
           style={{
+            position: 'relative',
             width: '60px',
             height: '60px',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
-            border: '2px solid rgba(255, 255, 255, 0.4)',
-            boxShadow: '0 8px 24px -4px rgba(37, 99, 235, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.4)',
-            color: '#ffffff',
+            background: isOpen ? '#0E1116' : '#ffffff',
+            border: '2px solid rgba(43, 87, 255, 0.25)',
+            boxShadow: '0 10px 32px rgba(43, 87, 255, 0.32), 0 2px 8px rgba(0, 0, 0, 0.08)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
             transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
             transform: isOpen ? 'rotate(90deg)' : 'scale(1)',
+            padding: 0,
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = isOpen ? 'rotate(90deg) scale(1.06)' : 'scale(1.08)')}
+          onMouseEnter={(e) => (e.currentTarget.style.transform = isOpen ? 'rotate(90deg) scale(1.08)' : 'scale(1.08)')}
           onMouseLeave={(e) => (e.currentTarget.style.transform = isOpen ? 'rotate(90deg)' : 'scale(1)')}
         >
-          {isOpen ? <X size={26} /> : <Sparkles size={26} />}
+          {isOpen ? (
+            <X size={24} color="#ffffff" />
+          ) : (
+            <>
+              <img
+                src="/careerpilot-logo.png"
+                alt="CareerPilot AI Advisor"
+                style={{
+                  width: '38px',
+                  height: '38px',
+                  objectFit: 'contain',
+                }}
+              />
+              {/* Online Green Indicator Dot */}
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '3px',
+                  right: '3px',
+                  width: '12px',
+                  height: '12px',
+                  borderRadius: '50%',
+                  backgroundColor: '#10b981',
+                  border: '2px solid #ffffff',
+                  boxShadow: '0 0 8px #10b981',
+                }}
+              />
+            </>
+          )}
         </button>
       </div>
     </>

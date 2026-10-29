@@ -62,7 +62,8 @@ class DevfolioConnector(OpportunitySource):
             "type": "hackathon",
             "category": "hackathon",
             "location": {
-                "city": "Online" if is_online else location[:50],
+                "city": "Online (India)" if is_online else (location[:50] if location else "India"),
+                "country": "India",
                 "is_remote": is_online
             },
             "work_mode": "Remote" if is_online else "In-Person",

@@ -14,25 +14,31 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-export function CommandPalette({ isOpen, setIsOpen }) {
+export function CommandPalette({ isOpen, setIsOpen, onClose }) {
   const navigate = useNavigate();
+
+  const handleClose = () => {
+    if (onClose) onClose();
+    if (setIsOpen) setIsOpen(false);
+  };
 
   useEffect(() => {
     const down = (e) => {
       if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setIsOpen((open) => !open);
+        if (setIsOpen) setIsOpen((open) => !open);
+        else if (onClose && isOpen) onClose();
       }
     };
 
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
-  }, [setIsOpen]);
+  }, [setIsOpen, onClose, isOpen]);
 
   if (!isOpen) return null;
 
   const handleSelect = (callback) => {
-    setIsOpen(false);
+    handleClose();
     callback();
   };
 
@@ -51,7 +57,7 @@ export function CommandPalette({ isOpen, setIsOpen }) {
         paddingLeft: '1rem',
         paddingRight: '1rem',
       }}
-      onClick={() => setIsOpen(false)}
+      onClick={handleClose}
     >
       <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: '600px' }}>
         <Command label="Global Command Palette">
