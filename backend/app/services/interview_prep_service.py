@@ -15,10 +15,9 @@ from app.ai.ai_service import AIService, AIServiceError
 logger = logging.getLogger(__name__)
 
 DISCLAIMER_TEXT = (
-    "These interview preparation questions, checklists, and simulation materials are AI-assisted "
-    "study aids grounded in your candidate profile, projects, and target role requirements. "
-    "They are designed for practice and revision, and do not represent leaked or official questions "
-    "from the hiring organization."
+    "Interview preparation questions, sample outlines, and study guidance are AI-assisted suggestions "
+    "tailored for practice. They are not guaranteed or official interview questions from the employer, "
+    "and preparation feedback does not guarantee hiring outcomes or predict actual interviewer decisions."
 )
 
 class InterviewPrepService:

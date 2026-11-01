@@ -1358,6 +1358,10 @@
   color: #059669;
 }
 
+.skillgap-evidence-status.coursework {
+  color: #7c3aed;
+}
+
 .skillgap-evidence-status.listed {
   color: #0284c7;
 }

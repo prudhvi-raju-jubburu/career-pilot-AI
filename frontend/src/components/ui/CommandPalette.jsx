@@ -82,9 +82,9 @@ export function CommandPalette({ isOpen, setIsOpen, onClose }) {
                 <Layers size={16} />
                 <span>Application Tracker & Kanban</span>
               </Command.Item>
-              <Command.Item onSelect={() => handleSelect(() => navigate('/profile?tab=resume'))}>
+              <Command.Item onSelect={() => handleSelect(() => navigate('/resume'))}>
                 <FileText size={16} />
-                <span>Resume &amp; ATS Workspace (Profile)</span>
+                <span>Resume Builder & Analysis</span>
               </Command.Item>
               <Command.Item onSelect={() => handleSelect(() => navigate('/skill-gap'))}>
                 <TrendingUp size={16} />
@@ -96,7 +96,7 @@ export function CommandPalette({ isOpen, setIsOpen, onClose }) {
               </Command.Item>
               <Command.Item onSelect={() => handleSelect(() => navigate('/profile'))}>
                 <User size={16} />
-                <span>Student Profile & Provenance</span>
+                <span>Student Profile</span>
               </Command.Item>
               <Command.Item onSelect={() => handleSelect(() => navigate('/settings'))}>
                 <Settings size={16} />

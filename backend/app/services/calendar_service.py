@@ -43,6 +43,8 @@ class CalendarExportService:
             digits = re.sub(r"[^\d]", "", str(iso_str))
             if len(digits) >= 14:
                 return f"{digits[:8]}T{digits[8:14]}Z"
+            if len(digits) >= 8:
+                return f"{digits[:8]}T090000Z"
             now = datetime.now(timezone.utc)
             return now.strftime("%Y%m%dT%H%M%SZ")
 

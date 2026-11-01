@@ -479,4 +479,28 @@ def dismiss_opportunity(current_user, opp_id):
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@opportunity_bp.route("/<opp_id>/verify-link", methods=["GET"])
+def verify_opportunity_link(opp_id):
+    """
+    Verifies target external opportunity apply link with SSRF protection,
+    returning verification status, HTTP status, and redirect destination.
+    Supports ?force=true to bypass 24h cache.
+    """
+    try:
+        from app.services.link_verification_service import OpportunityLinkVerificationService
+        force = request.args.get("force", "").lower() in ("true", "1")
+        result = OpportunityLinkVerificationService.verify_opportunity_link(opp_id, force=force)
+        return jsonify({
+            "success": True,
+            "data": result
+        }), 200
+    except Exception as e:
+        logger.exception("Error verifying link for opportunity %s: %s", opp_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to verify opportunity link",
+            "error": str(e)
+        }), 500
+
+
 

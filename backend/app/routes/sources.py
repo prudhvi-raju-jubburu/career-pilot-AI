@@ -44,6 +44,7 @@ def get_sources_status():
                 "items_validated": last_run.get("validated", 0) if last_run else 0,
                 "items_accepted": last_run.get("accepted", 0) if last_run else 0,
                 "items_updated": last_run.get("updated", 0) if last_run else 0,
+                "items_duplicate_only": last_run.get("duplicate_only", 0) if last_run else 0,
                 "items_duplicates": last_run.get("duplicates", 0) if last_run else 0,
                 "items_rejected": last_run.get("rejected", 0) if last_run else 0,
                 "last_error": last_run.get("error") if last_run else None

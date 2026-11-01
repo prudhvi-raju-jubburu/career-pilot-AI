@@ -16,6 +16,7 @@ from app.routes.notification import notification_bp
 from app.routes.sources import sources_bp
 from app.routes.stream import stream_bp
 from app.routes.advisor import advisor_bp
+from app.routes.copilot import copilot_bp
 from app.routes.recommendations import recommendations_bp
 from app.routes.resume_builder import resume_builder_bp
 from app.routes.admin import admin_bp
@@ -35,8 +36,10 @@ from app.models.interview_event import InterviewEventModel
 from app.models.interview_prep import InterviewPrepModel
 from app.models.mock_test_attempt import MockTestAttemptModel
 from app.models.interview_session import InterviewSessionModel
+from app.models.copilot_conversation import CopilotConversationModel
 from app.models.audit_log import AuditLogModel
 from app.services.scheduler import init_scheduler
+from app.socket import init_socketio, socketio
 
 def create_app(config_class=Config):
     """Application factory for CareerPilot AI Flask backend."""
@@ -108,6 +111,7 @@ def create_app(config_class=Config):
     InterviewPrepModel.ensure_indexes()
     MockTestAttemptModel.ensure_indexes()
     InterviewSessionModel.ensure_indexes()
+    CopilotConversationModel.ensure_indexes()
     AuditLogModel.ensure_indexes()
 
     # Register Blueprints
@@ -124,12 +128,16 @@ def create_app(config_class=Config):
     app.register_blueprint(sources_bp, url_prefix="/api/sources")
     app.register_blueprint(stream_bp, url_prefix="/api/stream")
     app.register_blueprint(advisor_bp, url_prefix="/api/advisor")
+    app.register_blueprint(copilot_bp, url_prefix="/api/copilot")
     app.register_blueprint(recommendations_bp, url_prefix="/api")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
 
     # Initialize Background Scheduler if not in testing mode
     if not app.config.get("TESTING") and not os.environ.get("PYTEST_CURRENT_TEST"):
         init_scheduler(app)
+
+    # Initialize Flask-SocketIO
+    init_socketio(app)
 
     # Consistent Error Handlers
     @app.errorhandler(404)

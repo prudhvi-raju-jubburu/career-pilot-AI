@@ -438,3 +438,120 @@ def test_feed_deduplication_prevents_duplicate_cards_in_discovery_and_recommenda
     finally:
         col.delete_many({"_id": {"$in": [doc1_id, doc2_id]}})
         ProfileModel.get_collection().delete_many({"user_id": f"student_{uid}"})
+
+def test_ingestion_metric_reconciliation_and_mutually_exclusive_outcomes():
+    """
+    Verifies that all primary ingestion outcomes (accepted, updated, duplicate_only, rejected, failed)
+    are strictly mutually exclusive, sum exactly to total fetched records, and do not double-count.
+    """
+    from app.scrapers.base import OpportunitySource
+    from app.services.ingestion_service import OpportunityIngestionService
+
+    uid = "metric_recon_test"
+    base_url = f"https://metric-recon-{uid}.in"
+
+    # Pre-seed 1 existing opportunity in MongoDB
+    seed_opp = {
+        "title": "Systems Architect",
+        "organization": {"name": "Metric Corp"},
+        "type": "job",
+        "category": "software",
+        "location": {"city": "Bengaluru", "is_remote": False},
+        "skills": ["C++", "Linux"],
+        "source": {"name": "test_recon_src", "external_id": f"ext_seed_{uid}"},
+        "application_url": f"{base_url}/jobs/arch-1"
+    }
+    doc_seed, created = OpportunityService.upsert_opportunity(seed_opp)
+    assert created is True
+
+    class SyntheticReconciliationSource(OpportunitySource):
+        def __init__(self):
+            super().__init__(name="test_recon_src", source_type="test_mock", enabled=True)
+
+        def fetch(self):
+            return [
+                # 1. New unique valid item -> accepted
+                {
+                    "title": "Cloud Reliability Engineer",
+                    "organization": {"name": "Metric Corp"},
+                    "type": "job",
+                    "category": "software",
+                    "location": {"city": "Bengaluru", "is_remote": False},
+                    "skills": ["Kubernetes", "Go"],
+                    "source": {"name": "test_recon_src", "external_id": f"ext_new_{uid}"},
+                    "application_url": f"{base_url}/jobs/cre-1"
+                },
+                # 2. Duplicate with new skills and new tracking-clean URL -> updated
+                {
+                    "title": "Systems Architect",
+                    "organization": {"name": "Metric Corp"},
+                    "type": "job",
+                    "category": "software",
+                    "location": {"city": "Bengaluru", "is_remote": False},
+                    "skills": ["C++", "Linux", "Rust", "Distributed Systems"],
+                    "source": {"name": "test_recon_src", "external_id": f"ext_seed_{uid}"},
+                    "application_url": f"{base_url}/jobs/arch-1-variant"
+                },
+                # 3. Exact identical re-seen item -> duplicate_only
+                {
+                    "title": "Cloud Reliability Engineer",
+                    "organization": {"name": "Metric Corp"},
+                    "type": "job",
+                    "category": "software",
+                    "location": {"city": "Bengaluru", "is_remote": False},
+                    "skills": ["Kubernetes", "Go"],
+                    "source": {"name": "test_recon_src", "external_id": f"ext_new_{uid}"},
+                    "application_url": f"{base_url}/jobs/cre-1"
+                },
+                # 4. Invalid schema item (missing title) -> rejected
+                {
+                    "title": "",
+                    "organization": {"name": "Metric Corp"},
+                    "application_url": f"{base_url}/jobs/invalid-1"
+                },
+                # 5. Invalid URL item (ftp scheme not allowed) -> rejected
+                {
+                    "title": "Data Entry Intern",
+                    "organization": {"name": "Metric Corp"},
+                    "application_url": "ftp://invalid-url.com/jobs/data-entry"
+                }
+            ]
+
+        def normalize(self, raw_item):
+            return raw_item
+
+    mock_src = SyntheticReconciliationSource()
+    ingestor = OpportunityIngestionService(sources=[mock_src])
+
+    try:
+        metrics = ingestor.run_ingestion()
+        src_res = metrics["source_results"]["test_recon_src"]
+
+        fetched = src_res["fetched"]
+        accepted = src_res["accepted"]
+        updated = src_res["updated"]
+        duplicate_only = src_res["duplicate_only"]
+        rejected = src_res["rejected"]
+        failed = src_res["failed"]
+        duplicates_diag = src_res["duplicates"]
+
+        # 1. Total fetched must equal 5
+        assert fetched == 5
+
+        # 2. Strict Mutual Exclusivity:
+        # Sum of primary outcomes must match fetched exactly
+        assert accepted + updated + duplicate_only + rejected + failed == fetched
+
+        # 3. Specific expected bucket counts:
+        assert accepted == 1        # Cloud Reliability Engineer
+        assert updated == 1         # Systems Architect enriched with Rust
+        assert duplicate_only == 1  # Re-seen Cloud Reliability Engineer
+        assert rejected == 2        # 1 invalid schema + 1 non-India US role
+        assert failed == 0
+
+        # 4. Diagnostic duplicates:
+        assert duplicates_diag == updated + duplicate_only
+        assert duplicates_diag == 2
+
+    finally:
+        OpportunityModel.get_collection().delete_many({"source.name": "test_recon_src"})

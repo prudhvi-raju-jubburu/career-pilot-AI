@@ -21,6 +21,7 @@ import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
 import { useToast } from '../context/ToastContext';
 import { getNotifications, markNotificationRead, markAllNotificationsRead, deleteNotification } from '../services/api';
+import { subscribeToNotifications } from '../services/socket';
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
@@ -46,6 +47,33 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     fetchNotifs();
+
+    const unsubscribe = subscribeToNotifications({
+      onNewNotification: (notif) => {
+        if (!notif) return;
+        setNotifications((prev) => {
+          const exists = prev.some((item) => (item.id || item._id) === (notif.id || notif._id));
+          if (exists) return prev;
+          return [notif, ...prev];
+        });
+        toast.info(notif.title || 'New notification received');
+      },
+      onNotificationRead: ({ id }) => {
+        setNotifications((prev) =>
+          prev.map((n) => ((n.id || n._id) === id ? { ...n, read: true } : n))
+        );
+      },
+      onAllNotificationsRead: () => {
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      },
+      onNotificationDeleted: ({ id }) => {
+        setNotifications((prev) => prev.filter((n) => (n.id || n._id) !== id));
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const filteredNotifications = notifications.filter((notif) => {
@@ -133,7 +161,7 @@ export default function NotificationsPage() {
             )}
           </div>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9375rem' }}>
-            Real-time telemetry alerts, matching opportunity updates, and application milestones.
+            Real-time updates, matching opportunities, and application milestones.
           </p>
         </div>
 

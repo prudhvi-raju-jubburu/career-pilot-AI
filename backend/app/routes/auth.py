@@ -168,6 +168,59 @@ def refresh_token(current_user):
         }
     }), 200
 
+@auth_bp.route("/change-password", methods=["POST"])
+@token_required
+def change_password(current_user):
+    """
+    Changes authenticated student password.
+    Requires current password verification and a minimum 6-character new password.
+    """
+    data = request.get_json(silent=True) or {}
+    current_password = data.get("current_password", "")
+    new_password = data.get("new_password", "")
+
+    if not current_password:
+        return jsonify({
+            "success": False,
+            "message": "Current password is required",
+            "error": "CURRENT_PASSWORD_REQUIRED"
+        }), 400
+
+    if not new_password or len(new_password) < 6:
+        return jsonify({
+            "success": False,
+            "message": "New password must be at least 6 characters long",
+            "error": "INVALID_NEW_PASSWORD"
+        }), 400
+
+    if not UserModel.verify_password(current_user.get("password_hash"), current_password):
+        return jsonify({
+            "success": False,
+            "message": "Incorrect current password",
+            "error": "INCORRECT_PASSWORD"
+        }), 401
+
+    if current_password == new_password:
+        return jsonify({
+            "success": False,
+            "message": "New password cannot be identical to your current password",
+            "error": "SAME_PASSWORD"
+        }), 400
+
+    user_id = str(current_user["_id"])
+    updated = UserModel.update_password(user_id, new_password)
+    if not updated:
+        return jsonify({
+            "success": False,
+            "message": "Failed to update password",
+            "error": "UPDATE_FAILED"
+        }), 500
+
+    return jsonify({
+        "success": True,
+        "message": "Password changed successfully"
+    }), 200
+
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
     """Client session logout endpoint."""

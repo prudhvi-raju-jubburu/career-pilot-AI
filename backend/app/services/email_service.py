@@ -62,13 +62,14 @@ class EmailService:
             title = opp.get("title", "Role")
             comp = (opp.get("organization") or {}).get("name") or opp.get("company", "Organization")
             opp_type = opp.get("type", "Opportunity").title()
-            score = opp.get("match_score", 85)
-            deadline = opp.get("dates", {}).get("deadline") or opp.get("deadline") or "Not specified"
+            raw_score = opp.get("match_score")
+            score_text = f"{int(raw_score)}%" if raw_score is not None else "General Discovery"
+            deadline = opp.get("deadlineString") or opp.get("dates", {}).get("deadline") or opp.get("deadline") or "Not specified"
             opp_id = opp.get("id") or opp.get("_id")
             link = f"{web_url}/opportunities?selected={opp_id}"
 
             lines.append(f"{i}. {title} at {comp} [{opp_type}]")
-            lines.append(f"   Match Fit: {score}%")
+            lines.append(f"   Match Fit: {score_text}")
             lines.append(f"   Deadline: {deadline}")
             lines.append(f"   Link: {link}")
             lines.append("")
@@ -86,8 +87,9 @@ class EmailService:
             h_title = html.escape(str(opp.get("title", "Opportunity")))
             h_comp = html.escape(str((opp.get("organization") or {}).get("name") or opp.get("company", "Organization")))
             h_type = html.escape(str(opp.get("type", "Job")).upper())
-            score = int(opp.get("match_score", 85))
-            deadline = html.escape(str(opp.get("dates", {}).get("deadline") or opp.get("deadline") or "Not specified"))
+            raw_score = opp.get("match_score")
+            score_badge = f"{int(raw_score)}% Fit" if raw_score is not None else "General Discovery"
+            deadline = html.escape(str(opp.get("deadlineString") or opp.get("dates", {}).get("deadline") or opp.get("deadline") or "Not specified"))
             opp_id = html.escape(str(opp.get("id") or opp.get("_id") or ""))
             h_link = f"{web_url}/opportunities?selected={opp_id}"
 
@@ -103,7 +105,7 @@ class EmailService:
                   <div style="font-size: 13px; font-weight: 600; color: #475569;">{h_comp}</div>
                 </div>
                 <div style="background: #eff6ff; color: #2563eb; font-weight: 800; font-size: 12px; padding: 4px 10px; border-radius: 999px;">
-                  {score}% Fit
+                  {score_badge}
                 </div>
               </div>
               <p style="font-size: 13px; color: #64748b; margin: 10px 0 12px 0; line-height: 1.4;">

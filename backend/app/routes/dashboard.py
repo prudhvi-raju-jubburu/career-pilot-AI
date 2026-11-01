@@ -72,10 +72,14 @@ def get_dashboard_stats(current_user):
         completion_pct = completion_data.get("percentage", 0)
 
         # 6. Upcoming Deadlines
+        today_date_str = now_utc.strftime("%Y-%m-%d")
         upcoming_cursor = opp_col.find({
             "status": "active",
-            "dates.deadline": {"$gte": now_utc.isoformat()}
-        }).sort("dates.deadline", 1).limit(4)
+            "$or": [
+                {"dates.deadline": {"$gte": today_date_str}},
+                {"deadline": {"$gte": today_date_str}},
+            ]
+        }).sort([("dates.deadline", 1), ("deadline", 1)]).limit(6)
         upcoming_deadlines = [OpportunityModel.to_dict(doc) for doc in upcoming_cursor]
 
         # 7. Recent Opportunities

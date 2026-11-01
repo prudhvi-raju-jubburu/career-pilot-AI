@@ -518,7 +518,12 @@ export default function ApplicationsPage() {
     try {
       await applicationService.updateStage(appId, targetStatus, note);
     } catch (e) {
-      toast.error('Could not sync stage update to server.');
+      // Revert optimistic update on failure
+      setApplications((prev) => prev.map((a) => (a.id === appId ? targetApp : a)));
+      if (selectedAppForDetail && selectedAppForDetail.id === appId) {
+        setSelectedAppForDetail(targetApp);
+      }
+      toast.error(e?.message || 'Could not sync stage update to server. Card reverted.');
     }
   };
 
@@ -1843,9 +1848,9 @@ export default function ApplicationsPage() {
                   }}>
                     <ShieldAlert size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#B45309' }} />
                     <div>
-                      <span style={{ fontWeight: 800 }}>Practice Simulation Disclaimer: </span>
+                      <span style={{ fontWeight: 800 }}>Practice Guidance Disclaimer: </span>
                       {prepPack?.disclaimer ||
-                        "These interview preparation questions, checklists, and simulation materials are AI-assisted study aids grounded in your candidate profile, projects, and target role requirements. They are designed for practice and revision, and do not represent leaked or official questions from the hiring organization."}
+                        "Interview preparation questions, sample outlines, and study guidance are AI-assisted suggestions tailored for practice. They are not guaranteed or official interview questions from the employer, and preparation feedback does not guarantee hiring outcomes or predict actual interviewer decisions."}
                     </div>
                   </div>
 

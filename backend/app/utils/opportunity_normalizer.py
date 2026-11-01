@@ -500,23 +500,26 @@ def parse_inr_compensation(raw_text: str = "", comp_dict: Optional[dict] = None)
         result["type"] = "stipend"
         return result
 
-    # 3. Direct number parsing with ₹ or Rs or plain digits
-    nums = re.findall(r'(?:₹|rs\.?|inr)?\s*([0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]{4,8})', text)
-    if nums:
-        parsed_nums = []
-        for n in nums:
-            cleaned = int(n.replace(',', ''))
-            if cleaned >= 1000:
-                parsed_nums.append(cleaned)
-        if parsed_nums:
-            result["min_amount"] = parsed_nums[0]
-            result["max_amount"] = parsed_nums[-1]
-            if "year" in text or "annum" in text or result["min_amount"] >= 200000:
-                result["period"] = "year"
-                result["type"] = "salary"
-            else:
-                result["period"] = "month"
-                result["type"] = "stipend"
+    # 3. Direct number parsing with explicit currency or compensation keywords
+    salary_context = re.search(r'(?:₹|rs\.?|inr|\$|salary|stipend|ctc|package|pay)\s*(?:is|:|of|-)?\s*([0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]{4,8})', text)
+    if salary_context:
+        nums = re.findall(r'(?:₹|rs\.?|inr|\$)?\s*([0-9]{1,3}(?:,[0-9]{2,3})+|[0-9]{4,8})', text)
+        if nums:
+            parsed_nums = []
+            for n in nums:
+                cleaned = int(n.replace(',', ''))
+                # Filter out years (2020-2035) or absurd valuation numbers > 10 crores
+                if cleaned >= 1000 and not (2020 <= cleaned <= 2035) and cleaned <= 100000000:
+                    parsed_nums.append(cleaned)
+            if parsed_nums:
+                result["min_amount"] = min(parsed_nums[0], parsed_nums[-1])
+                result["max_amount"] = max(parsed_nums[0], parsed_nums[-1])
+                if "year" in text or "annum" in text or result["min_amount"] >= 200000:
+                    result["period"] = "year"
+                    result["type"] = "salary"
+                else:
+                    result["period"] = "month"
+                    result["type"] = "stipend"
 
     return result
 

@@ -318,7 +318,7 @@ export default function DashboardPlaceholder() {
         animate="visible"
         className="dashboard-container"
       >
-        {/* Top Header with Live Radar Stream Beacon */}
+        {/* Top Header with Live Activity Status */}
         <motion.div variants={fadeUp} className="dashboard-header">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
@@ -371,7 +371,7 @@ export default function DashboardPlaceholder() {
                     letterSpacing: '0.04em',
                   }}
                 >
-                  {isConnected ? 'LIVE RADAR STREAM ACTIVE' : 'RADAR SYNC ACTIVE'}
+                  {isConnected ? 'LIVE UPDATES ACTIVE' : 'DATA SYNC ACTIVE'}
                 </span>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>•</span>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
@@ -380,7 +380,7 @@ export default function DashboardPlaceholder() {
               </div>
             </div>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-              Real-time Indian tech career progression, developer fresher roles, internships, and live pipeline radar.
+              Explore recommended jobs and internships, track your applications, and advance your skills.
             </p>
           </div>
 
@@ -392,11 +392,11 @@ export default function DashboardPlaceholder() {
               disabled={syncingSources}
               iconLeft={<RefreshCw size={14} className={syncingSources ? 'animate-spin' : ''} />}
             >
-              {syncingSources ? 'Syncing Feeds...' : 'Sync Radar'}
+              {syncingSources ? 'Syncing...' : 'Sync Data'}
             </Button>
             <Link to="/opportunities" style={{ textDecoration: 'none' }}>
               <Button variant="primary" size="md" iconRight={<ArrowRight size={15} />}>
-                Explore Radar ({totalOppsCount})
+                Explore Opportunities ({totalOppsCount})
               </Button>
             </Link>
           </div>
@@ -417,11 +417,11 @@ export default function DashboardPlaceholder() {
           />
         </motion.div>
 
-        {/* Animated Live Opportunity Radar Marquee Ticker */}
+        {/* Animated Opportunity Ticker */}
         <motion.div variants={fadeUp} className="radar-ticker-container">
           <div className="radar-ticker-badge">
             <Radio size={13} className="animate-pulse" />
-            <span>LIVE RADAR:</span>
+            <span>NEW ROLES:</span>
           </div>
           <div className="radar-ticker-track">
             {marqueeItems.length > 0 ? (
@@ -434,7 +434,7 @@ export default function DashboardPlaceholder() {
                       if (item.id) navigate(`/opportunities?selected=${item.id}`);
                       else navigate('/opportunities');
                     }}
-                    title="Click to inspect role on Opportunity Radar"
+                    title="Click to view opportunity details"
                   >
                     <span className="radar-ticker-dot" />
                     <strong style={{ color: 'var(--text-primary)' }}>{item.company}</strong>
@@ -447,13 +447,13 @@ export default function DashboardPlaceholder() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', padding: '0 1rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#00f2fe' }} />
-                <span>Synchronizing live Indian tech developer openings across connected job feeds...</span>
+                <span>Checking latest tech developer openings across connected job feeds...</span>
               </div>
             )}
           </div>
         </motion.div>
 
-        {/* Live Radar Feed Ingestion Alert Pill */}
+        {/* Feed Ingestion Alert Pill */}
         <AnimatePresence>
           {hasNewAlert && (
             <motion.div
@@ -477,7 +477,7 @@ export default function DashboardPlaceholder() {
                 className="radar-ingest-pill"
               >
                 <span className="radar-ingest-pip animate-pulse" />
-                <span>✦ {newCount} new Indian tech roles detected on live radar. Tap to ingest now</span>
+                <span>✦ {newCount} new verified roles detected. Tap to update listings</span>
               </button>
             </motion.div>
           )}
@@ -673,10 +673,10 @@ export default function DashboardPlaceholder() {
                           </motion.div>
                         )}
 
-                        {/* Digest Item 3: Career Telemetry Tip */}
+                        {/* Digest Item 3: Resume Guidance Tip */}
                         <motion.div variants={fadeUp} whileHover={{ y: -3 }} className="digest-intel-card">
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                            <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--success)', letterSpacing: '0.05em' }}>ATS Telemetry Tip</span>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--success)', letterSpacing: '0.05em' }}>Resume Tip</span>
                             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Daily Insight</span>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>

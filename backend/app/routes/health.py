@@ -17,7 +17,7 @@ def health_check():
     counts = {}
     if db_ok and db is not None:
         try:
-            for col_name in ["opportunities", "applications", "users", "student_profiles", "source_runs"]:
+            for col_name in ["opportunities", "applications", "users", "student_profiles", "source_runs", "copilot_conversations"]:
                 counts[col_name] = db[col_name].count_documents({})
         except Exception:
             pass
@@ -34,6 +34,26 @@ def health_check():
     from app.services.scheduler import _scheduler
     scheduler_active = _scheduler is not None and _scheduler.running if '_scheduler' in globals() or _scheduler else False
 
+    # AI Provider telemetry
+    try:
+        from app.ai.ai_service import AIService
+        cfg_provider = AIService.get_configured_provider()
+        active_provider, api_key = AIService.resolve_active_provider()
+        ai_telemetry = {
+            "configured_provider": cfg_provider,
+            "active_provider": active_provider,
+            "is_ai_available": active_provider != "fallback" and bool(api_key),
+            "fallback_active": active_provider == "fallback" or not bool(api_key)
+        }
+    except Exception as e:
+        ai_telemetry = {
+            "configured_provider": "unknown",
+            "active_provider": "fallback",
+            "is_ai_available": False,
+            "fallback_active": True,
+            "error": str(e)
+        }
+
     return jsonify({
         "success": True,
         "message": "CareerPilot AI backend is healthy and running",
@@ -49,6 +69,7 @@ def health_check():
             "scheduler": {
                 "running": scheduler_active
             },
+            "ai": ai_telemetry,
             "sources": sources_summary
         }
     }), 200

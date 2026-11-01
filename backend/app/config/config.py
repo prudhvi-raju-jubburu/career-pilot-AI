@@ -1,8 +1,11 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file (root and backend/.env)
 load_dotenv()
+_backend_env = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "backend", ".env")
+if os.path.exists(_backend_env):
+    load_dotenv(_backend_env)
 
 class Config:
     """Base application configuration loaded from environment variables."""

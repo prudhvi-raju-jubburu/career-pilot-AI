@@ -1011,7 +1011,6 @@ def submit_interview_simulator_answer(current_user, app_id, session_id):
 
     payload = request.get_json(silent=True) or {}
     question_index = payload.get("question_index")
-    answer_text = payload.get("answer") or payload.get("answer_text") or ""
 
     if question_index is None:
         return jsonify({
@@ -1021,19 +1020,47 @@ def submit_interview_simulator_answer(current_user, app_id, session_id):
         }), 400
 
     try:
+        q_idx = int(question_index)
+        if q_idx < 0:
+            raise ValueError()
+    except (ValueError, TypeError):
+        return jsonify({
+            "success": False,
+            "message": "Invalid question_index. Must be a non-negative integer.",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    raw_answer = payload.get("answer") if "answer" in payload else payload.get("answer_text")
+    if raw_answer is None or (isinstance(raw_answer, str) and not raw_answer.strip()) or not str(raw_answer).strip():
+        return jsonify({
+            "success": False,
+            "message": "Answer cannot be empty. Please provide your response before submitting.",
+            "error": "VALIDATION_ERROR"
+        }), 400
+
+    clean_answer = str(raw_answer).strip()
+    clean_answer = clean_answer[:5000]
+
+    try:
         from app.services.interview_simulator_service import InterviewSimulatorService
         result = InterviewSimulatorService.submit_answer(
             app_id=app_id,
             session_id=session_id,
             user_id=user_id,
-            question_index=int(question_index),
-            answer_text=str(answer_text)
+            question_index=q_idx,
+            answer_text=clean_answer
         )
         return jsonify({
             "success": True,
             "message": "Answer evaluated successfully",
             "data": result
         }), 200
+    except KeyError as ke:
+        return jsonify({
+            "success": False,
+            "message": str(ke).strip("'\""),
+            "error": "NOT_FOUND"
+        }), 404
     except ValueError as ve:
         return jsonify({
             "success": False,

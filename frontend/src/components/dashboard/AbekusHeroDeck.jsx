@@ -179,7 +179,7 @@ export default function AbekusHeroDeck({
               margin: '0 0 1.75rem 0',
             }}
           >
-            Verified skill roadmaps, live application pipeline radar, an <strong>AI resume builder (98% ATS compliant)</strong>, and{' '}
+            Verified skill roadmaps, application tracking, an <strong>AI resume builder</strong>, and{' '}
             <strong>{Number(totalOpps).toLocaleString('en-IN')}+ live openings</strong>. Track the role, bridge the gap, get the offer.
           </p>
 
@@ -221,11 +221,11 @@ export default function AbekusHeroDeck({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 600, color: 'var(--lx-txt-2)' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#FFC400' }} />
-              <span>Verified ATS Compliance</span>
+              <span>Verified Resume Scoring</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', fontWeight: 600, color: 'var(--lx-txt-2)' }}>
               <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#2B57FF' }} />
-              <span>MongoDB Synced Pipeline</span>
+              <span>Application Tracker</span>
             </div>
           </div>
         </div>
@@ -248,7 +248,7 @@ export default function AbekusHeroDeck({
             {/* Top Tag */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--lx-ink)' }}>
-                {activeDeck === 0 ? 'Live Opportunities' : activeDeck === 1 ? 'Skill Track' : activeDeck === 2 ? 'Pipeline Radar' : 'AI Resume'}
+                {activeDeck === 0 ? 'Recommended Jobs' : activeDeck === 1 ? 'Skill Track' : activeDeck === 2 ? 'Application Progress' : 'Resume'}
               </span>
               <span
                 style={{
@@ -287,7 +287,7 @@ export default function AbekusHeroDeck({
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--lx-txt-3)' }}>
-                        Live Jobs Radar
+                        Recommended Jobs
                       </span>
                       <span className="lx-pill lx-pill-green" style={{ padding: '0.2rem 0.55rem', fontSize: '0.72rem' }}>
                         <span className="size-1.5 rounded-full bg-emerald-600 animate-pulse" />
@@ -437,18 +437,18 @@ export default function AbekusHeroDeck({
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--lx-gold)' }}>
-                        Pipeline Telemetry
+                        Application Progress
                       </span>
                       <span style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '9999px', fontSize: '0.7rem' }}>
-                        MongoDB Synced
+                        Live Tracking
                       </span>
                     </div>
 
                     <div style={{ fontSize: '0.95rem', fontWeight: 700, marginTop: '0.65rem' }}>
-                      Candidate Application Pipeline
+                      Application Status Overview
                     </div>
                     <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.2rem' }}>
-                      Real-time stage tracking and recruiter telemetry
+                      Real-time tracking across all application stages
                     </div>
 
                     <div style={{ marginTop: '0.75rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', flex: 1 }}>

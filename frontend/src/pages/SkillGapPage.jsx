@@ -30,6 +30,7 @@ import {
   UploadCloud,
   HelpCircle,
   Filter,
+  GraduationCap,
   X
 } from 'lucide-react';
 import PageContainer from '../components/layout/PageContainer';
@@ -195,7 +196,7 @@ export default function SkillGapPage() {
         await fetchAnalysis(initialRole, null, studentProfile);
       } catch (err) {
         console.error('Error initializing SkillGapPage:', err);
-        toast.error('Failed to initialize skill intelligence dashboard.');
+        toast.error('Failed to initialize skill gap analysis.');
       } finally {
         setLoading(false);
       }
@@ -247,7 +248,7 @@ export default function SkillGapPage() {
   // Trigger Full Manual Analysis Refresh
   const handleRunAnalysis = () => {
     fetchAnalysis(targetRole, targetOpportunityId);
-    toast.success('Skill intelligence refreshed against latest profile evidence.');
+    toast.success('Skill analysis refreshed against latest profile evidence.');
   };
 
   // Handle Extraction Confirmed from ResumeUploadModal
@@ -376,6 +377,7 @@ export default function SkillGapPage() {
       }
       if (inventoryStatusFilter !== 'all') {
         if (inventoryStatusFilter === 'demonstrated' && item.evidenceType !== 'demonstrated') return false;
+        if (inventoryStatusFilter === 'coursework' && item.evidenceType !== 'coursework') return false;
         if (inventoryStatusFilter === 'listed' && item.evidenceType !== 'listed') return false;
         if (inventoryStatusFilter === 'unverified' && item.evidenceType !== 'needs_verification') return false;
       }
@@ -475,7 +477,7 @@ export default function SkillGapPage() {
           <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
             Analyzing student profile evidence & opportunity requirements...
           </p>
-          <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>Loading skill intelligence dashboard</p>
+          <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)' }}>Loading skill gap analysis</p>
         </div>
       </PageContainer>
     );
@@ -499,7 +501,7 @@ export default function SkillGapPage() {
                 <Target className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="skillgap-header-title">Skill Gap Intelligence</h1>
+                <h1 className="skillgap-header-title">Skill Gap Analysis</h1>
                 <p className="skillgap-header-subtitle">
                   Understand verified proficiencies, benchmark role demands, and accelerate career readiness.
                 </p>
@@ -524,7 +526,7 @@ export default function SkillGapPage() {
                 iconLeft={<RefreshCw className={`w-4 h-4 ${analyzing ? 'animate-spin' : ''}`} />}
                 style={{ fontSize: '0.775rem', height: '36px' }}
               >
-                {analyzing ? 'Analyzing...' : 'Refresh Intelligence'}
+                {analyzing ? 'Analyzing...' : 'Refresh Analysis'}
               </Button>
             </div>
           </div>
@@ -1021,6 +1023,7 @@ export default function SkillGapPage() {
               >
                 <option value="all">All Evidence Types</option>
                 <option value="demonstrated">Demonstrated (Project / Work)</option>
+                <option value="coursework">Academic Coursework</option>
                 <option value="listed">Listed on Resume</option>
                 <option value="unverified">Needs Verification</option>
               </select>
@@ -1032,6 +1035,7 @@ export default function SkillGapPage() {
             <div className="skillgap-inventory-grid">
               {filteredInventory.map((item, idx) => {
                 const isDemonstrated = item.evidenceType === 'demonstrated';
+                const isCoursework = item.evidenceType === 'coursework';
                 const isListed = item.evidenceType === 'listed';
 
                 return (
@@ -1052,11 +1056,16 @@ export default function SkillGapPage() {
                     <p className="skillgap-inventory-desc">{item.context}</p>
 
                     <div className="skillgap-inventory-footer">
-                      <span className={`skillgap-evidence-status ${isDemonstrated ? 'demonstrated' : isListed ? 'listed' : 'unverified'}`}>
+                      <span className={`skillgap-evidence-status ${isDemonstrated ? 'demonstrated' : isCoursework ? 'coursework' : isListed ? 'listed' : 'unverified'}`}>
                         {isDemonstrated ? (
                           <>
                             <CheckCircle2 style={{ width: '13px', height: '13px', color: '#10b981' }} />
                             <span>Demonstrated</span>
+                          </>
+                        ) : isCoursework ? (
+                          <>
+                            <GraduationCap style={{ width: '13px', height: '13px', color: '#8b5cf6' }} />
+                            <span>Coursework</span>
                           </>
                         ) : isListed ? (
                           <>

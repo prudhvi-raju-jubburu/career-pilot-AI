@@ -29,10 +29,10 @@ export default function MobileBottomNav() {
   }
 
   const navItems = [
-    { label: 'Radar', path: '/dashboard', icon: LayoutDashboard },
-    { label: 'Discover', path: '/opportunities', icon: Compass },
+    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+    { label: 'Opportunities', path: '/opportunities', icon: Compass },
     { label: 'Advisor', path: '/ai-advisor', icon: Sparkles, isHighlight: true },
-    { label: 'Tracker', path: '/applications', icon: Layers },
+    { label: 'Applications', path: '/applications', icon: Layers },
     { label: 'Profile', path: '/profile', icon: User },
   ];
 

@@ -3219,6 +3219,11 @@ img, svg, video, canvas {
     grid-template-columns: 1fr !important;
     gap: 1rem !important;
   }
+  .grid-2 > *,
+  .grid-3 > *,
+  .grid-4 > * {
+    grid-column: span 1 !important;
+  }
   .page-container {
     padding: 1rem 0.85rem !important;
     padding-bottom: calc(var(--bottom-nav-height, 64px) + var(--safe-area-bottom, 0px) + 2rem) !important;

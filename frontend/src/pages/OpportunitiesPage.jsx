@@ -95,10 +95,11 @@ export default function OpportunitiesPage() {
   };
 
   const studentName = getSafeString(profile?.personal?.fullName) || getSafeString(profile?.name) || user?.name || 'Student';
-  const degreeVal = getSafeString(profile?.education?.degree, 'B.Tech');
-  const branchVal = getSafeString(profile?.education?.branch, 'Computer Science');
-  const yearVal = getSafeString(profile?.education?.graduationYear) || getSafeString(profile?.education?.graduation_year, '2026');
+  const degreeVal = getSafeString(profile?.education?.degree);
+  const branchVal = getSafeString(profile?.education?.branch);
+  const yearVal = getSafeString(profile?.education?.graduationYear) || getSafeString(profile?.education?.graduation_year);
   const cgpaVal = getSafeString(profile?.education?.cgpa);
+  const hasEducation = Boolean(degreeVal || branchVal || yearVal);
 
   const displaySkills = useMemo(() => {
     const extractName = (item) => getSafeString(item, '');
@@ -143,7 +144,7 @@ export default function OpportunitiesPage() {
   const [activeMode, setActiveMode] = useState(() => searchParams.get('workMode') || 'All');
   const [activeLocation, setActiveLocation] = useState(() => searchParams.get('location') || 'All');
   const [activeEligibilityFilter, setActiveEligibilityFilter] = useState('All'); // 'All' | 'eligible' | 'needs_review'
-  const [sortBy, setSortBy] = useState('relevance');
+  const [sortBy, setSortBy] = useState(() => searchParams.get('sort') || 'match');
   const [matchedOnly, setMatchedOnly] = useState(true);
 
   const [selectedOpp, setSelectedOpp] = useState(null);
@@ -153,11 +154,14 @@ export default function OpportunitiesPage() {
   // Manual Application Confirmation Modal State
   const [confirmModalOpp, setConfirmModalOpp] = useState(null);
   const [isConfirmingTrack, setIsConfirmingTrack] = useState(false);
+  const [linkWarning, setLinkWarning] = useState(null);
 
-  // Saved Opportunities state
+  // Saved Opportunities state scoped strictly per authenticated user
+  const bookmarkStorageKey = user?.id || user?._id ? `careerpilot_bookmarked_opps_${user.id || user._id}` : 'careerpilot_bookmarked_opps';
+
   const [savedOppIds, setSavedOppIds] = useState(() => {
     try {
-      const saved = localStorage.getItem('careerpilot_bookmarked_opps');
+      const saved = localStorage.getItem(bookmarkStorageKey);
       return new Set(saved ? JSON.parse(saved) : []);
     } catch {
       return new Set();
@@ -169,15 +173,18 @@ export default function OpportunitiesPage() {
     const fetchSaved = async () => {
       try {
         const saved = await opportunityService.getSavedOpportunities();
-        if (active && Array.isArray(saved) && saved.length > 0) {
+        if (active && Array.isArray(saved)) {
           const ids = saved.map((s) => s.id || s._id).filter(Boolean);
-          setSavedOppIds((prev) => new Set([...prev, ...ids]));
+          setSavedOppIds(new Set(ids));
+          try {
+            localStorage.setItem(bookmarkStorageKey, JSON.stringify(ids));
+          } catch {}
         }
       } catch (e) {}
     };
     fetchSaved();
     return () => { active = false; };
-  }, []);
+  }, [bookmarkStorageKey]);
 
   // Debounce search input
   useEffect(() => {
@@ -262,8 +269,9 @@ export default function OpportunitiesPage() {
     if (activeCategory !== 'All') params.set('type', activeCategory);
     if (activeMode !== 'All') params.set('workMode', activeMode);
     if (activeLocation !== 'All') params.set('location', activeLocation);
+    if (sortBy && sortBy !== 'match') params.set('sort', sortBy);
     setSearchParams(params, { replace: true });
-  }, [debouncedSearch, activeCategory, activeMode, activeLocation, setSearchParams]);
+  }, [debouncedSearch, activeCategory, activeMode, activeLocation, sortBy, setSearchParams]);
 
   const loadOpportunityDetail = async (id) => {
     setLoadingDetail(true);
@@ -291,7 +299,7 @@ export default function OpportunitiesPage() {
         opportunityService.saveOpportunity(opp.id);
       }
       try {
-        localStorage.setItem('careerpilot_bookmarked_opps', JSON.stringify([...next]));
+        localStorage.setItem(bookmarkStorageKey, JSON.stringify([...next]));
       } catch {}
       return next;
     });
@@ -322,6 +330,54 @@ export default function OpportunitiesPage() {
     [applicationsByOppId]
   );
 
+  // Strictly recommend opportunities matching student profile, skills, and resume
+  const sortedOpportunities = useMemo(() => {
+    let list = [...opportunities];
+
+    // Filter strictly to opportunities matching student profile and resume skills
+    if (matchedOnly) {
+      list = list.filter((opp) => {
+        const matchedSkills = opp.matched_skills || [];
+        const demonstratedSkills = opp.demonstrated_skills || [];
+        const hasSkillMatch = matchedSkills.length > 0 || demonstratedSkills.length > 0;
+        const isGeneral = opp.is_general_discovery || opp.discovery_type === 'general_discovery';
+        const targetRole = (profile?.target_role || '').toLowerCase().trim();
+        const titleLower = (opp.title || '').toLowerCase().trim();
+        const roleMatch = targetRole && (titleLower.includes(targetRole) || targetRole.includes(titleLower));
+        return (hasSkillMatch || roleMatch) && !isGeneral;
+      });
+    }
+
+    return list.sort((a, b) => {
+      if (sortBy === 'deadline') {
+        const dateA = a.dates?.deadline || a.deadline || '9999';
+        const dateB = b.dates?.deadline || b.deadline || '9999';
+        return String(dateA).localeCompare(String(dateB));
+      }
+      if (sortBy === 'latest') {
+        const timeA = new Date(a.dates?.posted_at || a.created_at || a.postedAt || 0).getTime();
+        const timeB = new Date(b.dates?.posted_at || b.created_at || b.postedAt || 0).getTime();
+        return timeB - timeA;
+      }
+      // 'match' (default): Show highest match score first, then others
+      const rawA = a.match_score ?? a.matchScore;
+      const rawB = b.match_score ?? b.matchScore;
+      const scoreA = typeof rawA === 'number' ? rawA : -1;
+      const scoreB = typeof rawB === 'number' ? rawB : -1;
+      if (scoreA !== scoreB) {
+        return scoreB - scoreA;
+      }
+      const skillsA = (a.matched_skills || []).length;
+      const skillsB = (b.matched_skills || []).length;
+      if (skillsA !== skillsB) {
+        return skillsB - skillsA;
+      }
+      const timeA = new Date(a.dates?.posted_at || a.created_at || a.postedAt || 0).getTime();
+      const timeB = new Date(b.dates?.posted_at || b.created_at || b.postedAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [opportunities, sortBy, matchedOnly, profile]);
+
   /**
    * Safe External Application Flow:
    * 1. Safely opens external verified URL in a new tab.
@@ -330,13 +386,31 @@ export default function OpportunitiesPage() {
    * No automatic/presumed submission.
    */
   const handleApplyClick = (opp) => {
-    const url = opp.applicationUrl || opp.application_url;
-    if (url) {
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setConfirmModalOpp(opp);
-    } else {
+    const url =
+      opp.applicationUrl ||
+      opp.application_url ||
+      opp.source?.url ||
+      opp.source_links?.[0]?.url ||
+      opp.canonical_url ||
+      opp.canonicalUrl;
+
+    if (!url) {
       toast.info('Application link not provided. View opportunity details for submission instructions.');
+      return;
     }
+
+    const verification = opp.link_verification || opp.linkVerification;
+    if (verification && (verification.is_expired || verification.status === 'expired' || verification.status === 'invalid_url')) {
+      setLinkWarning({
+        opp,
+        url,
+        reason: verification.error_reason || 'This application link appears to be unavailable or expired.',
+      });
+      return;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setConfirmModalOpp(opp);
   };
 
   const handleConfirmApplicationSubmission = async (status = 'Applied') => {
@@ -361,7 +435,7 @@ export default function OpportunitiesPage() {
       toast.success(
         status === 'Applied'
           ? `Application to ${opp.company} recorded in My Applications tracker!`
-          : `Saved ${opp.company} to your Application Pipeline!`
+          : `Saved ${opp.company} to your Applications!`
       );
       setConfirmModalOpp(null);
     } catch (err) {
@@ -485,27 +559,37 @@ export default function OpportunitiesPage() {
           </div>
           <div>
             <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
-              Tailored for: <span style={{ color: '#047857' }}>{studentName}</span> ({degreeVal} {branchVal}, {yearVal}{cgpaVal ? ` · CGPA ${cgpaVal}` : ''})
+              {displaySkills.length > 0 ? (
+                <>Personalized Matches for: <span style={{ color: '#047857' }}>{studentName}</span> ({[degreeVal, branchVal, yearVal].filter(Boolean).join(' ')}{cgpaVal ? ` · CGPA ${cgpaVal}` : ''})</>
+              ) : (
+                <>Profile Setup Needed: <span style={{ color: '#2563eb' }}>{studentName}</span> (Add skills to activate personalized matching)</>
+              )}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
-              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>Resume Skills:</span>
-              {displaySkills.slice(0, 8).map((s) => (
-                <span
-                  key={s}
-                  style={{
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #bbf7d0',
-                    color: '#065f46',
-                    borderRadius: '6px',
-                    padding: '0.12rem 0.45rem',
-                    fontSize: '0.72rem',
-                    fontWeight: 700
-                  }}
-                >
-                  ✓ {s}
-                </span>
-              ))}
-            </div>
+            {displaySkills.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>Resume Skills:</span>
+                {displaySkills.slice(0, 8).map((s) => (
+                  <span
+                    key={s}
+                    style={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #bbf7d0',
+                      color: '#065f46',
+                      borderRadius: '6px',
+                      padding: '0.12rem 0.45rem',
+                      fontSize: '0.72rem',
+                      fontWeight: 700
+                    }}
+                  >
+                    ✓ {s}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.25rem' }}>
+                No verified skills or resume uploaded yet. Showing open discovery opportunities.
+              </div>
+            )}
           </div>
         </div>
 
@@ -619,6 +703,20 @@ export default function OpportunitiesPage() {
             </select>
           </div>
 
+          <div className="mavens-filter-select-wrap">
+            <TrendingUp size={16} color="#94a3b8" />
+            <select
+              className="mavens-filter-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              aria-label="Sort opportunities"
+            >
+              <option value="match">Highest Match First</option>
+              <option value="latest">Latest Posted</option>
+              <option value="deadline">Closest Deadline</option>
+            </select>
+          </div>
+
           <button
             type="button"
             className="mavens-btn-find-jobs"
@@ -692,10 +790,10 @@ export default function OpportunitiesPage() {
               transition: 'all 0.18s ease',
               flexShrink: 0
             }}
-            title="Filter to opportunities matching your profile & resume skills"
+            title="Filter strictly to opportunities matching your profile & resume skills"
           >
             <Sparkles size={13} color={matchedOnly ? '#059669' : '#64748b'} />
-            <span>{matchedOnly ? '⚡ Resume Matched (Active)' : 'Resume Matched (All)'}</span>
+            <span>{matchedOnly ? '⚡ Profile & Resume Matches Only' : 'All Available Listings'}</span>
           </button>
 
           <div style={{ width: '1px', height: '22px', backgroundColor: 'var(--lx-line)', margin: '0 0.35rem', flexShrink: 0 }} />
@@ -750,7 +848,7 @@ export default function OpportunitiesPage() {
               onClick={() => {
                 const added = ingestNewItems();
                 setOpportunities((prev) => [...added, ...prev]);
-                toast.success(`Ingested ${added.length} verified listings onto your radar!`);
+                toast.success(`Loaded ${added.length} new verified opportunities!`);
               }}
               style={{
                 display: 'inline-flex',
@@ -788,27 +886,43 @@ export default function OpportunitiesPage() {
           actionLabel="Try Again"
           onAction={() => fetchOpportunities(false)}
         />
-      ) : opportunities.length === 0 ? (
+      ) : sortedOpportunities.length === 0 ? (
         <EmptyState
           icon={<Briefcase size={36} color="var(--lx-blue)" />}
-          title="No matching opportunities found"
+          title={
+            activeCategory === 'saved'
+              ? 'No saved opportunities yet'
+              : displaySkills.length === 0
+                ? 'Complete your profile or upload your resume'
+                : 'No opportunities match your verified skills & profile'
+          }
           description={
             activeCategory === 'saved'
               ? 'You have not saved any opportunities yet. Browse listings and bookmark interesting roles.'
-              : 'Try broadening your search keywords or switching to another category.'
+              : displaySkills.length === 0
+                ? 'CareerPilot AI only recommends opportunities tailored strictly to your verified skills and resume. Add your technical skills in your profile or upload your resume to see matched roles.'
+                : `We found no live openings directly matching your verified skills (${displaySkills.slice(0, 5).join(', ')}). You can add more skills in your profile, adjust track filters, or view all listings.`
           }
-          actionLabel="Reset Filters"
+          actionLabel={
+            activeCategory === 'saved'
+              ? 'Browse Opportunities'
+              : displaySkills.length === 0
+                ? 'Upload Resume / Add Skills'
+                : 'View All Available Listings'
+          }
           onAction={() => {
-            setSearchQuery('');
-            setActiveCategory('All');
-            setActiveMode('All');
-            setActiveLocation('All');
-            setActiveEligibilityFilter('All');
+            if (activeCategory === 'saved') {
+              setActiveCategory('All');
+            } else if (displaySkills.length === 0) {
+              navigate('/profile');
+            } else {
+              setMatchedOnly(false);
+            }
           }}
         />
       ) : (
         <div className="grid-3">
-          {opportunities.map((opp) => (
+          {sortedOpportunities.map((opp) => (
             <OpportunityCard
               key={opp.id}
               opp={opp}
@@ -898,6 +1012,59 @@ export default function OpportunitiesPage() {
         )}
       </Modal>
 
+      {/* External Application Link Warning Modal */}
+      <Modal
+        isOpen={Boolean(linkWarning)}
+        onClose={() => setLinkWarning(null)}
+        title="Application Link Warning"
+        maxWidth="500px"
+      >
+        {linkWarning && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div
+              style={{
+                padding: '1rem',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '10px',
+                display: 'flex',
+                gap: '0.75rem',
+              }}
+            >
+              <AlertCircle size={20} color="#dc2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '0.85rem', color: '#991b1b', lineHeight: 1.45 }}>
+                <strong>Link Status Notice:</strong>
+                <p style={{ margin: '0.25rem 0 0' }}>{linkWarning.reason}</p>
+                <div style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: '#7f1d1d' }}>
+                  Target Destination:
+                  <div style={{ wordBreak: 'break-all', fontFamily: 'monospace', marginTop: '2px' }}>
+                    {linkWarning.url}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <Button variant="secondary" size="md" onClick={() => setLinkWarning(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => {
+                  const { url, opp } = linkWarning;
+                  setLinkWarning(null);
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                  setConfirmModalOpp(opp);
+                }}
+              >
+                Proceed to Link Anyway
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* 7. Opportunity Details Drawer with Transparent Eligibility Breakdown */}
       <Drawer
         isOpen={Boolean(selectedOpp)}
@@ -951,7 +1118,33 @@ export default function OpportunitiesPage() {
                   Application Deadline
                 </div>
                 <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--lx-ink)', marginTop: '2px' }}>
-                  {selectedOpp.deadlineString || 'Deadline not specified'}
+                  {(() => {
+                    let raw = selectedOpp.deadlineString || selectedOpp.deadline || selectedOpp.dates?.deadline;
+                    if (!raw || raw === 'Deadline not specified') return 'Rolling Applications';
+                    if (typeof raw === 'object' && raw !== null) {
+                      raw = raw.$date || raw.date || raw.value || String(raw);
+                    }
+                    const s = String(raw).trim();
+                    if (/^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/.test(s)) return s;
+                    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    try {
+                      const datePart = s.split('T')[0].split(' ')[0].trim();
+                      const parts = datePart.split('-');
+                      if (parts.length === 3 && parts[0].length === 4) {
+                        const year = parseInt(parts[0], 10);
+                        const mIdx = parseInt(parts[1], 10) - 1;
+                        const day = parseInt(parts[2], 10);
+                        if (mIdx >= 0 && mIdx < 12 && day >= 1 && day <= 31) {
+                          return `${day} ${MONTHS[mIdx]} ${year}`;
+                        }
+                      }
+                      const d = new Date(s);
+                      if (!isNaN(d.getTime())) {
+                        return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+                      }
+                    } catch {}
+                    return s.split('T')[0].split(' ')[0];
+                  })()}
                 </div>
               </div>
             </div>
@@ -1146,6 +1339,19 @@ export default function OpportunitiesPage() {
                 <strong style={{ color: 'var(--lx-ink)' }}>
                   {selectedOpp.source?.name ? selectedOpp.source.name.replace(/_/g, ' ').toUpperCase() : 'OFFICIAL COMPANY PORTAL'}
                 </strong>
+                {selectedOpp.link_verification && (
+                  <span style={{ marginLeft: '0.5rem' }}>
+                    {selectedOpp.link_verification.status === 'verified' && (
+                      <Badge variant="success" size="sm">✓ Verified Link</Badge>
+                    )}
+                    {selectedOpp.link_verification.status === 'redirected' && (
+                      <Badge variant="info" size="sm">↗ Direct Portal</Badge>
+                    )}
+                    {selectedOpp.link_verification.is_expired && (
+                      <Badge variant="danger" size="sm">⚠ Inactive Link</Badge>
+                    )}
+                  </span>
+                )}
               </div>
               {(selectedOpp.source?.url || selectedOpp.applicationUrl) && (
                 <a

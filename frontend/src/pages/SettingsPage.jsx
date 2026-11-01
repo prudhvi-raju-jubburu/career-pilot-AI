@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   User,
   Bell,
@@ -13,29 +14,50 @@ import {
   Database,
   Trash2,
   Download,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle
 } from 'lucide-react';
 import PageContainer from '../components/layout/PageContainer';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Badge from '../components/ui/Badge';
+import Modal from '../components/ui/Modal';
 import { useAuth } from '../hooks/useAuth';
 import {
   getProfile,
   updateProfile,
   getNotificationPreferences,
   updateNotificationPreferences,
-  triggerDigestSend
+  triggerDigestSend,
+  deleteAccount,
+  changePassword
 } from '../services/api';
+import { disconnectSocket } from '../services/socket';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('account');
   const [loading, setLoading] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [testingDigest, setTestingDigest] = useState(false);
+
+  // Account Deletion States
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  // Change Password States
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
 
   // Form states
   const [name, setName] = useState('');
@@ -138,6 +160,69 @@ export default function SettingsPage() {
       setSavedSuccess(false);
       setErrorMessage(err?.response?.data?.message || 'Failed to persist settings. Please check your network and try again.');
       setTimeout(() => setErrorMessage(''), 4500);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText.trim() !== 'DELETE') {
+      setDeleteError("You must type 'DELETE' exactly to confirm.");
+      return;
+    }
+    if (!deletePassword) {
+      setDeleteError("Current account password is required.");
+      return;
+    }
+    setDeletingAccount(true);
+    setDeleteError('');
+    try {
+      await deleteAccount({
+        password: deletePassword,
+        confirmation: deleteConfirmText.trim(),
+      });
+      disconnectSocket();
+      logout();
+      navigate('/');
+    } catch (err) {
+      setDeleteError(err?.message || 'Failed to delete account. Please check your password.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e?.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess(false);
+
+    if (!currentPassword) {
+      setPasswordError('Current password is required.');
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirm password do not match.');
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setPasswordError('New password must be different from current password.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSuccess(false), 4000);
+    } catch (err) {
+      setPasswordError(err?.message || 'Failed to update password. Please check your current password.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -309,6 +394,7 @@ export default function SettingsPage() {
 
         {/* Tab 1: Account & Profile */}
         {activeTab === 'account' && (
+          <>
           <Card variant="raised" style={{ marginBottom: '2rem' }}>
             <Card.Header>
               <h2 className="text-h3" style={{ fontSize: '1.2rem', marginBottom: '0.25rem' }}>Personal Information</h2>
@@ -347,6 +433,166 @@ export default function SettingsPage() {
               </div>
             </Card.Content>
           </Card>
+
+          {/* Security & Password Card */}
+          <Card variant="raised" style={{ marginBottom: '2rem' }}>
+            <Card.Header>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Lock size={18} color="var(--color-primary-600)" />
+                <h2 className="text-h3" style={{ fontSize: '1.2rem', marginBottom: 0 }}>
+                  Security &amp; Password
+                </h2>
+              </div>
+              <p className="text-small" style={{ marginTop: '0.25rem' }}>
+                Change your student account password to keep your profile secure.
+              </p>
+            </Card.Header>
+            <Card.Content style={{ padding: '1.75rem' }}>
+              {passwordSuccess && (
+                <div
+                  style={{
+                    padding: '0.85rem 1.15rem',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    color: '#059669',
+                    marginBottom: '1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontWeight: 600,
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  <CheckCircle2 size={17} />
+                  <span>Password updated successfully!</span>
+                </div>
+              )}
+
+              {passwordError && (
+                <div
+                  style={{
+                    padding: '0.85rem 1.15rem',
+                    backgroundColor: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: 'var(--radius-md, 8px)',
+                    color: '#dc2626',
+                    marginBottom: '1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontWeight: 600,
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  <AlertCircle size={17} />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+                  <Input
+                    label="Current Password"
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Enter current password"
+                    icon={<Lock size={16} />}
+                  />
+                  <Input
+                    label="New Password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Minimum 6 characters"
+                    helperText="Must be at least 6 characters"
+                    icon={<Lock size={16} />}
+                  />
+                  <Input
+                    label="Confirm New Password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    icon={<Lock size={16} />}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
+                    icon={<Save size={16} />}
+                  >
+                    {passwordLoading ? 'Updating Password...' : 'Change Password'}
+                  </Button>
+                </div>
+              </form>
+            </Card.Content>
+          </Card>
+
+          {/* Danger Zone: Account Deletion */}
+          <Card
+            variant="raised"
+            style={{
+              marginBottom: '2rem',
+              border: '1px solid #fecaca',
+              backgroundColor: '#fffbfb',
+            }}
+          >
+            <Card.Header style={{ borderBottom: '1px solid #fee2e2' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#dc2626' }}>
+                <AlertTriangle size={18} />
+                <h2 className="text-h3" style={{ fontSize: '1.15rem', color: '#dc2626', marginBottom: 0 }}>
+                  Danger Zone — Account Deletion
+                </h2>
+              </div>
+              <p className="text-small" style={{ color: '#991b1b', marginTop: '0.25rem' }}>
+                Permanently delete your student account and cascade-clean all associated data.
+              </p>
+            </Card.Header>
+            <Card.Content style={{ padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div>
+                <div style={{ fontWeight: 600, color: '#991b1b', fontSize: '0.9rem' }}>
+                  Irreversible Account &amp; Data Purge
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#7f1d1d', marginTop: '0.2rem', maxWidth: '580px' }}>
+                  Permanently deletes your account credentials, verified profile, uploaded resumes, application history, mock test results, and interview prep packs. This action cannot be reversed.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeletePassword('');
+                  setDeleteConfirmText('');
+                  setDeleteError('');
+                  setDeleteModalOpen(true);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.6rem 1.15rem',
+                  borderRadius: 'var(--radius-md, 8px)',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  backgroundColor: '#dc2626',
+                  color: '#ffffff',
+                  border: '1px solid #b91c1c',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#b91c1c'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#dc2626'; }}
+              >
+                <Trash2 size={15} />
+                Delete Account
+              </button>
+            </Card.Content>
+          </Card>
+        </>
         )}
 
         {/* Tab 2: Notifications */}
@@ -363,7 +609,7 @@ export default function SettingsPage() {
                 <div>
                   <div style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>In-App Matching Alerts</div>
                   <div style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>
-                    Display telemetry alerts in the in-app notification center when newly ingested opportunities match your profile.
+                    Display notifications in the in-app notification center when new opportunities match your profile.
                   </div>
                 </div>
                 <input
@@ -668,6 +914,179 @@ export default function SettingsPage() {
           </Card>
         )}
       </div>
+
+      {/* Account Deletion Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => !deletingAccount && setDeleteModalOpen(false)}
+        title="Permanently Delete Account"
+        description="This action is irreversible and immediately wipes all student data."
+      >
+        <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Warning box */}
+          <div
+            style={{
+              padding: '1rem',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              display: 'flex',
+              gap: '0.75rem',
+            }}
+          >
+            <AlertTriangle size={20} color="#dc2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ fontSize: '0.825rem', color: '#991b1b', lineHeight: 1.45 }}>
+              <strong>Permanent consequences:</strong>
+              <ul style={{ margin: '0.35rem 0 0', paddingLeft: '1.2rem' }}>
+                <li>Your student account credentials and profile will be permanently deleted.</li>
+                <li>All uploaded PDF resume files will be permanently erased from disk.</li>
+                <li>Application trackers, interview prep packs, mock tests, and AI recommendations will be cleared.</li>
+                <li>Shared opportunity records and company listings will be preserved.</li>
+              </ul>
+            </div>
+          </div>
+
+          {deleteError && (
+            <div
+              style={{
+                padding: '0.75rem 1rem',
+                backgroundColor: '#fef2f2',
+                border: '1px solid #fca5a5',
+                borderRadius: '6px',
+                color: '#b91c1c',
+                fontSize: '0.825rem',
+                fontWeight: 600,
+              }}
+            >
+              {deleteError}
+            </div>
+          )}
+
+          {/* Form inputs */}
+          <div>
+            <label
+              htmlFor="delete-password"
+              style={{
+                display: 'block',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#334155',
+                marginBottom: '0.35rem',
+              }}
+            >
+              Confirm Account Password *
+            </label>
+            <input
+              id="delete-password"
+              type="password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="Enter current password"
+              disabled={deletingAccount}
+              style={{
+                width: '100%',
+                padding: '0.65rem 0.85rem',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="delete-confirm-text"
+              style={{
+                display: 'block',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: '#334155',
+                marginBottom: '0.35rem',
+              }}
+            >
+              Type <strong>DELETE</strong> to confirm *
+            </label>
+            <input
+              id="delete-confirm-text"
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Type DELETE"
+              disabled={deletingAccount}
+              style={{
+                width: '100%',
+                padding: '0.65rem 0.85rem',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '0.9rem',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          {/* Modal Actions */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '0.75rem',
+              paddingTop: '0.5rem',
+              borderTop: '1px solid #f1f5f9',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={deletingAccount}
+              style={{
+                padding: '0.55rem 1rem',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: '#ffffff',
+                color: '#475569',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              disabled={
+                deletingAccount ||
+                deleteConfirmText.trim() !== 'DELETE' ||
+                !deletePassword
+              }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.55rem 1.15rem',
+                borderRadius: '6px',
+                border: '1px solid #b91c1c',
+                backgroundColor:
+                  deleteConfirmText.trim() === 'DELETE' && deletePassword && !deletingAccount
+                    ? '#dc2626'
+                    : '#fca5a5',
+                color: '#ffffff',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor:
+                  deleteConfirmText.trim() === 'DELETE' && deletePassword && !deletingAccount
+                    ? 'pointer'
+                    : 'not-allowed',
+                transition: 'background-color 0.15s ease',
+              }}
+            >
+              <Trash2 size={14} />
+              {deletingAccount ? 'Deleting Account...' : 'Permanently Delete'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </PageContainer>
   );
 }

@@ -110,6 +110,19 @@ class UserModel:
         )
         return res.modified_count > 0
 
+    @classmethod
+    def update_password(cls, user_id: str, new_password: str) -> bool:
+        """Hashes and updates user password in MongoDB."""
+        col = cls.get_collection()
+        obj_id = ObjectId(user_id) if isinstance(user_id, str) and ObjectId.is_valid(user_id) else user_id
+        now = datetime.now(timezone.utc).isoformat()
+        password_hash = generate_password_hash(new_password)
+        res = col.update_one(
+            {"_id": obj_id},
+            {"$set": {"password_hash": password_hash, "updated_at": now}}
+        )
+        return res.modified_count > 0
+
     @staticmethod
     def verify_password(stored_hash: str, password: str) -> bool:
         """Verifies candidate plaintext password against stored hash."""

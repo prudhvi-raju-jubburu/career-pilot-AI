@@ -118,11 +118,12 @@ class DeduplicationService:
         raw_app_url = new_opp.get("application_url") or source.get("url")
         canonical_app_url = canonicalize_url(raw_app_url)
         if canonical_app_url and len(canonical_app_url) > 12:
-            # Query by exact match on canonical URL in application_url, source.url, or source_links.url
+            # Query by exact match on canonical URL in application_url, canonical_url, source.url, or source_links.url
             doc = col.find_one({
                 "$or": [
                     {"application_url": raw_app_url},
                     {"application_url": canonical_app_url},
+                    {"canonical_url": canonical_app_url},
                     {"source.url": canonical_app_url},
                     {"source_links.url": canonical_app_url}
                 ]
@@ -223,6 +224,7 @@ class DeduplicationService:
         col = OpportunityModel.get_collection()
         doc_id = canonical_doc.get("_id")
         now = datetime.now(timezone.utc).isoformat()
+        has_field_changes = False
 
         # 1. Manage source_links array
         existing_sources = canonical_doc.get("source_links") or []
@@ -253,11 +255,14 @@ class DeduplicationService:
                     "external_id": incoming_src.get("external_id"),
                     "added_at": now
                 })
+                has_field_changes = True
 
         # 2. Union skills
         existing_skills = set(canonical_doc.get("skills") or [])
         incoming_skills = set(incoming_opp.get("skills") or [])
         merged_skills = sorted(list(existing_skills.union(incoming_skills)))
+        if len(merged_skills) > len(existing_skills):
+            has_field_changes = True
 
         # 3. Deterministic field precedence
         update_set: Dict[str, Any] = {
@@ -274,12 +279,14 @@ class DeduplicationService:
         if inc_deadline and not can_deadline:
             update_set["dates.deadline"] = inc_deadline
             update_set["deadline"] = inc_deadline
+            has_field_changes = True
 
         # Refresh description if canonical was brief (< 100 chars) and incoming is richer
         inc_desc = str(incoming_opp.get("description") or "").strip()
         can_desc = str(canonical_doc.get("description") or "").strip()
         if inc_desc and len(inc_desc) > len(can_desc) and len(can_desc) < 100:
             update_set["description"] = inc_desc
+            has_field_changes = True
 
         # Refresh compensation if canonical was unspecified and incoming has parsed numbers
         can_comp = canonical_doc.get("compensation") or {}
@@ -287,10 +294,12 @@ class DeduplicationService:
         if inc_comp.get("min_amount") or inc_comp.get("max_amount"):
             if not can_comp.get("min_amount") and not can_comp.get("max_amount"):
                 update_set["compensation"] = inc_comp
+                has_field_changes = True
 
         # Re-activate status if was expired but incoming has future deadline
         if canonical_doc.get("status") == "expired" and inc_deadline and inc_deadline > now:
             update_set["status"] = "active"
+            has_field_changes = True
 
         col.update_one({"_id": doc_id}, {"$set": update_set})
 
@@ -299,9 +308,12 @@ class DeduplicationService:
         canonical_doc["skills"] = merged_skills
         canonical_doc["last_seen_at"] = now
         canonical_doc["updated_at"] = now
+        canonical_doc["_has_field_changes"] = has_field_changes
         for k, v in update_set.items():
             if "." not in k:
                 canonical_doc[k] = v
+
+        return canonical_doc
 
         return canonical_doc
 

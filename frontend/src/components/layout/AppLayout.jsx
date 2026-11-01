@@ -5,7 +5,7 @@ import MobileBottomNav from './MobileBottomNav';
 import NetworkStatusBanner from '../NetworkStatusBanner';
 import { CommandPalette } from '../ui/CommandPalette';
 
-export default function AppLayout({ children }) {
+export default function AppLayout({ children, hideFooter = false, fullHeight = false }) {
   const [cmdOpen, setCmdOpen] = useState(false);
 
   return (
@@ -14,7 +14,9 @@ export default function AppLayout({ children }) {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '100vh',
+        minHeight: fullHeight ? '100vh' : '100vh',
+        height: fullHeight ? '100vh' : 'auto',
+        overflow: fullHeight ? 'hidden' : 'visible',
         backgroundColor: 'var(--bg-secondary)',
         color: 'var(--text-primary)',
         width: '100%',
@@ -35,13 +37,15 @@ export default function AppLayout({ children }) {
           flexDirection: 'column',
           minWidth: 0,
           width: '100%',
+          height: fullHeight ? 'calc(100vh - 64px)' : 'auto',
+          overflow: fullHeight ? 'hidden' : 'visible',
         }}
       >
         {children}
       </main>
 
-      {/* Footer across all pages */}
-      <Footer />
+      {/* Footer across standard pages */}
+      {!hideFooter && <Footer />}
 
       {/* Mobile Bottom Navigation for quick thumb reach on mobile */}
       <MobileBottomNav />

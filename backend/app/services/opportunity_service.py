@@ -406,6 +406,32 @@ class OpportunityService:
                 ]
             })
 
+        # Exclude internal test fixtures, dummy items, and non-job articles
+        and_clauses.append({
+            "title": {
+                "$not": {
+                    "$regex": r"(?:staging\s*test|dummy\s*opp|test\s*fixture|urgent\s*hackathon\s*entry|\[test\]|why is your old boss)",
+                    "$options": "i"
+                }
+            }
+        })
+
+        # Exclude unknown/placeholder organizations (require at least one valid organization name)
+        and_clauses.append({
+            "$or": [
+                {
+                    "organization.name": {
+                        "$nin": [None, "", "Unknown", "Unknown Organization", "Target Organization", "Dummy Company"]
+                    }
+                },
+                {
+                    "company": {
+                        "$nin": [None, "", "Unknown", "Unknown Organization", "Target Organization", "Dummy Company"]
+                    }
+                }
+            ]
+        })
+
         query: Dict[str, Any] = {"$and": and_clauses} if and_clauses else {}
 
         col = OpportunityModel.get_collection()
@@ -503,44 +529,76 @@ class OpportunityService:
 
             items.append(item)
 
-        # Prioritize matching opportunities to student profile:
-        # Decouple Hard Eligibility: Eligible records rank strictly before Not-Eligible records
-        if profile is not None and sort_by in ("latest", "match", "relevance", None):
+        # Prioritize matching opportunities: Show high match jobs first, later others
+        if sort_by in ("latest", "match", "relevance", None):
             def _opportunity_sort_key(x):
+                score = x.get("match_score")
+                if score is None:
+                    score = x.get("matchScore", 0)
+                try:
+                    score_num = float(score)
+                except (ValueError, TypeError):
+                    score_num = 0.0
+                has_score = 1 if score_num > 0 else 0
                 status = (x.get("eligibility") or {}).get("status", "")
-                elig_rank = 2 if status == "eligible" else (1 if status == "needs_review" else 0)
+                elig_rank = 1 if status == "eligible" else 0
                 applied_rank = 0 if x.get("already_applied") else 1
+                matched_count = len(x.get("matched_skills", []))
+                created = str(x.get("created_at") or "")
                 return (
+                    has_score,
+                    score_num,
+                    matched_count,
                     elig_rank,
                     applied_rank,
-                    x.get("match_score", 0),
-                    len(x.get("matched_skills", []))
+                    created
                 )
 
             items.sort(key=_opportunity_sort_key, reverse=True)
 
-        if matched_only and profile is not None:
-            matched_items = [
-                x for x in items
-                if (x.get("eligibility") or {}).get("is_eligible", False) and
-                   (x.get("match_score", 0) >= 60 or len(x.get("matched_skills", [])) > 0)
-            ]
-            if len(matched_items) >= 5:
+        # Strictly recommend opportunities that match the student's profile, skills, and resume
+        if profile is not None and evidence is not None:
+            has_student_signals = bool(student_skills or evidence.get("has_resume") or profile.get("skills"))
+            if has_student_signals:
+                matched_items = []
+                for x in items:
+                    matched_skills = x.get("matched_skills") or []
+                    demonstrated = x.get("demonstrated_skills") or []
+                    has_skill_match = (len(matched_skills) > 0 or len(demonstrated) > 0)
+
+                    # Check for direct target role alignment
+                    role_match = False
+                    target_role = str(profile.get("target_role") or "").lower().strip()
+                    title_lower = str(x.get("title") or "").lower().strip()
+                    if target_role and (target_role in title_lower or title_lower in target_role):
+                        role_match = True
+
+                    is_general = x.get("is_general_discovery") is True
+
+                    # Strictly include only opportunities matching student's skills, resume, or target role
+                    if (has_skill_match or role_match) and not is_general:
+                        matched_items.append(x)
                 items = matched_items
+            elif matched_only:
+                # Student has no skills/resume in profile yet -> do not return general recommendations
+                items = []
+        elif matched_only:
+            # Unauthenticated or no profile and matched_only -> do not return general recommendations
+            items = []
 
         # Feed-Level Deduplication: Guarantee student feed never serves duplicate opportunity cards
         from app.services.dedup_service import DeduplicationService
         seen_feed_keys = set()
         deduped_items = []
         for item in items:
-            org = (item.get("organization") or {}).get("name") or item.get("organization_name") or ""
+            org = (item.get("organization") or {}).get("name") or item.get("company") or item.get("organization_name") or ""
             norm_org = DeduplicationService.normalize_org_name(org)
             title = item.get("title") or ""
             norm_title = DeduplicationService.normalize_title(title)
             opp_type = str(item.get("type") or "job").strip().lower()
             loc = DeduplicationService.normalize_location_token(item.get("location"))
 
-            feed_key = f"{norm_org}::{norm_title}::{opp_type}::{loc}" if (norm_org and norm_title) else str(item.get("id") or item.get("_id"))
+            feed_key = f"{norm_org}::{norm_title}::{opp_type}::{loc}" if norm_title else str(item.get("id") or item.get("_id"))
             if feed_key in seen_feed_keys:
                 continue
             seen_feed_keys.add(feed_key)

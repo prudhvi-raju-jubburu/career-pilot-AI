@@ -17,9 +17,9 @@ from app.ai.ai_service import AIService
 logger = logging.getLogger(__name__)
 
 SIMULATOR_DISCLAIMER = (
-    "This AI interview simulator is an interactive practice environment grounded in your candidate profile, "
-    "projects, and application job description. Evaluative feedback, score bands, and sample answers are provided "
-    "as study aids for self-improvement and do not constitute hiring decisions or official interview guarantees."
+    "This AI interview simulator is an interactive practice environment providing study suggestions for skill-building. "
+    "Simulated questions and evaluative rubrics do not represent actual or guaranteed interview questions from the hiring organization, "
+    "and AI evaluations do not guarantee employment outcomes or predict human interviewer decisions."
 )
 
 class InterviewSimulatorService:
@@ -187,7 +187,7 @@ class InterviewSimulatorService:
 
         session = InterviewSessionModel.find_by_id(session_id, user_id=user_str, app_id=app_str)
         if not session:
-            raise ValueError("Session not found or unauthorized")
+            raise KeyError("Interview session not found or unauthorized")
 
         if session.get("status") in ("completed", "ended_early"):
             raise ValueError("This interview session has already ended")
@@ -196,11 +196,11 @@ class InterviewSimulatorService:
         if question_index < 0 or question_index >= len(questions):
             raise ValueError(f"Invalid question index: {question_index}")
 
-        # Clean and bound student answer (minimum 5 chars, maximum 5000 chars)
-        clean_answer = str(answer_text or "").strip()
-        if len(clean_answer) < 5:
-            raise ValueError("Answer is too short. Please provide a substantive response (at least 5 characters).")
-        clean_answer = clean_answer[:5000]
+        # Clean and bound student answer (maximum 5000 chars, non-empty)
+        if answer_text is None or not str(answer_text).strip():
+            raise ValueError("Answer cannot be empty. Please provide your response before submitting.")
+
+        clean_answer = str(answer_text).strip()[:5000]
 
         # 1. ATOMIC PERSISTENCE: Save answer immediately before invoking AI
         saved = InterviewSessionModel.save_answer(session_id, user_str, question_index, clean_answer)

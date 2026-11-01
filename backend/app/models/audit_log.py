@@ -93,6 +93,25 @@ class AuditLogModel:
         return cls.to_dict(doc)
 
     @classmethod
+    def record_event(
+        cls,
+        action: str,
+        actor_id: str,
+        target_id: Optional[str] = None,
+        target_type: str = "user",
+        details: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Convenience alias for system and user lifecycle event auditing with zero-PII sanitization."""
+        return cls.record(
+            admin_id=actor_id,
+            admin_email="",
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            details=details
+        )
+
+    @classmethod
     def find_paginated(
         cls,
         query: Dict[str, Any],

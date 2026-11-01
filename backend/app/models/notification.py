@@ -125,7 +125,14 @@ class NotificationModel:
         try:
             res = col.insert_one(doc)
             doc["_id"] = res.inserted_id
-            return cls.to_dict(doc)
+            result = cls.to_dict(doc)
+            # Dispatch real-time socket event
+            try:
+                from app.socket import emit_notification_new
+                emit_notification_new(str(user_id), result)
+            except Exception:
+                pass
+            return result
         except Exception as e:
             # Handle duplicate key violation cleanly
             if "duplicate key" in str(e).lower() or "e11000" in str(e).lower():
@@ -144,7 +151,15 @@ class NotificationModel:
         else:
             query["_id"] = notif_id
         res = col.update_one(query, {"$set": {"read": True, "read_at": datetime.now(timezone.utc).isoformat()}})
-        return res.modified_count > 0
+        if res.modified_count > 0:
+            try:
+                from app.socket import emit_notification_read
+                unread = cls.get_unread_count(user_id)
+                emit_notification_read(str(user_id), str(notif_id), unread)
+            except Exception:
+                pass
+            return True
+        return False
 
     @classmethod
     def mark_all_read(cls, user_id: str) -> int:
@@ -153,6 +168,11 @@ class NotificationModel:
             {"$or": [{"user_id": str(user_id)}, {"user_id": "broadcast"}], "read": False},
             {"$set": {"read": True, "read_at": datetime.now(timezone.utc).isoformat()}}
         )
+        try:
+            from app.socket import emit_notification_read_all
+            emit_notification_read_all(str(user_id), 0)
+        except Exception:
+            pass
         return res.modified_count
 
     @classmethod
@@ -164,4 +184,12 @@ class NotificationModel:
         else:
             query["_id"] = notif_id
         res = col.delete_one(query)
-        return res.deleted_count > 0
+        if res.deleted_count > 0:
+            try:
+                from app.socket import emit_notification_deleted
+                unread = cls.get_unread_count(user_id)
+                emit_notification_deleted(str(user_id), str(notif_id), unread)
+            except Exception:
+                pass
+            return True
+        return False

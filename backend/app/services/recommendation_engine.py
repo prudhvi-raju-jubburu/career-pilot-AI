@@ -205,6 +205,27 @@ class RecommendationEngine:
         profile_doc = ProfileModel.find_by_user_id(user_id) or {}
         evidence = cls.build_student_evidence_profile(profile_doc)
 
+        # 1b. Determine Student Evidence Level & Personalization Tier:
+        # - fully_personalized: sufficient profile and verified resume evidence
+        # - partially_personalized: profile-based recommendations with incomplete/unverified evidence
+        # - general_discovery: insufficient profile information for meaningful personalization
+        has_resume = bool(evidence.get("has_resume"))
+        skills_cnt = len(evidence.get("all_student_skills", []))
+        projects_cnt = evidence.get("projects_count", 0)
+        edu = profile_doc.get("education") or {}
+        has_edu = bool(edu.get("degree") or edu.get("branch"))
+        has_roles = bool(evidence.get("target_roles"))
+
+        if has_resume and (projects_cnt > 0 or skills_cnt >= 2) and has_edu:
+            personalization_tier = "fully_personalized"
+            evidence_level = "high"
+        elif has_edu or skills_cnt >= 1 or has_roles:
+            personalization_tier = "partially_personalized"
+            evidence_level = "partial"
+        else:
+            personalization_tier = "general_discovery"
+            evidence_level = "insufficient"
+
         # 2. Fetch user's company watchlist
         watchlist = set(CompanyModel.get_user_watchlist(user_id))
 
@@ -232,6 +253,23 @@ class RecommendationEngine:
             min_stipend=min_stipend,
             limit=200
         )
+
+        # Ensure any tracked applications (even if expired or closed) are included for historical application tracking
+        if applied_map:
+            candidate_ids = {str(c.get("_id") or c.get("id")) for c in candidates}
+            missing_applied_ids = [aid for aid in applied_map if aid not in candidate_ids]
+            if missing_applied_ids:
+                from bson import ObjectId
+                obj_ids = [ObjectId(aid) for aid in missing_applied_ids if ObjectId.is_valid(aid)]
+                raw_ids = [aid for aid in missing_applied_ids if not ObjectId.is_valid(aid)]
+                extra_query = []
+                if obj_ids:
+                    extra_query.append({"_id": {"$in": obj_ids}})
+                if raw_ids:
+                    extra_query.append({"_id": {"$in": raw_ids}})
+                if extra_query:
+                    extra_docs = list(OpportunityModel.get_collection().find({"$or": extra_query}))
+                    candidates.extend(extra_docs)
 
         recommended_items = []
         stretch_items = []
@@ -273,12 +311,65 @@ class RecommendationEngine:
             skill_gap = cls._build_skill_gap(opp, evidence)
 
             # Construct explainable card payload
+            is_general = (personalization_tier == "general_discovery")
+            is_partial = (personalization_tier == "partially_personalized")
+
+            # Determine Tier Badging & Scores
+            if is_general:
+                # Cold-start / General Discovery semantics:
+                # - Do not display a fabricated or unexplained personal match percentage (None)
+                # - Do not generate unsupported why_matched claims ([])
+                # - Clearly label as General Discovery
+                # - Display missing profile information and resume-upload guidance
+                card_match_score = None
+                card_base_score = None
+                card_why_matched = []
+                card_rationale = "General discovery recommendation. Complete your profile and upload your resume to calculate personalized match scores and skill-fit evaluations."
+                card_tier = "General Discovery"
+                card_guidance = {
+                    "missing_profile": True,
+                    "resume_upload_required": True,
+                    "missing_fields": [
+                        f for f, has_val in [
+                            ("Resume", has_resume),
+                            ("Degree", bool(edu.get("degree"))),
+                            ("Branch", bool(edu.get("branch"))),
+                            ("Technical Skills", skills_cnt > 0)
+                        ] if not has_val
+                    ],
+                    "action_prompt": "Complete your profile and upload your resume to calculate personalized match scores."
+                }
+            elif is_partial:
+                card_match_score = final_match_score
+                card_base_score = base_score
+                card_why_matched = highlights[:3]
+                card_rationale = cls._generate_rationale(opp, profile_doc, score_data, evidence=evidence)
+                card_tier = "Profile Fit"
+                card_guidance = {
+                    "missing_profile": False,
+                    "resume_upload_required": not has_resume,
+                    "missing_fields": ["Resume"] if not has_resume else [],
+                    "action_prompt": "Upload your resume to verify project skills and increase match confidence." if not has_resume else None
+                }
+            else:
+                card_match_score = final_match_score
+                card_base_score = base_score
+                card_why_matched = highlights[:3]
+                card_rationale = cls._generate_rationale(opp, profile_doc, score_data, evidence=evidence)
+                card_tier = "High Fit" if final_match_score >= 80 else ("Good Fit" if final_match_score >= 60 else "Moderate Fit")
+                card_guidance = None
+
             enriched_item = {
                 **OpportunityModel.to_dict(opp),
-                "match_score": final_match_score,
-                "base_score": base_score,
-                "personalization_adjustment": pers_delta,
-                "score_breakdown": score_data["breakdown"],
+                "match_score": card_match_score,
+                "base_score": card_base_score,
+                "match_tier": card_tier,
+                "personalization_tier": personalization_tier,
+                "discovery_type": personalization_tier,
+                "is_general_discovery": is_general,
+                "guidance": card_guidance,
+                "personalization_adjustment": 0 if is_general else pers_delta,
+                "score_breakdown": {} if is_general else score_data["breakdown"],
                 "eligibility": eligibility,
                 "skill_gap": skill_gap,
                 "demonstrated_skills": [d["skill"] for d in skill_gap["demonstrated"]],
@@ -286,8 +377,8 @@ class RecommendationEngine:
                 "potential_gaps": skill_gap["potential_gaps"],
                 "has_resume_evidence": evidence["has_resume"],
                 "is_watched_company": opp.get("organization", {}).get("name") in watchlist,
-                "why_matched": highlights[:3],
-                "personal_rationale": cls._generate_rationale(opp, profile_doc, score_data, evidence=evidence)
+                "why_matched": card_why_matched,
+                "personal_rationale": card_rationale
             }
 
             if is_applied:
@@ -300,6 +391,14 @@ class RecommendationEngine:
 
             # Decouple Hard Eligibility from Relevance Ranking:
             # A high relevance score must NEVER override failed mandatory requirements.
+            has_skill_match = (
+                len(skill_gap.get("demonstrated", [])) > 0 or
+                len(skill_gap.get("listed", [])) > 0 or
+                len(skill_gap.get("matched_skills", [])) > 0
+            )
+            role_preference_score = score_data.get("breakdown", {}).get("role_preference", 0)
+            has_role_match = role_preference_score >= 80
+
             if is_applied:
                 # Do not recommend in default feed if already applied
                 enriched_item["stretch_reasons"] = [f"Already applied ({applied_map[opp_id]})"]
@@ -310,13 +409,22 @@ class RecommendationEngine:
             elif is_dismissed:
                 enriched_item["stretch_reasons"] = ["Dismissed by you"]
                 stretch_items.append(enriched_item)
+            elif is_general or (not has_skill_match and not has_role_match):
+                # Only recommend opportunities that genuinely match student profile, skills, and resume
+                enriched_item["stretch_reasons"] = ["No direct overlap with your verified resume skills or target role"]
+                stretch_items.append(enriched_item)
             else:
                 recommended_items.append(enriched_item)
 
-        # Sort by total match score descending
-        recommended_items.sort(key=lambda x: x["match_score"], reverse=True)
-        stretch_items.sort(key=lambda x: x["match_score"], reverse=True)
-        applied_items.sort(key=lambda x: x["match_score"], reverse=True)
+        # Sort: for general discovery sort by newest posted date; otherwise by match score descending
+        if personalization_tier == "general_discovery":
+            recommended_items.sort(key=lambda x: str(x.get("dates", {}).get("posted_at") or x.get("created_at") or ""), reverse=True)
+            stretch_items.sort(key=lambda x: str(x.get("dates", {}).get("posted_at") or x.get("created_at") or ""), reverse=True)
+            applied_items.sort(key=lambda x: str(x.get("dates", {}).get("posted_at") or x.get("created_at") or ""), reverse=True)
+        else:
+            recommended_items.sort(key=lambda x: x["match_score"] or 0, reverse=True)
+            stretch_items.sort(key=lambda x: x["match_score"] or 0, reverse=True)
+            applied_items.sort(key=lambda x: x["match_score"] or 0, reverse=True)
 
         # Feed-Level Deduplication: Guarantee recommended, stretch, and applied feeds never serve duplicate cards
         from app.services.dedup_service import DeduplicationService
@@ -369,6 +477,9 @@ class RecommendationEngine:
         return {
             "items": paginated,
             "total": len(active_list),
+            "personalization_tier": personalization_tier,
+            "evidence_level": evidence_level,
+            "is_general_discovery": (personalization_tier == "general_discovery"),
             "counts": {
                 "recommended": len(diversified_recommended),
                 "stretch": len(stretch_items),
@@ -470,40 +581,61 @@ class RecommendationEngine:
         min_stipend: Optional[int] = None,
         limit: int = 200
     ) -> List[Dict[str, Any]]:
-        """Retrieves eligible active candidate opportunities from MongoDB."""
+        """Retrieves eligible active candidate opportunities from MongoDB using safe composite filters."""
         col = OpportunityModel.get_collection()
         now_utc = datetime.now(timezone.utc).isoformat()
         today_date = now_utc[:10]
 
-        query: Dict[str, Any] = {
-            "status": {"$in": ["active", "open"]},
-            "$or": [
+        # Use and_clauses to guarantee deadline & status filters are never overwritten by location or compensation
+        and_clauses: List[Dict[str, Any]] = [
+            {"status": {"$in": ["active", "open"]}},
+            {"$or": [
                 {"dates.deadline": None},
                 {"dates.deadline": ""},
-                {"dates.deadline": {"$gte": today_date}}
-            ]
-        }
+                {"dates.deadline": {"$gte": today_date}},
+                {"deadline": None},
+                {"deadline": ""},
+                {"deadline": {"$gte": today_date}}
+            ]},
+            # Filter out internal test fixtures, dummy items, and non-job articles
+            {"title": {
+                "$not": {
+                    "$regex": r"(?:staging\s*test|dummy\s*opp|test\s*fixture|urgent\s*hackathon\s*entry|\[test\]|why is your old boss)",
+                    "$options": "i"
+                }
+            }},
+            # Filter out unknown/placeholder organizations
+            {"$or": [
+                {"organization.name": {
+                    "$nin": [None, "", "Unknown", "Unknown Organization", "Target Organization", "Dummy Company"]
+                }},
+                {"company": {
+                    "$nin": [None, "", "Unknown", "Unknown Organization", "Target Organization", "Dummy Company"]
+                }}
+            ]}
+        ]
 
         if opp_type and opp_type.lower() != "all":
-            query["type"] = opp_type.lower()
+            and_clauses.append({"type": opp_type.lower()})
 
         if work_mode and work_mode.lower() != "all":
-            query["work_mode"] = {"$regex": f"^{re.escape(work_mode)}$", "$options": "i"}
+            and_clauses.append({"work_mode": {"$regex": f"^{re.escape(work_mode)}$", "$options": "i"}})
 
         if location and location.lower() not in ("all", "all india"):
-            query["$or"] = [
+            and_clauses.append({"$or": [
                 {"location.city": {"$regex": re.escape(location), "$options": "i"}},
                 {"location.state": {"$regex": re.escape(location), "$options": "i"}},
                 {"location.is_remote": True}
-            ]
+            ]})
 
         if min_stipend and min_stipend > 0:
-            query["$or"] = [
+            and_clauses.append({"$or": [
                 {"compensation.min_amount": {"$gte": min_stipend}},
                 {"compensation.min": {"$gte": min_stipend}},
                 {"compensation.max_amount": {"$gte": min_stipend}}
-            ]
+            ]})
 
+        query = {"$and": and_clauses}
         cursor = col.find(query).sort("dates.posted_at", -1).limit(limit)
         return list(cursor)
 
@@ -606,9 +738,9 @@ class RecommendationEngine:
             for s in student_skills:
                 if len(s) >= 2 and re.search(rf"\b{re.escape(s)}\b", title_desc):
                     text_matches.append(s)
-            skill_score = min(90, 50 + len(text_matches) * 15) if text_matches else 65
+            skill_score = min(90, 50 + len(text_matches) * 15) if text_matches else 0
         else:
-            skill_score = 60
+            skill_score = 0
 
         if demonstrated_matched:
             highlights.append(f"Demonstrated project skills match {', '.join(demonstrated_matched[:3])}")

@@ -21,14 +21,16 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useNotifications } from '../hooks/useNotifications';
+import NotificationDropdown from './notifications/NotificationDropdown';
 import { CommandPalette } from './ui/CommandPalette';
 import Button from './ui/Button';
 
 export default function Navbar({ onOpenCmd }) {
   const { user, isAuthenticated, logout } = useAuth();
-  const { unreadCount } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
 
   const navigate = useNavigate();
@@ -50,6 +52,7 @@ export default function Navbar({ onOpenCmd }) {
   useEffect(() => {
     setMobileMenuOpen(false);
     setUserDropdownOpen(false);
+    setNotificationDropdownOpen(false);
   }, [location.pathname]);
 
   const handleLogout = () => {
@@ -362,51 +365,67 @@ export default function Navbar({ onOpenCmd }) {
               </kbd>
             </button>
 
-            {/* Notifications Bell (Authenticated) */}
+            {/* Notifications Bell with Popover Dropdown (Authenticated) */}
             {isAuthenticated && (
-              <Link
-                to="/notifications"
-                style={{
-                  position: 'relative',
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#475569',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  textDecoration: 'none',
-                  transition: 'all 0.2s ease',
-                }}
-                title={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
-              >
-                <Bell size={17} />
-                {unreadCount > 0 && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: '-3px',
-                      right: '-3px',
-                      minWidth: '16px',
-                      height: '16px',
-                      borderRadius: '9999px',
-                      backgroundColor: '#ef4444',
-                      color: '#ffffff',
-                      fontSize: '0.65rem',
-                      fontWeight: 800,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '0 3px',
-                      boxShadow: '0 0 0 2px #ffffff',
-                    }}
-                  >
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </Link>
+              <div style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
+                  style={{
+                    position: 'relative',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: notificationDropdownOpen ? 'var(--lx-blue, #2563eb)' : '#475569',
+                    backgroundColor: notificationDropdownOpen ? '#eff6ff' : '#f8fafc',
+                    border: '1px solid',
+                    borderColor: notificationDropdownOpen ? '#bfdbfe' : '#e2e8f0',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  title={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+                  aria-expanded={notificationDropdownOpen}
+                  aria-label="Toggle notifications dropdown"
+                >
+                  <Bell size={17} />
+                  {unreadCount > 0 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '-3px',
+                        right: '-3px',
+                        minWidth: '16px',
+                        height: '16px',
+                        borderRadius: '9999px',
+                        backgroundColor: '#ef4444',
+                        color: '#ffffff',
+                        fontSize: '0.65rem',
+                        fontWeight: 800,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '0 3px',
+                        boxShadow: '0 0 0 2px #ffffff',
+                      }}
+                    >
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                <NotificationDropdown
+                  isOpen={notificationDropdownOpen}
+                  onClose={() => setNotificationDropdownOpen(false)}
+                  notifications={notifications}
+                  unreadCount={unreadCount}
+                  onMarkRead={markAsRead}
+                  onMarkAllRead={markAllAsRead}
+                  onDelete={deleteNotification}
+                />
+              </div>
             )}
 
             {/* Authenticated User Menu vs Guest Login/Register */}

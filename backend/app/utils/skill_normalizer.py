@@ -175,12 +175,26 @@ def normalize_skill_list(skills: List[str]) -> List[str]:
     return result
 
 def skills_match(skill_a: str, skill_b: str) -> bool:
-    """Checks whether two skill strings match using canonical normalization."""
+    """Checks whether two skill strings match using canonical normalization and safe boundaries."""
+    if not skill_a or not skill_b:
+        return False
     norm_a = normalize_skill(skill_a).lower()
     norm_b = normalize_skill(skill_b).lower()
     if norm_a == norm_b:
         return True
-    # Substring containment for compound terms
-    if norm_a in norm_b or norm_b in norm_a:
+
+    # Word boundary checks to prevent substring collisions (e.g. 'c' in 'economics', 'go' in 'algorithms')
+    pattern_a = r'\b' + re.escape(norm_a) + r'\b'
+    pattern_b = r'\b' + re.escape(norm_b) + r'\b'
+    if re.search(pattern_a, norm_b) or re.search(pattern_b, norm_a):
         return True
+
+    # Substring containment for compound terms (only when term length is substantial)
+    if len(norm_a) >= 4 and len(norm_b) >= 4:
+        if norm_a in norm_b or norm_b in norm_a:
+            shorter = min(len(norm_a), len(norm_b))
+            longer = max(len(norm_a), len(norm_b))
+            if shorter / longer >= 0.5:
+                return True
+
     return False

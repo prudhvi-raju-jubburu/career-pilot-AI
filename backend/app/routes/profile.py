@@ -2,6 +2,7 @@ import logging
 from flask import Blueprint, request, jsonify
 from app.utils.auth import token_required
 from app.services.profile_service import ProfileService
+from app.services.account_deletion_service import AccountDeletionService
 
 logger = logging.getLogger(__name__)
 profile_bp = Blueprint("profile", __name__)
@@ -135,3 +136,41 @@ def get_completion(current_user):
             "missing_items": completion.get("missing_items", [])
         }
     }), 200
+
+@profile_bp.route("/account", methods=["DELETE"])
+@token_required
+def delete_account(current_user):
+    """
+    Permanently deletes authenticated user account and all personal data.
+    Requires current password and explicit 'DELETE' string confirmation.
+    """
+    user_id = str(current_user["_id"])
+    payload = request.get_json(silent=True) or {}
+    password = payload.get("password")
+    confirmation = payload.get("confirmation")
+
+    if not password:
+        return jsonify({
+            "success": False,
+            "message": "Current password is required to delete your account",
+            "error": "PASSWORD_REQUIRED"
+        }), 400
+
+    if not confirmation or str(confirmation).strip() != "DELETE":
+        return jsonify({
+            "success": False,
+            "message": "You must type 'DELETE' exactly to confirm account deletion",
+            "error": "CONFIRMATION_REQUIRED"
+        }), 400
+
+    success, message, status_code = AccountDeletionService.delete_account(
+        user_id=user_id,
+        password=password,
+        confirmation=confirmation
+    )
+
+    return jsonify({
+        "success": success,
+        "message": message
+    }), status_code
+

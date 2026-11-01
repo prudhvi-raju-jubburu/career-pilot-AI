@@ -32,7 +32,7 @@ export default function LivingAIOrb({
           primary: '#8b5cf6',
           secondary: '#c084fc',
           glow: 'rgba(139, 92, 246, 0.55)',
-          label: 'Synthesizing Neural Response...',
+          label: 'Thinking...',
           icon: <Brain size={size * 0.32} />,
         };
       case 'speaking':
@@ -40,7 +40,7 @@ export default function LivingAIOrb({
           primary: '#10b981',
           secondary: '#00f2fe',
           glow: 'rgba(16, 185, 129, 0.5)',
-          label: 'Streaming Telemetry...',
+          label: 'Responding...',
           icon: <Sparkles size={size * 0.32} />,
         };
       case 'idle':

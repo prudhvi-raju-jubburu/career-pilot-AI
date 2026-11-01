@@ -296,8 +296,8 @@ export default function InterviewSimulatorProctoredPage() {
     if (!session) return;
     const qIdx = session.current_question_index ?? 0;
     const clean = answerText.trim();
-    if (clean.length < 5) {
-      toast.error('Please provide a substantive answer (at least 5 characters) before submitting.');
+    if (!clean) {
+      toast.error('Answer cannot be empty. Please provide your response before submitting.');
       return;
     }
 
@@ -313,7 +313,7 @@ export default function InterviewSimulatorProctoredPage() {
       toast.success('Response evaluated by AI! Review your feedback below.');
     } catch (err) {
       console.error('Submission failed:', err);
-      toast.error(err.response?.data?.error || 'Could not evaluate answer.');
+      toast.error(err.response?.data?.message || err.message || 'Could not evaluate answer.');
     } finally {
       setIsSubmitting(false);
     }
@@ -519,20 +519,21 @@ export default function InterviewSimulatorProctoredPage() {
       {/* Practice Simulation Legal Disclaimer Banner */}
       <div style={{
         margin: '0.75rem 1.5rem 0',
-        padding: '0.65rem 1rem',
-        borderRadius: '8px',
+        padding: '0.75rem 1rem',
+        borderRadius: '10px',
         backgroundColor: theme === 'dark' ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7',
         border: theme === 'dark' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #FCD34D',
         color: theme === 'dark' ? '#FBBF24' : '#92400E',
-        fontSize: '0.76rem',
+        fontSize: '0.78rem',
+        lineHeight: 1.45,
         display: 'flex',
-        alignItems: 'center',
-        gap: '0.6rem'
+        alignItems: 'flex-start',
+        gap: '0.65rem'
       }}>
-        <ShieldAlert size={16} style={{ flexShrink: 0 }} />
+        <ShieldAlert size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
         <div style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-          <strong>Practice Simulation Disclaimer: </strong>
-          Interview questions, feedback rubrics, and reference outlines are AI-assisted practice aids synthesized directly from your verified profile, projects, and target job description. They do not represent official questions from {companyName}.
+          <strong>Practice Guidance Disclaimer: </strong>
+          Interview questions, sample answers, and evaluation metrics are AI-assisted practice suggestions. They are not guaranteed or official interview questions from {companyName}, and AI evaluation scores do not guarantee hiring outcomes or predict recruiter decisions.
         </div>
       </div>
 
@@ -1053,7 +1054,7 @@ export default function InterviewSimulatorProctoredPage() {
                 <Button
                   variant="primary"
                   onClick={handleSubmitAnswer}
-                  disabled={isSubmitting || answerText.trim().length < 5}
+                  disabled={isSubmitting || !answerText.trim()}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}
                 >
                   {isSubmitting ? (
@@ -1114,6 +1115,26 @@ export default function InterviewSimulatorProctoredPage() {
                     </span>
                   );
                 })()}
+              </div>
+
+              {/* Contextual Evaluation Disclaimer Note */}
+              <div style={{
+                padding: '0.6rem 0.85rem',
+                borderRadius: '8px',
+                backgroundColor: 'var(--sim-bg-card-subtle)',
+                border: '1px solid var(--sim-border)',
+                color: 'var(--sim-ink-dim)',
+                fontSize: '0.74rem',
+                lineHeight: 1.4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <ShieldAlert size={14} style={{ flexShrink: 0, color: 'var(--sim-amber)' }} />
+                <span>
+                  <strong>Guidance Note: </strong>
+                  This rubric evaluation is an automated practice suggestion to guide your preparation. It does not predict recruiter decisions or guarantee interview outcomes.
+                </span>
               </div>
 
               {/* 6-Dimension Evaluation Breakdown */}
@@ -1376,6 +1397,29 @@ export default function InterviewSimulatorProctoredPage() {
                 </div>
               </div>
             )}
+
+            {/* Performance Report Disclaimer Banner */}
+            <div style={{
+              maxWidth: '650px',
+              margin: '0 auto 1.5rem',
+              padding: '0.65rem 1rem',
+              borderRadius: '8px',
+              backgroundColor: theme === 'dark' ? 'rgba(245, 158, 11, 0.12)' : '#FEF3C7',
+              border: theme === 'dark' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid #FCD34D',
+              color: theme === 'dark' ? '#FBBF24' : '#92400E',
+              fontSize: '0.76rem',
+              lineHeight: 1.45,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.55rem',
+              textAlign: 'left'
+            }}>
+              <ShieldAlert size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <strong>Performance Report Disclaimer: </strong>
+                Readiness scores and improvement recommendations are automated study suggestions for interview practice. They do not predict recruiter decisions or guarantee employment offers.
+              </div>
+            </div>
 
             {/* Dimension Breakdown */}
             {session.summary?.dimension_averages && (

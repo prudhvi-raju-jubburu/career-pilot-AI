@@ -45,7 +45,7 @@ def get_notifications(current_user):
             welcome_notif = NotificationModel.create_notification(
                 user_id=user_id,
                 title="Welcome to CareerPilot AI! 🚀",
-                message="Your live career telemetry and opportunity discovery radar is active. We are continuously scanning top student opportunities.",
+                message="Your student career dashboard is ready. Explore verified jobs and internship opportunities tailored to your profile and skills.",
                 notif_type="system_notice",
                 link="/opportunities",
                 dedupe_key=f"{user_id}_welcome"
@@ -108,7 +108,7 @@ def mark_notification_read(current_user, notif_id):
             "error": str(e)
         }), 500
 
-@notification_bp.route("/read-all", methods=["POST"])
+@notification_bp.route("/read-all", methods=["POST", "PUT"])
 @token_required
 def mark_all_read(current_user):
     """Marks all notifications as read for current user."""

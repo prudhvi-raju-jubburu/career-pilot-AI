@@ -57,7 +57,7 @@ class OpportunitySource(ABC):
             return False
         return True
 
-    def _fetch_url(self, url: str, headers: Optional[Dict[str, str]] = None, timeout: int = 15, record_failure: bool = True) -> bytes:
+    def _fetch_url(self, url: str, headers: Optional[Dict[str, str]] = None, timeout: int = 15, record_failure: bool = True, max_attempts: int = 3) -> bytes:
         """
         Executes HTTP GET with retries, exponential backoff, rate limit delays, and error handling.
         When record_failure=False, transient or 404 errors on child sub-endpoints do not count against
@@ -71,7 +71,6 @@ class OpportunitySource(ABC):
             req_headers.update(headers)
 
         req = urllib.request.Request(url, headers=req_headers)
-        max_attempts = 3
         backoff = 2.0
 
         for attempt in range(1, max_attempts + 1):

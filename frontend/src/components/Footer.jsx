@@ -79,11 +79,11 @@ export default function Footer() {
           </motion.div>
 
           <p style={{ color: '#475569', fontSize: '0.875rem', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            Transformation architected for intelligent career scale. Deploy enterprise-grade AI algorithms to discover verified tier-1 roles, audit resumes, and master skill gaps.
+            Empowering students with verified job and internship discovery, tailored resume guidance, and skill gap roadmaps.
           </p>
         </motion.div>
 
-        {/* Column 1: AI Solutions */}
+        {/* Column 1: Career Tools */}
         <motion.div
           custom={1}
           initial="hidden"
@@ -92,14 +92,14 @@ export default function Footer() {
           variants={columnVariants}
         >
           <div style={{ fontWeight: 800, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1.25rem', color: '#0f172a' }}>
-            AI Solutions
+            Career Tools
           </div>
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem', color: '#475569', padding: 0, margin: 0 }}>
             {[
-              { to: '/ai-advisor', label: 'AI Career Copilot' },
-              { to: '/opportunities', label: 'Deterministic Match Engine' },
-              { to: '/skill-gap', label: 'Skill Gap Telemetry Radar' },
-              { to: '/applications', label: '5-Stage Kanban Synchronization' },
+              { to: '/ai-advisor', label: 'Career Advisor' },
+              { to: '/opportunities', label: 'Job Recommendations' },
+              { to: '/skill-gap', label: 'Skill Gap Analysis' },
+              { to: '/applications', label: 'Application Tracker' },
             ].map((link, idx) => (
               <motion.li key={idx} whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 400, damping: 20 }}>
                 <Link

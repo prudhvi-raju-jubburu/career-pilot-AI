@@ -134,7 +134,7 @@ class ATSJobBoardConnector(OpportunitySource):
     def _fetch_greenhouse(self, slug: str) -> List[Dict[str, Any]]:
         url = f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
         try:
-            raw_data = self._fetch_url(url, timeout=10, record_failure=False)
+            raw_data = self._fetch_url(url, timeout=4, max_attempts=1, record_failure=False)
             data = json.loads(raw_data.decode("utf-8"))
             jobs = data.get("jobs", [])
             results = []
@@ -167,7 +167,7 @@ class ATSJobBoardConnector(OpportunitySource):
     def _fetch_lever(self, slug: str) -> List[Dict[str, Any]]:
         url = f"https://api.lever.co/v0/postings/{slug}?mode=json"
         try:
-            raw_data = self._fetch_url(url, timeout=10, record_failure=False)
+            raw_data = self._fetch_url(url, timeout=4, max_attempts=1, record_failure=False)
             data = json.loads(raw_data.decode("utf-8"))
             results = []
             for j in data:
@@ -197,7 +197,7 @@ class ATSJobBoardConnector(OpportunitySource):
     def _fetch_smartrecruiters(self, slug: str) -> List[Dict[str, Any]]:
         url = f"https://api.smartrecruiters.com/v1/companies/{slug}/postings"
         try:
-            raw_data = self._fetch_url(url, timeout=10, record_failure=False)
+            raw_data = self._fetch_url(url, timeout=4, max_attempts=1, record_failure=False)
             data = json.loads(raw_data.decode("utf-8"))
             content = data.get("content", [])
             results = []

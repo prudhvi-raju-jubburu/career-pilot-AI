@@ -11,11 +11,12 @@ import {
 } from 'recharts';
 import Card, { CardHeader, CardTitle, CardContent } from '../ui/Card';
 import Badge from '../ui/Badge';
-import { Scale, CheckCircle2, AlertCircle, BookmarkCheck, FileQuestion } from 'lucide-react';
+import { Scale, CheckCircle2, AlertCircle, BookmarkCheck, FileQuestion, GraduationCap } from 'lucide-react';
 
 export default function SkillRequirementComparisonChart({ skillComparison = {} }) {
   const summary = skillComparison.summary || {
     demonstratedSkills: 0,
+    courseworkSkills: 0,
     listedOnResume: 0,
     needsVerification: 0,
     explicitlyRequired: 0,
@@ -26,6 +27,7 @@ export default function SkillRequirementComparisonChart({ skillComparison = {} }
     {
       group: 'Current Profile Evidence',
       demonstrated: summary.demonstratedSkills || 0,
+      coursework: summary.courseworkSkills || 0,
       listed: summary.listedOnResume || 0,
       unverified: summary.needsVerification || 0,
     },
@@ -113,6 +115,17 @@ export default function SkillRequirementComparisonChart({ skillComparison = {} }
                 animationEasing="ease-out"
               />
               <Bar
+                dataKey="coursework"
+                name="Academic Coursework"
+                fill="#8b5cf6"
+                stackId="current"
+                radius={[0, 0, 0, 0]}
+                barSize={20}
+                isAnimationActive={true}
+                animationDuration={1150}
+                animationEasing="ease-out"
+              />
+              <Bar
                 dataKey="listed"
                 name="Listed on Resume"
                 fill="#38bdf8"
@@ -148,7 +161,7 @@ export default function SkillRequirementComparisonChart({ skillComparison = {} }
               <Bar
                 dataKey="preferred"
                 name="Preferred / Optional"
-                fill="#8b5cf6"
+                fill="#a855f7"
                 stackId="target"
                 radius={[0, 6, 6, 0]}
                 barSize={20}
@@ -161,14 +174,18 @@ export default function SkillRequirementComparisonChart({ skillComparison = {} }
         </div>
 
         {/* Evidence Status Legend & Explanations */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-border mt-2 text-[11px]">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-3 border-t border-border mt-2 text-[11px]">
           <div className="flex items-center gap-1.5 text-secondary">
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
             <span><strong className="text-text-primary">{summary.demonstratedSkills}</strong> Demonstrated</span>
           </div>
           <div className="flex items-center gap-1.5 text-secondary">
+            <GraduationCap className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+            <span><strong className="text-text-primary">{summary.courseworkSkills || 0}</strong> Coursework</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-secondary">
             <BookmarkCheck className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-            <span><strong className="text-text-primary">{summary.listedOnResume}</strong> Listed on Resume</span>
+            <span><strong className="text-text-primary">{summary.listedOnResume}</strong> Listed</span>
           </div>
           <div className="flex items-center gap-1.5 text-secondary">
             <FileQuestion className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -176,7 +193,7 @@ export default function SkillRequirementComparisonChart({ skillComparison = {} }
           </div>
           <div className="flex items-center gap-1.5 text-secondary">
             <AlertCircle className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-            <span><strong className="text-text-primary">{summary.explicitlyRequired}</strong> Mandatory Target</span>
+            <span><strong className="text-text-primary">{summary.explicitlyRequired}</strong> Required</span>
           </div>
         </div>
       </CardContent>

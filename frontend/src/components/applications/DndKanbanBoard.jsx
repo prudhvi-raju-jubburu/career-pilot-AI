@@ -356,10 +356,10 @@ function DraggableCardContent({ app, stageColor, onSelectDetail, onDelete, onVie
                   padding: '2px 6px',
                   borderRadius: 'var(--radius-sm)'
                 }}
-                title="View on Opportunity Radar"
+                title="View Opportunity Details"
               >
                 <Compass size={11} />
-                <span>Radar</span>
+                <span>Details</span>
               </button>
             )}
             {onDelete && (

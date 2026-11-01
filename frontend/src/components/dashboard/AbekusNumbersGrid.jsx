@@ -44,14 +44,14 @@ export default function AbekusNumbersGrid({
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '0.75rem' }}>
           <div>
             <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--lx-blue)', marginBottom: '0.2rem' }}>
-              Live Telemetry & Verified Signals
+              Platform Overview
             </div>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--lx-ink)', margin: 0, letterSpacing: '-0.02em' }}>
-              Real-time Metrics in Your Career Engine
+              Key Metrics & Career Progress
             </h2>
           </div>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--lx-txt-2)', maxWidth: '380px' }}>
-            Real pipeline metrics synced with your profile, live job feeds, and MongoDB applications.
+            Tracked opportunities, applications, and verified skill achievements.
           </p>
         </div>
       )}
@@ -90,7 +90,7 @@ export default function AbekusNumbersGrid({
         >
           <div>
             <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#7A5A00' }}>
-              LIVE OPENINGS ON RADAR
+              ACTIVE OPPORTUNITIES
             </div>
             <div style={{ fontSize: '2.15rem', fontWeight: 800, color: '#0E1116', margin: '0.25rem 0', lineHeight: 1 }}>
               {Number(totalOpps).toLocaleString('en-IN')}
@@ -101,7 +101,7 @@ export default function AbekusNumbersGrid({
           </div>
           <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#7A5A00', marginTop: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
             <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#137a44' }} className="animate-pulse" />
-            <span>Synced across {sourcesCount} live job sources</span>
+            <span>Synced across {sourcesCount} verified job sources</span>
           </div>
         </motion.div>
 
@@ -188,7 +188,7 @@ export default function AbekusNumbersGrid({
               {trackedApplicationsCount}
             </div>
             <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--lx-txt-2, #64748B)', lineHeight: 1.35 }}>
-              Active roles tracked in your real-time recruitment pipeline.
+              Active roles tracked across all application stages.
             </p>
           </div>
           <Link
@@ -204,7 +204,7 @@ export default function AbekusNumbersGrid({
               marginTop: '0.65rem',
             }}
           >
-            <span>View pipeline tracker</span>
+            <span>View all applications</span>
             <ArrowUpRight size={13} />
           </Link>
         </motion.div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MapPin,
@@ -19,9 +19,11 @@ import {
   Check,
   TrendingUp,
   Flame,
-  Layers
+  Layers,
+  Compass
 } from 'lucide-react';
 import './OpportunityCard.css';
+import { formatCompensation, formatDateDisplay, stripHtml } from '../../utils';
 
 const AVATAR_BG_PALETTE = [
   { bg: '#EFF6FF', color: '#1D4ED8' },
@@ -70,11 +72,13 @@ export default function OpportunityCard({
   const isApplied = Boolean(application || opp.already_applied);
   const appStatus = application?.status || opp.application_status || 'Applied';
 
-  const matchScore = typeof (opp.matchScore ?? opp.match_score) === 'number'
-    ? (opp.matchScore ?? opp.match_score)
-    : 85;
+  const isGeneralDiscovery = Boolean(opp.is_general_discovery || opp.discovery_type === 'general_discovery');
+  const rawScore = opp.matchScore ?? opp.match_score;
+  const matchScore = (!isGeneralDiscovery && typeof rawScore === 'number')
+    ? rawScore
+    : null;
 
-  const isHighFit = matchScore >= 80;
+  const isHighFit = matchScore !== null && matchScore >= 80;
 
   // Extract deterministic eligibility status
   const eligibility = opp.eligibility || {};
@@ -94,56 +98,25 @@ export default function OpportunityCard({
   };
 
   const getCompensationDisplay = () => {
-    if (opp.compensationString && opp.compensationString !== 'Not specified') {
-      return opp.compensationString;
-    }
-    const comp = opp.compensation;
-    const isInternship = (opp.type || '').toLowerCase() === 'internship';
-
-    if (comp && typeof comp === 'object') {
-      const min = comp.min_amount || comp.min;
-      const max = comp.max_amount || comp.max;
-      if (min && max) {
-        if (isInternship || comp.period === 'month' || comp.type === 'stipend') {
-          return `₹${Number(min).toLocaleString('en-IN')} – ₹${Number(max).toLocaleString('en-IN')}/mo`;
-        }
-        const minLpa = (min / 100000).toFixed(1).replace('.0', '');
-        const maxLpa = (max / 100000).toFixed(1).replace('.0', '');
-        return `₹${minLpa} – ₹${maxLpa} LPA`;
-      }
-      if (min) {
-        if (isInternship || comp.type === 'stipend') {
-          return `₹${Number(min).toLocaleString('en-IN')}+ /mo`;
-        }
-        return `₹${(min / 100000).toFixed(1)} LPA`;
-      }
-      if (max) {
-        if (isInternship || comp.type === 'stipend') {
-          return `Up to ₹${Number(max).toLocaleString('en-IN')}/mo`;
-        }
-        return `Up to ₹${(max / 100000).toFixed(1)} LPA`;
-      }
-    }
-    return isInternship ? '₹35,000 – ₹50,000/mo (Est.)' : '₹10.0 – ₹18.0 LPA (Est.)';
+    return formatCompensation(opp);
   };
 
   const getDeadlineDisplay = () => {
-    if (opp.deadlineString) return opp.deadlineString;
-    if (opp.deadline) return opp.deadline.slice(0, 10);
-    if (opp.dates?.deadline) return opp.dates.deadline.slice(0, 10);
-    return 'Rolling Applications';
+    const raw = opp.deadlineString || opp.deadline || opp.dates?.deadline;
+    return formatDateDisplay(raw);
   };
 
   const sourceName = opp.source?.name
     ? opp.source.name.replace(/_/g, ' ').toUpperCase()
     : 'OFFICIAL CAREER PORTAL';
 
-  const shortExplanation = opp.personal_rationale ||
+  const rawExplanation = opp.personal_rationale ||
     (Array.isArray(opp.why_matched) && opp.why_matched[0]) ||
     opp.explanation ||
     (matchedSkills.length > 0
       ? `Matches your resume skills in ${matchedSkills.slice(0, 3).join(', ')}.`
       : 'Curated opening aligning with your degree and developer skill set.');
+  const shortExplanation = stripHtml(rawExplanation);
 
   const isInternship = (opp.type || '').toLowerCase() === 'internship';
 
@@ -194,8 +167,17 @@ export default function OpportunityCard({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-          {/* Animated Match Score Badge */}
-          {matchScore !== null && (
+          {/* Match Score or General Discovery Badge */}
+          {isGeneralDiscovery ? (
+            <div
+              className="opp-match-badge-blue"
+              style={{ backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' }}
+              title="General Discovery Opportunity (Complete profile to personalize)"
+            >
+              <Compass size={12} />
+              <span>General Discovery</span>
+            </div>
+          ) : matchScore !== null ? (
             <motion.div
               whileHover={{ scale: 1.05 }}
               className={isHighFit ? 'opp-match-badge-emerald' : 'opp-match-badge-blue'}
@@ -205,7 +187,7 @@ export default function OpportunityCard({
               <Sparkles size={12} />
               <span>{matchScore}% Match</span>
             </motion.div>
-          )}
+          ) : null}
 
           {/* Bookmark Button with Micro-Animation */}
           <motion.button
@@ -304,15 +286,45 @@ export default function OpportunityCard({
           <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
             Deadline
           </div>
-          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginTop: '1px' }}>
-            {getDeadlineDisplay()}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '0.3rem',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              color: '#334155',
+              marginTop: '1px'
+            }}
+          >
+            <Clock size={12} color="#64748b" />
+            <span>{getDeadlineDisplay()}</span>
           </div>
         </div>
       </div>
 
       {/* Eligibility Indicator */}
       <div style={{ marginBottom: '0.75rem' }}>
-        {eligStatus === 'eligible' ? (
+        {isGeneralDiscovery ? (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: '#f8fafc',
+              color: '#475569',
+              border: '1px solid #e2e8f0',
+              borderRadius: '9999px',
+              padding: '0.2rem 0.65rem',
+              fontSize: '0.73rem',
+              fontWeight: 700,
+            }}
+          >
+            <HelpCircle size={13} color="#64748b" />
+            <span>General Discovery · Complete Profile to Confirm Eligibility</span>
+          </div>
+        ) : eligStatus === 'eligible' ? (
           <div
             style={{
               display: 'inline-flex',
@@ -350,6 +362,26 @@ export default function OpportunityCard({
           </div>
         )}
       </div>
+
+      {/* Cold-Start Profile Completion Callout */}
+      {isGeneralDiscovery && opp.guidance && (
+        <div style={{
+          fontSize: '0.74rem',
+          backgroundColor: '#f8fafc',
+          border: '1px dashed #cbd5e1',
+          borderRadius: '8px',
+          padding: '0.45rem 0.65rem',
+          color: '#475569',
+          marginBottom: '0.75rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.5rem'
+        }}>
+          <span>Upload resume & complete profile to calculate match score</span>
+          <Link to="/profile" style={{ color: '#2563eb', fontWeight: 700, textDecoration: 'none' }}>Update &rarr;</Link>
+        </div>
+      )}
 
       {/* Interactive Resume Skills Breakdown */}
       <div style={{ marginBottom: '0.85rem' }}>

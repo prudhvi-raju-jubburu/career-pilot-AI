@@ -32,7 +32,7 @@ const ORBIT_NODES = [
   },
   {
     id: 'telemetry',
-    title: 'Skill Gap Telemetry',
+    title: 'Skill Gap Analysis',
     subtitle: 'Milestone roadmap benchmarks',
     icon: <Target size={24} />,
     x: '380px',
@@ -255,7 +255,7 @@ export default function CareerConstellationHero({ onReplayIntro }) {
                     }}
                   >
                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#4ade80', boxShadow: '0 0 8px #4ade80' }} />
-                    Live Telemetry
+                    Live Activity
                   </span>
                 )}
               </div>

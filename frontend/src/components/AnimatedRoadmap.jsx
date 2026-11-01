@@ -106,11 +106,11 @@ export const ROADMAP_STEPS = [
     icon: <Layers size={22} />,
     color: '#10b981',
     accentBg: 'rgba(16, 185, 129, 0.1)',
-    tag: 'Application Pipeline',
+    tag: 'Application Tracker',
     detailTitle: 'Student Career Tracker',
-    detailDesc: 'A clean pipeline that organizes your applications across Saved, Applied, Interview, and Offer stages so no deadline slips by.',
+    detailDesc: 'A clean tracker that organizes your applications across Saved, Applied, Interview, and Offer stages so no deadline slips by.',
     telemetry: {
-      label: 'Pipeline Overview',
+      label: 'Applications Overview',
       metrics: [
         { key: 'Applications', val: '5 Active' },
         { key: 'Interviews', val: '2 In Progress' },
@@ -526,7 +526,7 @@ export default function AnimatedRoadmap() {
               </div>
             </div>
 
-            {/* Live Telemetry Preview Card for this step */}
+            {/* Metrics preview card for this step */}
             <div
               style={{
                 backgroundColor: 'var(--color-surface)',

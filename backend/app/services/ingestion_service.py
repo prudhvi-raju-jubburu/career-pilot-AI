@@ -55,7 +55,8 @@ class OpportunityIngestionService:
             "total_validated": 0,
             "total_accepted": 0,
             "total_updated": 0,
-            "total_duplicates": 0,
+            "total_duplicate_only": 0,
+            "total_duplicates": 0,  # Diagnostic: total duplicates detected (updated + duplicate_only)
             "total_rejected": 0,
             "total_failed": 0,
             "source_results": {},
@@ -75,7 +76,8 @@ class OpportunityIngestionService:
                 "validated": 0,
                 "accepted": 0,
                 "updated": 0,
-                "duplicates": 0,
+                "duplicate_only": 0,
+                "duplicates": 0,  # Diagnostic: updated + duplicate_only
                 "rejected": 0,
                 "failed": 0,
                 "error": None,
@@ -123,9 +125,16 @@ class OpportunityIngestionService:
                             src_stats["accepted"] += 1
                             overall_stats["total_accepted"] += 1
                             newly_accepted_items.append(OpportunityModel.to_dict(doc))
-                        else:
+                        elif doc.get("_has_field_changes"):
                             src_stats["updated"] += 1
                             overall_stats["total_updated"] += 1
+                            # Diagnostic duplicate
+                            src_stats["duplicates"] += 1
+                            overall_stats["total_duplicates"] += 1
+                        else:
+                            src_stats["duplicate_only"] += 1
+                            overall_stats["total_duplicate_only"] += 1
+                            # Diagnostic duplicate
                             src_stats["duplicates"] += 1
                             overall_stats["total_duplicates"] += 1
 
@@ -136,13 +145,14 @@ class OpportunityIngestionService:
 
                 src_stats["last_successful_at"] = datetime.now(timezone.utc).isoformat()
                 logger.info(
-                    "Source '%s' completed: %d fetched, %d accepted, %d updated, %d duplicates, %d rejected",
+                    "Source '%s' completed: %d fetched, %d accepted, %d updated, %d duplicate_only, %d rejected, %d failed",
                     source_name,
                     src_stats["fetched"],
                     src_stats["accepted"],
                     src_stats["updated"],
-                    src_stats["duplicates"],
-                    src_stats["rejected"]
+                    src_stats["duplicate_only"],
+                    src_stats["rejected"],
+                    src_stats["failed"]
                 )
 
             except Exception as src_err:

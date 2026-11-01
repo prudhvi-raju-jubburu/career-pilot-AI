@@ -480,6 +480,16 @@ export default function ProfilePage() {
       }
     }
 
+    if (draft.personal.phone && draft.personal.phone.trim()) {
+      const cleanedPhone = draft.personal.phone.trim();
+      const phoneRegex = /^(\+?\d{1,4}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?[\d\s.-]{7,14}$/;
+      if (!phoneRegex.test(cleanedPhone) || cleanedPhone.replace(/\D/g, '').length < 7) {
+        setErrorToast('Please enter a valid phone number (e.g. +91 9876543210).');
+        setSaving(false);
+        return;
+      }
+    }
+
     if (draft.education.graduation_year !== '' && draft.education.graduation_year !== null) {
       const yearNum = parseInt(draft.education.graduation_year, 10);
       if (isNaN(yearNum) || yearNum < 1970 || yearNum > 2040) {

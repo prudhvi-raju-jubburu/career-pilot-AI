@@ -3,7 +3,7 @@ import re
 import json
 import time
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List, Generator
 
 logger = logging.getLogger(__name__)
 
@@ -112,15 +112,18 @@ class AIService:
     def sanitize_untrusted_text(cls, text: Optional[str], max_chars: int = 4000) -> str:
         """
         Sanitizes untrusted text by stripping unprintable control characters,
-        removing delimiter escape collisions, and bounding string length.
+        neutralizing delimiter collisions via HTML entity escaping,
+        neutralizing system instruction impersonations, and bounding string length.
         """
         if not text:
             return ""
         # Remove null bytes and non-printable control characters (except newline, tab, return)
         cleaned = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', str(text))
-        # Prevent prompt escape collisions
-        cleaned = cleaned.replace("<<<UNTRUSTED_", "&lt;&lt;&lt;UNTRUSTED_")
-        cleaned = cleaned.replace("<<</UNTRUSTED_", "&lt;&lt;&lt;/UNTRUSTED_")
+        # Delimiter collision neutralization: escape any 3+ angle brackets to entities
+        cleaned = re.sub(r'<{3,}', '&lt;&lt;&lt;', cleaned)
+        cleaned = re.sub(r'>{3,}', '&gt;&gt;&gt;', cleaned)
+        # Neutralize fake system/developer injection prefixes
+        cleaned = re.sub(r'(?i)\b(system|developer|system\s*instruction|system\s*prompt|developer\s*directive|override\s*directives?)\s*:', '[SYSTEM_ROLE_TAG]:', cleaned)
         return cleaned[:max_chars].strip()
 
     @classmethod
@@ -134,6 +137,45 @@ class AIService:
         return f"{DELIMITER_START_JD}\n{cls.sanitize_untrusted_text(text, max_chars=5000)}\n{DELIMITER_END_JD}"
 
     @classmethod
+    def get_provider_chain(
+        cls,
+        requested_provider: Optional[str] = None,
+        fallback_enabled: bool = True
+    ) -> List[Tuple[str, str]]:
+        """
+        Builds the ordered list of (provider_name, api_key) to attempt.
+        Supports bidirectional fallback (Gemini <-> OpenAI) while preventing loops.
+        """
+        req = (requested_provider or cls.get_configured_provider()).lower()
+        gemini_key = cls.get_gemini_api_key()
+        openai_key = cls.get_openai_api_key()
+
+        if req == "fallback":
+            return [("fallback", "")]
+
+        chain: List[Tuple[str, str]] = []
+        if req == "gemini":
+            if gemini_key:
+                chain.append(("gemini", gemini_key))
+            if fallback_enabled and openai_key:
+                chain.append(("openai", openai_key))
+        elif req == "openai":
+            if openai_key:
+                chain.append(("openai", openai_key))
+            if fallback_enabled and gemini_key:
+                chain.append(("gemini", gemini_key))
+        else:  # "auto"
+            if gemini_key:
+                chain.append(("gemini", gemini_key))
+            if openai_key:
+                chain.append(("openai", openai_key))
+
+        if not chain:
+            chain.append(("fallback", ""))
+
+        return chain
+
+    @classmethod
     def generate_structured_json(
         cls,
         prompt: str,
@@ -145,77 +187,101 @@ class AIService:
         fallback_enabled: bool = True
     ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any]]:
         """
-        Unified method to request structured JSON output from the resolved AI provider.
+        Unified method to request structured JSON output from the resolved AI provider
+        with bidirectional fallback, bounded timeouts, and strict error classification.
         Returns:
             (parsed_json_dict, metadata)
             where metadata contains provider, model, is_ai_generated, generation_source, and error.
         """
-        active_provider, api_key = cls.resolve_active_provider(provider)
+        overall_timeout = float(timeout) if timeout and timeout > 0 else DEFAULT_TIMEOUT_SECONDS
+        chain = cls.get_provider_chain(requested_provider=provider, fallback_enabled=fallback_enabled)
+        overall_start = time.time()
+        last_error = None
+        errors_list: List[str] = []
 
         metadata: Dict[str, Any] = {
             "requested_provider": provider or cls.get_configured_provider(),
-            "active_provider": active_provider,
+            "active_provider": chain[0][0],
             "model": "none",
             "is_ai_generated": False,
             "generation_source": "deterministic_fallback",
             "error": None,
+            "errors": [],
             "duration_ms": 0
         }
 
-        if active_provider == "fallback":
+        if chain[0][0] == "fallback":
             metadata["error"] = "No active AI provider configured or provider set to fallback."
             return None, metadata
 
-        # Bounded input check
         sanitized_prompt = prompt[:MAX_PROMPT_CHARS]
         combined_system = f"{SYSTEM_INJECTION_SAFEGUARD}\n{system_instruction}".strip()
 
-        start_time = time.time()
-        raw_output = None
-        last_error = None
+        for prov_idx, (prov_name, key) in enumerate(chain):
+            if prov_name == "fallback":
+                break
 
-        if active_provider == "gemini":
-            try:
-                raw_output, model_name = cls._invoke_gemini_with_retries(
-                    prompt=sanitized_prompt,
-                    system_instruction=combined_system,
-                    api_key=api_key,
-                    timeout=timeout,
-                    max_retries=max_retries
+            elapsed = time.time() - overall_start
+            remaining_time = overall_timeout - elapsed
+            if remaining_time <= 1.0:
+                logger.warning(
+                    "AI overall timeout reached before attempting provider %s (elapsed: %.2fs, deadline: %.2fs)",
+                    prov_name, elapsed, overall_timeout
                 )
-                metadata["model"] = model_name
+                last_error = f"Overall deadline of {overall_timeout}s exceeded"
+                errors_list.append(f"{prov_name}: {last_error}")
+                break
+
+            prov_timeout = min(remaining_time, overall_timeout if prov_idx == 0 else remaining_time)
+            metadata["active_provider"] = prov_name
+            raw_output = None
+            model_used = "none"
+
+            try:
+                if prov_name == "gemini":
+                    raw_output, model_used = cls._invoke_gemini_with_retries(
+                        prompt=sanitized_prompt,
+                        system_instruction=combined_system,
+                        api_key=key,
+                        timeout=prov_timeout,
+                        max_retries=max_retries if prov_idx == 0 else 0
+                    )
+                elif prov_name == "openai":
+                    raw_output, model_used = cls._invoke_openai_with_retries(
+                        prompt=sanitized_prompt,
+                        system_instruction=combined_system,
+                        api_key=key,
+                        timeout=prov_timeout,
+                        max_retries=max_retries if prov_idx == 0 else 0
+                    )
+
+                if raw_output:
+                    parsed = cls.parse_json_response(raw_output)
+                    if isinstance(parsed, dict) and parsed:
+                        elapsed_ms = int((time.time() - overall_start) * 1000)
+                        metadata["model"] = model_used
+                        metadata["duration_ms"] = elapsed_ms
+                        metadata["is_ai_generated"] = True
+                        metadata["generation_source"] = f"ai_{prov_name}"
+                        metadata["error"] = None
+                        metadata["errors"] = errors_list
+                        return parsed, metadata
+                    else:
+                        last_error = f"{prov_name} returned non-JSON response"
+                        errors_list.append(f"{prov_name}: {last_error}")
+                        logger.warning("%s output could not be parsed as JSON: %s", prov_name, raw_output[:120])
+            except (AIAuthenticationError, AIQuotaExceededError) as auth_q_err:
+                last_error = str(auth_q_err)
+                errors_list.append(f"{prov_name}: {last_error}")
+                logger.warning("%s auth/quota error: %s. Falling back to next eligible provider.", prov_name, last_error)
             except Exception as e:
                 last_error = str(e)
-                logger.warning("Gemini invocation failed (%s).", last_error)
+                errors_list.append(f"{prov_name}: {last_error}")
+                logger.warning("%s invocation failed: %s. Falling back to next eligible provider.", prov_name, last_error)
 
-        elif active_provider == "openai":
-            try:
-                raw_output, model_name = cls._invoke_openai_with_retries(
-                    prompt=sanitized_prompt,
-                    system_instruction=combined_system,
-                    api_key=api_key,
-                    timeout=timeout,
-                    max_retries=max_retries
-                )
-                metadata["model"] = model_name
-            except Exception as e:
-                last_error = str(e)
-                logger.warning("OpenAI invocation failed (%s).", last_error)
-
-        elapsed_ms = int((time.time() - start_time) * 1000)
-        metadata["duration_ms"] = elapsed_ms
-
-        if raw_output:
-            parsed = cls.parse_json_response(raw_output)
-            if isinstance(parsed, dict) and parsed:
-                metadata["is_ai_generated"] = True
-                metadata["generation_source"] = f"ai_{active_provider}"
-                return parsed, metadata
-            else:
-                last_error = "Model response could not be parsed into a valid JSON object"
-                logger.warning("JSON parse failed for %s output: %s", active_provider, raw_output[:200])
-
-        metadata["error"] = last_error or "AI generation returned empty output"
+        metadata["duration_ms"] = int((time.time() - overall_start) * 1000)
+        metadata["errors"] = errors_list
+        metadata["error"] = " | ".join(errors_list) if errors_list else (last_error or "AI generation returned empty output")
         return None, metadata
 
     # -------------------------------------------------------------------------
@@ -275,6 +341,9 @@ class AIService:
                 # Fast fail: Quota / Rate limit
                 if "resource_exhausted" in err_str or "429" in err_str or "quota" in err_str:
                     raise AIQuotaExceededError(f"Gemini quota exhausted: {str(e)}") from e
+                # Fast fail: Model not found / Unsupported / Invalid argument (0 retries)
+                if "not_found" in err_str or "404" in err_str or "invalid_argument" in err_str or "400" in err_str or "permission_denied" in err_str or "403" in err_str:
+                    raise AIServiceError(f"Gemini configuration error: {str(e)}") from e
 
                 # Transient error
                 retries += 1
@@ -334,6 +403,205 @@ class AIService:
 
                 backoff = 0.5 * (2 ** (retries - 1))
                 time.sleep(backoff)
+
+    # -------------------------------------------------------------------------
+    # Streaming Generation
+    # -------------------------------------------------------------------------
+
+    @classmethod
+    def _stream_gemini(
+        cls,
+        prompt: str,
+        system_instruction: str,
+        api_key: str,
+        timeout: float
+    ) -> Generator[str, None, None]:
+        """Streams text chunks from Gemini."""
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+        try:
+            # 1. Try google.genai modern SDK
+            try:
+                from google import genai
+                from google.genai import types
+                client = genai.Client(api_key=api_key)
+                config = types.GenerateContentConfig(
+                    system_instruction=system_instruction or None,
+                    temperature=0.3
+                ) if hasattr(types, "GenerateContentConfig") else None
+
+                stream = client.models.generate_content_stream(
+                    model=model_name,
+                    contents=prompt,
+                    config=config
+                )
+                for chunk in stream:
+                    if chunk.text:
+                        yield chunk.text
+                return
+            except ImportError:
+                pass
+
+            # 2. Fallback to google.generativeai
+            import google.generativeai as gai
+            gai.configure(api_key=api_key)
+            model = gai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=system_instruction or None
+            )
+            stream = model.generate_content(prompt, stream=True)
+            for chunk in stream:
+                if chunk.text:
+                    yield chunk.text
+        except Exception as e:
+            err_str = str(e).lower()
+            if "api_key_invalid" in err_str or "unauthenticated" in err_str or "invalid api key" in err_str:
+                raise AIAuthenticationError(f"Gemini authentication failed: {str(e)}") from e
+            if "resource_exhausted" in err_str or "429" in err_str or "quota" in err_str:
+                raise AIQuotaExceededError(f"Gemini quota exhausted: {str(e)}") from e
+            raise AIServiceError(f"Gemini streaming error: {str(e)}") from e
+
+    @classmethod
+    def _stream_openai(
+        cls,
+        prompt: str,
+        system_instruction: str,
+        api_key: str,
+        timeout: float
+    ) -> Generator[str, None, None]:
+        """Streams text chunks from OpenAI."""
+        try:
+            import openai
+        except ImportError as ie:
+            raise AIServiceError("openai package is not installed.") from ie
+
+        model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+        client = openai.OpenAI(api_key=api_key, timeout=timeout)
+        messages = []
+        if system_instruction:
+            messages.append({"role": "system", "content": system_instruction})
+        messages.append({"role": "user", "content": prompt})
+
+        try:
+            stream = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                stream=True,
+                temperature=0.3
+            )
+            for chunk in stream:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+        except openai.AuthenticationError as ae:
+            raise AIAuthenticationError(f"OpenAI authentication failed: {str(ae)}") from ae
+        except openai.RateLimitError as re_err:
+            raise AIQuotaExceededError(f"OpenAI rate limit / quota exceeded: {str(re_err)}") from re_err
+        except Exception as e:
+            err_str = str(e).lower()
+            if "invalid api key" in err_str or "unauthorized" in err_str:
+                raise AIAuthenticationError(f"OpenAI authentication failed: {str(e)}") from e
+            raise AIServiceError(f"OpenAI streaming error: {str(e)}") from e
+
+    @classmethod
+    def stream_text(
+        cls,
+        prompt: str,
+        system_instruction: Optional[str] = None,
+        requested_provider: Optional[str] = None,
+        fallback_enabled: bool = True,
+        timeout: float = 30.0
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        Incrementally streams text tokens from Gemini or OpenAI with bidirectional fallback.
+        Yields event dicts:
+          {"type": "start", "provider": ..., "model": ...}
+          {"type": "token", "token": ...}
+          {"type": "done", "full_text": ..., "provider": ..., "model": ..., "duration_ms": ..., "tokens_emitted": ...}
+          {"type": "error", "error": ..., "partial_text": ..., "recoverable": bool}
+        """
+        sanitized_prompt = cls.sanitize_untrusted_text(prompt, max_chars=MAX_PROMPT_CHARS)
+        combined_instruction = f"{SYSTEM_INJECTION_SAFEGUARD}\n\n{system_instruction or ''}".strip()
+        start_time = time.time()
+        deadline = start_time + timeout
+
+        providers = cls.get_provider_chain(requested_provider, fallback_enabled)
+        errors_accumulated = []
+
+        for prov, api_key in providers:
+            if prov == "fallback":
+                continue
+
+            remaining_time = max(deadline - time.time(), 3.0)
+            if remaining_time <= 0:
+                break
+
+            if not api_key:
+                errors_accumulated.append(f"{prov}: Missing API key")
+                continue
+
+            model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip() if prov == "gemini" else os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+            tokens_emitted = 0
+            accumulated_text = ""
+
+            yield {
+                "type": "start",
+                "provider": prov,
+                "model": model_name
+            }
+
+            try:
+                if prov == "gemini":
+                    generator = cls._stream_gemini(sanitized_prompt, combined_instruction, api_key, remaining_time)
+                elif prov == "openai":
+                    generator = cls._stream_openai(sanitized_prompt, combined_instruction, api_key, remaining_time)
+                else:
+                    errors_accumulated.append(f"{prov}: Unsupported provider")
+                    continue
+
+                for chunk in generator:
+                    if chunk:
+                        tokens_emitted += 1
+                        accumulated_text += chunk
+                        yield {
+                            "type": "token",
+                            "token": chunk
+                        }
+
+                elapsed_ms = int((time.time() - start_time) * 1000)
+                yield {
+                    "type": "done",
+                    "full_text": accumulated_text,
+                    "provider": prov,
+                    "model": model_name,
+                    "duration_ms": elapsed_ms,
+                    "tokens_emitted": tokens_emitted
+                }
+                return
+
+            except Exception as e:
+                logger.warning("Streaming failure on provider %s: %s", prov, str(e))
+                errors_accumulated.append(f"{prov}: {str(e)}")
+
+                if tokens_emitted > 0:
+                    # Tokens were already emitted to the user!
+                    # Do NOT fallback to secondary provider (would cause disjoint double responses)
+                    yield {
+                        "type": "error",
+                        "error": str(e),
+                        "partial_text": accumulated_text,
+                        "recoverable": False
+                    }
+                    return
+                # If tokens_emitted == 0, we can fall back to the next provider in the chain!
+                continue
+
+        # If all providers failed before emitting any token:
+        err_msg = " | ".join(errors_accumulated) if errors_accumulated else "No AI provider available or configured."
+        yield {
+            "type": "error",
+            "error": err_msg,
+            "partial_text": "",
+            "recoverable": True
+        }
 
     # -------------------------------------------------------------------------
     # JSON Parsing & Structural Validation

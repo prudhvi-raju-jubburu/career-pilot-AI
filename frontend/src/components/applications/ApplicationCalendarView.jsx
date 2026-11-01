@@ -44,7 +44,7 @@ export default function ApplicationCalendarView({ applications, onSelectDetail, 
     return [
       { title: 'Immediate Focus (Next 3 Days)', items: urgent, badge: 'Urgent', color: 'var(--danger)' },
       { title: 'Upcoming (Next 2 Weeks)', items: upcoming, badge: 'Approaching', color: 'var(--warning-dark)' },
-      { title: 'Scheduled & Pipeline', items: completedOrLater, badge: 'Future', color: 'var(--primary)' },
+      { title: 'Scheduled Milestones', items: completedOrLater, badge: 'Future', color: 'var(--primary)' },
     ].filter((g) => g.items.length > 0);
   }, [timelineItems]);
 

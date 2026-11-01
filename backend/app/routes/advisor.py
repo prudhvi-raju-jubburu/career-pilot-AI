@@ -3,48 +3,31 @@ import logging
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 from app.utils.auth import token_required
-from app.config.db import Database
-from app.models.profile import ProfileModel
-from app.services.profile_service import ProfileService
-from app.ai.advisor_agent import AdvisorAgentService
+from app.services.copilot_service import CareerCopilotService
 
 logger = logging.getLogger(__name__)
 advisor_bp = Blueprint("advisor", __name__)
 
-COLLECTION_NAME = "advisor_conversations"
-
-def _get_history(user_id: str, limit: int = 30):
-    db = Database.get_db()
-    if db is None:
-        return []
-    cursor = db[COLLECTION_NAME].find({"user_id": str(user_id)}).sort("created_at", 1).limit(limit)
-    items = []
-    for doc in cursor:
-        items.append({
-            "id": str(doc["_id"]),
-            "role": doc.get("role", "user"),
-            "content": doc.get("content", ""),
-            "created_at": doc.get("created_at")
-        })
-    return items
-
-def _save_message(user_id: str, role: str, content: str):
-    db = Database.get_db()
-    if db is None:
-        return
-    db[COLLECTION_NAME].insert_one({
-        "user_id": str(user_id),
-        "role": role,
-        "content": content,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    })
-
 @advisor_bp.route("/history", methods=["GET"])
 @token_required
 def get_advisor_history(current_user):
-    """Retrieves conversation history for the student."""
+    """
+    Backward-compatible history endpoint delegating to Student Career Copilot conversations.
+    """
     user_id = str(current_user["_id"])
-    history = _get_history(user_id)
+    convs = CareerCopilotService.list_conversations(user_id=user_id, limit=1)
+    history = []
+    if convs:
+        full_conv = CareerCopilotService.get_conversation(convs[0]["id"], user_id)
+        if full_conv and "messages" in full_conv:
+            for m in full_conv["messages"]:
+                history.append({
+                    "id": m.get("id"),
+                    "role": m.get("role", "user"),
+                    "content": m.get("content", ""),
+                    "created_at": m.get("created_at")
+                })
+
     return jsonify({
         "success": True,
         "message": "Conversation history retrieved",
@@ -54,10 +37,13 @@ def get_advisor_history(current_user):
 @advisor_bp.route("/chat", methods=["POST"])
 @token_required
 def chat_with_advisor(current_user):
-    """Processes student message with Gemini AI and persists response."""
+    """
+    Backward-compatible chat endpoint delegating to Student Career Copilot RAG pipeline.
+    """
     user_id = str(current_user["_id"])
     data = request.get_json(silent=True) or {}
     message = data.get("message", "").strip()
+    conversation_id = data.get("conversation_id")
 
     if not message:
         return jsonify({
@@ -66,32 +52,42 @@ def chat_with_advisor(current_user):
             "error": "VALIDATION_ERROR"
         }), 400
 
-    profile = ProfileService.get_profile_by_user_id(user_id) or {}
-    history = _get_history(user_id)
-
-    # Save user message
-    _save_message(user_id, "user", message)
-
-    # Generate response
-    reply = AdvisorAgentService.generate_response(message, profile, history)
-
-    # Save advisor response
-    _save_message(user_id, "assistant", reply)
-
-    return jsonify({
-        "success": True,
-        "message": "Response generated successfully",
-        "data": {
-            "role": "assistant",
-            "content": reply,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-    }), 200
+    try:
+        res = CareerCopilotService.chat(
+            user_id=user_id,
+            message=message,
+            conversation_id=conversation_id
+        )
+        return jsonify({
+            "success": True,
+            "message": "Response generated successfully",
+            "data": {
+                "role": "assistant",
+                "content": res["answer"],
+                "answer": res["answer"],
+                "conversation_id": res["conversation_id"],
+                "message_id": res["message_id"],
+                "intent": res["intent"],
+                "sources": res["sources"],
+                "suggested_actions": res["suggested_actions"],
+                "provider": res["provider"],
+                "created_at": res["created_at"]
+            }
+        }), 200
+    except Exception as e:
+        logger.exception("Error in advisor chat for user %s: %s", user_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to generate advisor response",
+            "error": "INTERNAL_ERROR"
+        }), 500
 
 @advisor_bp.route("/stream", methods=["POST", "GET"])
 @token_required
 def stream_advisor_chat(current_user):
-    """SSE streaming endpoint for AI career advisor tokens."""
+    """
+    SSE streaming endpoint for AI Career Advisor / Copilot tokens.
+    """
     user_id = str(current_user["_id"])
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
@@ -102,41 +98,45 @@ def stream_advisor_chat(current_user):
     if not message:
         return jsonify({"success": False, "message": "Message is required"}), 400
 
-    profile = ProfileService.get_profile_by_user_id(user_id) or {}
-    history = _get_history(user_id)
+    try:
+        res = CareerCopilotService.chat(user_id=user_id, message=message)
+        complete_text = res["answer"]
 
-    # Save user message
-    _save_message(user_id, "user", message)
+        def event_stream():
+            words = complete_text.split(" ")
+            for i in range(0, len(words), 3):
+                chunk = " ".join(words[i:i+3]) + " "
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'content': complete_text, 'sources': res['sources'], 'suggested_actions': res['suggested_actions']})}\n\n"
 
-    def event_stream():
-        full_reply = []
-        for chunk in AdvisorAgentService.stream_response(message, profile, history):
-            full_reply.append(chunk)
-            yield f"data: {json.dumps({'chunk': chunk})}\n\n"
-
-        complete_text = "".join(full_reply)
-        _save_message(user_id, "assistant", complete_text)
-        yield f"data: {json.dumps({'done': True, 'content': complete_text})}\n\n"
-
-    return Response(
-        stream_with_context(event_stream()),
-        mimetype="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-            "Access-Control-Allow-Origin": "*"
-        }
-    )
+        return Response(
+            stream_with_context(event_stream()),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "Access-Control-Allow-Origin": "*"
+            }
+        )
+    except Exception as e:
+        logger.exception("Error in advisor stream for user %s: %s", user_id, str(e))
+        return jsonify({"success": False, "message": "Streaming error"}), 500
 
 @advisor_bp.route("/history", methods=["DELETE"])
 @token_required
 def clear_advisor_history(current_user):
     """Clears conversation history for the student."""
     user_id = str(current_user["_id"])
-    db = Database.get_db()
-    if db is not None:
-        db[COLLECTION_NAME].delete_many({"user_id": str(user_id)})
-    return jsonify({
-        "success": True,
-        "message": "Conversation history cleared"
-    }), 200
+    try:
+        CareerCopilotService.clear_all(user_id=user_id)
+        return jsonify({
+            "success": True,
+            "message": "Conversation history cleared"
+        }), 200
+    except Exception as e:
+        logger.exception("Error clearing advisor history for user %s: %s", user_id, str(e))
+        return jsonify({
+            "success": False,
+            "message": "Failed to clear history",
+            "error": "INTERNAL_ERROR"
+        }), 500

@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import Card, { CardHeader, CardContent, CardTitle } from '../components/ui/Card';
+import { stripHtml, formatDateDisplay } from '../utils';
 import Badge from '../components/ui/Badge';
 import CountUp from '../components/ui/CountUp';
 import ProgressRing from '../components/ui/ProgressRing';
@@ -66,7 +67,7 @@ const BENEFITS_LIST = [
     icon: <Briefcase size={22} />,
   },
   {
-    title: 'AI Skill Gap Telemetry',
+    title: 'Skill Gap Analysis',
     desc: 'Automated breakdown of missing skills comparing your resume to actual job requirements with week-by-week roadmaps.',
     icon: <Target size={22} />,
   },
@@ -76,8 +77,8 @@ const BENEFITS_LIST = [
     icon: <FileText size={22} />,
   },
   {
-    title: 'Live Pipeline Orchestration',
-    desc: '5-stage sync with deadline countdown timers, real-time interview prep, and celebrate-on-offer confetti.',
+    title: 'Application Tracking',
+    desc: 'Multi-stage progress tracking with deadline countdown timers, interview prep, and offer celebration.',
     icon: <Zap size={22} />,
   },
 ];
@@ -470,9 +471,10 @@ export default function LandingPage() {
                   ? `${opp.experience.min_years}${opp.experience.max_years ? `–${opp.experience.max_years}` : '+'} Years`
                   : '0–2 Years';
               const dept = opp.department || (opp.category ? opp.category.toUpperCase() : 'Engineering');
-              const posted = opp.posted || (opp.postedAt ? `Posted ${new Date(opp.postedAt).toLocaleDateString()}` : 'Posted recently');
+              const posted = opp.posted || (opp.postedAt ? `Posted ${formatDateDisplay(opp.postedAt)}` : 'Posted recently');
               const companyName = opp.company || opp.organization?.name || 'Enterprise Partner';
-              const description = opp.desc || opp.description || 'Design, engineer, and deploy scalable cloud-native architectures with modern telemetry and enterprise security standards.';
+              const rawDesc = opp.desc || opp.description || 'Design, engineer, and deploy scalable cloud-native architectures with modern telemetry and enterprise security standards.';
+              const description = stripHtml(rawDesc) || 'Design, engineer, and deploy scalable cloud-native architectures with modern telemetry and enterprise security standards.';
 
               return (
                 <div key={opp.id || opp._id || i} className="mavens-job-card">
@@ -675,10 +677,10 @@ export default function LandingPage() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f172a' }}>AI Career Copilot v2.4</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f172a' }}>AI Career Copilot</span>
               </div>
-              <span style={{ fontSize: '0.7rem', color: '#255eff', backgroundColor: '#eff6ff', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                Active Telemetry
+              <span style={{ fontSize: '0.7rem', color: '#16a34a', backgroundColor: '#f0fdf4', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                Online
               </span>
             </div>
 

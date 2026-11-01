@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 from typing import Dict, List, Any, Optional
@@ -128,12 +129,135 @@ CATEGORY_MAPPING = {
     "jest": "Testing & Software Engineering",
 }
 
+COURSE_SKILL_RULES = [
+    # (regex_or_keyword_pattern, [mapped_skills])
+    (r"\b(?:data\s+structures|dsa|algorithms|algorithm\s+design|problem\s+solving)\b", ["Data Structures", "Algorithms", "Problem Solving", "DSA"]),
+    (r"\b(?:database|dbms|relational\s+databases?|sql|rdbms|data\s+warehousing)\b", ["SQL", "Databases", "Relational Databases", "Database Management", "Database Design"]),
+    (r"\b(?:operating\s+systems?|system\s+programming|systems\s+programming|unix|linux\s+internals)\b", ["Operating Systems", "Linux", "System Architecture"]),
+    (r"\b(?:computer\s+networks?|networking|network\s+security|tcp/ip|data\s+communications?)\b", ["Computer Networks", "Networking", "REST APIs", "TCP/IP"]),
+    (r"\b(?:distributed\s+systems?|distributed\s+computing|cloud\s+computing)\b", ["Distributed Systems", "Cloud Computing", "System Design"]),
+    (r"\b(?:web\s+technologies?|web\s+development|internet\s+technologies?|full\s+stack)\b", ["Web Development", "HTML", "CSS", "HTML/CSS", "JavaScript", "REST APIs"]),
+    (r"\b(?:object\s+oriented\s+programming|oops?|oop)\b", ["Object Oriented Programming", "OOP"]),
+    (r"\b(?:machine\s+learning|artificial\s+intelligence|deep\s+learning|data\s+science|data\s+mining)\b", ["Machine Learning", "Python", "Data Analysis"]),
+    (r"\b(?:software\s+engineering|software\s+design|software\s+architecture|sdlc)\b", ["Software Engineering", "Agile", "Git", "Software Development Lifecycle"]),
+    (r"\b(?:compiler\s+design|automata|theory\s+of\s+computation|formal\s+languages)\b", ["Compiler Design", "Automata Theory", "Algorithms"]),
+    (r"\b(?:cyber\s*security|information\s+security|cryptography)\b", ["Cybersecurity", "Network Security", "Cryptography"]),
+    (r"\b(?:computer\s+architecture|computer\s+organization|microprocessors?)\b", ["Computer Architecture", "Hardware Systems", "Assembly"]),
+    (r"\b(?:python\s+programming|python)\b", ["Python"]),
+    (r"\b(?:java\s+programming|java)\b", ["Java", "Object Oriented Programming"]),
+    (r"\b(?:c\+\+\s+programming|c\+\+)\b", ["C++", "Object Oriented Programming"]),
+    (r"\b(?:c\s+programming)\b", ["C"]),
+]
+
+
 class SkillGapService:
     """
     Skill Gap Engine & Personalized Learning Recommendation System.
     Produces visual analytics, grounded gap classification, explainable evidence tracking,
     and milestone-based roadmaps backed by transparent calculation policies.
     """
+
+    @classmethod
+    def _extract_student_coursework(cls, user_profile: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Extracts structured coursework records from student profile.
+        Inspects:
+        - profile.coursework / profile.courses / profile.academic_courses
+        - profile.education.coursework / profile.education.courses / profile.education.relevant_coursework
+        - Education degree items if education is a list.
+        Supports string lists, comma-separated lists, and structured dict entries.
+        """
+        profile = user_profile or {}
+        raw_courses: List[Any] = []
+
+        # Top-level profile coursework fields
+        for field in ["coursework", "courses", "academic_courses", "relevant_coursework"]:
+            val = profile.get(field)
+            if val:
+                if isinstance(val, list):
+                    raw_courses.extend(val)
+                elif isinstance(val, str):
+                    raw_courses.extend([s.strip() for s in re.split(r'[,;\n\r]+', val) if s.strip()])
+
+        # Nested education coursework fields
+        edu = profile.get("education")
+        if isinstance(edu, dict):
+            for field in ["coursework", "courses", "relevant_coursework", "academic_courses"]:
+                val = edu.get(field)
+                if val:
+                    if isinstance(val, list):
+                        raw_courses.extend(val)
+                    elif isinstance(val, str):
+                        raw_courses.extend([s.strip() for s in re.split(r'[,;\n\r]+', val) if s.strip()])
+        elif isinstance(edu, list):
+            for entry in edu:
+                if isinstance(entry, dict):
+                    for field in ["coursework", "courses", "relevant_coursework"]:
+                        val = entry.get(field)
+                        if val:
+                            if isinstance(val, list):
+                                raw_courses.extend(val)
+                            elif isinstance(val, str):
+                                raw_courses.extend([s.strip() for s in re.split(r'[,;\n\r]+', val) if s.strip()])
+
+        # Normalize into clean course dictionaries
+        seen_names = set()
+        clean_coursework = []
+        for item in raw_courses:
+            if isinstance(item, dict):
+                c_name = str(item.get("name") or item.get("title") or item.get("course") or item.get("course_name") or "").strip()
+                grade = item.get("grade") or item.get("score")
+                code = item.get("code") or item.get("course_code")
+            elif isinstance(item, str):
+                c_name = item.strip()
+                grade = None
+                code = None
+            else:
+                continue
+
+            if c_name and c_name.lower() not in seen_names:
+                seen_names.add(c_name.lower())
+                clean_coursework.append({
+                    "name": c_name,
+                    "code": code,
+                    "grade": grade,
+                    "source": "coursework"
+                })
+
+        return clean_coursework
+
+    @classmethod
+    def _map_course_to_skills(cls, course_name: str) -> List[str]:
+        """
+        Maps an academic course name to verified technical skill aliases deterministically.
+        Prevents false-positive substring collisions.
+        """
+        if not course_name or not isinstance(course_name, str):
+            return []
+
+        c_lower = course_name.lower().strip()
+        matched_skills: List[str] = []
+
+        for pattern, skills in COURSE_SKILL_RULES:
+            if re.search(pattern, c_lower, re.IGNORECASE):
+                for s in skills:
+                    if s not in matched_skills:
+                        matched_skills.append(s)
+
+        # Check if course directly names a known technical skill
+        norm_direct = normalize_skill(course_name)
+        if norm_direct and norm_direct not in matched_skills:
+            if norm_direct.lower() in CATEGORY_MAPPING or course_name.lower().strip() in CATEGORY_MAPPING:
+                matched_skills.append(norm_direct)
+
+        return matched_skills
+
+    @classmethod
+    def _course_matches_skill(cls, course_name: str, skill_name: str) -> bool:
+        """Determines if a specific course provides academic evidence for a technical skill."""
+        mapped = cls._map_course_to_skills(course_name)
+        norm_target = normalize_skill(skill_name)
+        return any(skills_match(m, norm_target) for m in mapped)
 
     @classmethod
     def _classify_category(cls, skill_name: str, fallback: str = "General") -> str:
@@ -170,8 +294,8 @@ class SkillGapService:
     def _extract_student_skills_inventory(
         cls,
         user_profile: Optional[Dict[str, Any]],
-        norm_student_skills: List[str],
-        all_required: List[Dict[str, Any]]
+        norm_student_skills: Optional[List[str]] = None,
+        all_required: Optional[List[Dict[str, Any]]] = None
     ) -> List[Dict[str, Any]]:
         """
         Extracts verified skills inventory with explicit provenance (resume, project, experience, or manual)
@@ -179,6 +303,8 @@ class SkillGapService:
         """
         inventory: Dict[str, Dict[str, Any]] = {}
         profile = user_profile or {}
+        norm_skills = norm_student_skills if norm_student_skills is not None else normalize_skill_list(profile.get("skills") or [])
+        required_list = all_required or []
 
         # 1. Inspect projects for practical demonstrations
         projects = profile.get("projects") or []
@@ -219,12 +345,36 @@ class SkillGapService:
                         "proficiencyLabel": "Demonstrated via Experience",
                     }
 
-        # 3. Inspect field_sources for resume provenance vs manual entry
+        # 3. Inspect coursework for academic foundation
+        coursework_items = cls._extract_student_coursework(user_profile)
+        for course in coursework_items:
+            c_name = course.get("name") or "Coursework"
+            mapped_skills = cls._map_course_to_skills(c_name)
+            for raw_s in mapped_skills:
+                norm_s = normalize_skill(str(raw_s))
+                key = norm_s.lower()
+                if key in inventory:
+                    # Never overwrite demonstrated project/experience evidence
+                    inventory[key]["hasCourseworkEvidence"] = True
+                    inventory[key]["courseworkContext"] = f"Academic coursework in '{c_name}'"
+                else:
+                    inventory[key] = {
+                        "name": norm_s,
+                        "category": cls._classify_category(norm_s),
+                        "source": "coursework",
+                        "evidenceType": "coursework",
+                        "context": f"Completed academic coursework in '{c_name}'",
+                        "proficiencyLabel": "Academic Coursework",
+                        "hasCourseworkEvidence": True,
+                        "courseworkContext": f"Academic coursework in '{c_name}'",
+                    }
+
+        # 4. Inspect field_sources for resume provenance vs manual entry
         field_sources = profile.get("field_sources") or {}
         resume_info = profile.get("resume") or {}
         resume_uploaded = bool(resume_info.get("fileName") or resume_info.get("file_name"))
 
-        for s in norm_student_skills:
+        for s in norm_skills:
             key = s.lower()
             if key not in inventory:
                 # Determine provenance
@@ -254,7 +404,7 @@ class SkillGapService:
                     }
 
         # Determine relevance to target role requirements
-        req_names = {r["name"].lower(): r for r in all_required}
+        req_names = {r["name"].lower(): r for r in required_list}
         results = []
         for item in inventory.values():
             key = item["name"].lower()
@@ -267,7 +417,9 @@ class SkillGapService:
                 item["targetRoleDemand"] = "Complementary"
             results.append(item)
 
-        results.sort(key=lambda x: (0 if x["evidenceType"] == "demonstrated" else 1, x["name"]))
+        # Sort: Demonstrated -> Coursework -> Listed on Resume -> Needs Verification
+        evidence_sort_rank = {"demonstrated": 0, "coursework": 1, "listed": 2, "needs_verification": 3}
+        results.sort(key=lambda x: (evidence_sort_rank.get(x["evidenceType"], 4), x["name"]))
         return results
 
     @classmethod
@@ -344,6 +496,7 @@ class SkillGapService:
         }
 
         # Build student inventory for evidence tracking
+        student_coursework = cls._extract_student_coursework(user_profile)
         student_inventory = cls._extract_student_skills_inventory(user_profile, norm_student_skills, all_required)
         inventory_map = {item["name"].lower(): item for item in student_inventory}
 
@@ -355,16 +508,19 @@ class SkillGapService:
             w = weight_map.get(importance, 1.0)
             total_weight += w
 
-            # Check if student possesses this skill
-            has_skill = any(skills_match(s, norm_req_name) for s in norm_student_skills)
+            # Check if student possesses this skill either in norm_student_skills or inventory
+            matched_inv = next((inv for inv in student_inventory if skills_match(inv["name"], norm_req_name)), None)
+            has_skill = any(skills_match(s, norm_req_name) for s in norm_student_skills) or bool(matched_inv)
             canonical_cat = cls._classify_category(norm_req_name, req.get("category", "General"))
 
             if has_skill:
                 # Find evidence from inventory
-                matched_inv = next((inv for inv in student_inventory if skills_match(inv["name"], norm_req_name)), None)
                 evidence_text = matched_inv["context"] if matched_inv else "Verified in student profile"
                 evidence_type = matched_inv["evidenceType"] if matched_inv else "listed"
                 proficiency = matched_inv["proficiencyLabel"] if matched_inv else "Listed on Resume"
+
+                if evidence_type == "coursework":
+                    evidence_text = f"{matched_inv['context']} (Practical project recommended for production proof)"
 
                 matched_skills.append({
                     "name": norm_req_name,
@@ -374,6 +530,7 @@ class SkillGapService:
                     "isMandatory": req.get("isMandatory", True),
                     "status": "MATCHED",
                     "reason": evidence_text,
+                    "matchReason": evidence_text,
                     "evidenceType": evidence_type,
                     "proficiencyLabel": proficiency,
                 })
@@ -396,9 +553,14 @@ class SkillGapService:
                 estimated_hours = 8 if importance in ["Medium", "Low"] else 15
                 estimated_days = "3–5 days (approx. 8–10 hours)" if importance in ["Medium", "Low"] else "1–2 weeks (approx. 15–20 hours)"
 
-                missing_evidence_text = f"Skill '{norm_req_name}' is requested for {target_role}, but no project or coursework evidence was found in your profile."
-                if target_opp_title:
-                    missing_evidence_text = f"Explicitly listed in requirements for {target_opp_title}; currently missing from your verified profile."
+                coursework_for_skill = next((c for c in student_coursework if cls._course_matches_skill(c.get("name", ""), norm_req_name)), None)
+                if coursework_for_skill:
+                    c_title = coursework_for_skill.get("name", "Coursework")
+                    missing_evidence_text = f"Academic coursework evidence identified in '{c_title}', but lacks hands-on project demonstration. Build a practical project to demonstrate production readiness."
+                elif target_opp_title:
+                    missing_evidence_text = f"Skill '{norm_req_name}' is requested for {target_opp_title}, but no project or coursework evidence was found in your profile."
+                else:
+                    missing_evidence_text = f"Skill '{norm_req_name}' is requested for {target_role}, but no project or coursework evidence was found in your profile."
 
                 skill_item = {
                     "name": norm_req_name,
@@ -417,6 +579,7 @@ class SkillGapService:
                     "whyLearn": why_learn,
                     "whyMatters": why_matters,
                     "missingEvidence": missing_evidence_text,
+                    "reason": missing_evidence_text,
                     "topics": topic_sequence,
                     "resources": resources,
                     "project": project,
@@ -598,10 +761,11 @@ class SkillGapService:
         matched_skills: List[Dict[str, Any]],
         student_inventory: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Builds grouped metrics distinguishing Demonstrated, Required, Preferred, and Needs Verification."""
+        """Builds grouped metrics distinguishing Demonstrated, Coursework, Listed, Required, Preferred, and Needs Verification."""
         demonstrated_count = sum(1 for s in student_inventory if s["evidenceType"] == "demonstrated")
+        coursework_count = sum(1 for s in student_inventory if s["evidenceType"] == "coursework")
         listed_count = sum(1 for s in student_inventory if s["evidenceType"] == "listed")
-        needs_verification_count = sum(1 for s in student_inventory if s["evidenceType"] == "needs_verification")
+        needs_verification_count = sum(1 for s in student_inventory if s["evidenceType"] in ["needs_verification", "unverified"])
 
         required_count = sum(1 for r in all_required if r.get("isMandatory", True))
         preferred_count = sum(1 for r in all_required if not r.get("isMandatory", True))
@@ -612,7 +776,7 @@ class SkillGapService:
             matched_inv = next((inv for inv in student_inventory if skills_match(inv["name"], r_name)), None)
 
             if matched_inv:
-                s_status = matched_inv["evidenceType"] # demonstrated | listed | needs_verification
+                s_status = matched_inv["evidenceType"] # demonstrated | coursework | listed | needs_verification
                 s_source = matched_inv["context"]
             else:
                 s_status = "not_found"
@@ -630,6 +794,7 @@ class SkillGapService:
         return {
             "summary": {
                 "demonstratedSkills": demonstrated_count,
+                "courseworkSkills": coursework_count,
                 "listedOnResume": listed_count,
                 "needsVerification": needs_verification_count,
                 "explicitlyRequired": required_count,
@@ -868,6 +1033,7 @@ class SkillGapService:
 
         projects = profile.get("projects") or []
         experience = profile.get("experience") or []
+        student_coursework = cls._extract_student_coursework(user_profile)
 
         # 2. Extract and assemble job requirements
         requirements_map: Dict[str, Dict[str, Any]] = {}
@@ -963,6 +1129,7 @@ class SkillGapService:
 
         # 3. Classify Each Requirement
         demonstrated_items = []
+        coursework_items = []
         listed_items = []
         priority_gaps = []
         preferred_items = []
@@ -997,17 +1164,28 @@ class SkillGapService:
                         demonstrated_source = f"Demonstrated during experience at {exp.get('organization') or exp.get('company')} ({exp.get('role')})"
                         break
 
-            # B. Check for Listed evidence (Resume or Profile Skills)
-            listed_source = None
+            # B. Check for Coursework evidence (Academic Courses)
+            coursework_source = None
             if not demonstrated_source:
+                cw_match = next((c for c in student_coursework if cls._course_matches_skill(c.get("name", ""), req_name)), None)
+                if cw_match:
+                    coursework_source = f"Completed academic coursework in '{cw_match['name']}'"
+
+            # C. Check for Listed evidence (Resume or Profile Skills)
+            listed_source = None
+            if not demonstrated_source and not coursework_source:
                 if any(skills_match(s, req_name) for s in norm_student_skills):
                     listed_source = "Listed in candidate profile / resume skills"
 
-            # C. Classify into 5 categories
+            # D. Classify into distinct evidence categories
             if demonstrated_source:
                 classification = "demonstrated"
                 student_evidence = demonstrated_source
                 met_count += 1.0
+            elif coursework_source:
+                classification = "coursework"
+                student_evidence = f"{coursework_source} (Practical project recommended for production proof)"
+                met_count += 0.5
             elif listed_source:
                 classification = "listed"
                 student_evidence = listed_source
@@ -1022,7 +1200,7 @@ class SkillGapService:
                     student_evidence = "Not explicitly listed on resume. Foundational coursework may apply; practical verification recommended."
                 elif is_mandatory:
                     classification = "priority_gap"
-                    student_evidence = "No project, work experience, or resume keyword found in candidate profile."
+                    student_evidence = "No project, work experience, or coursework evidence found in candidate profile."
                 else:
                     classification = "preferred"
                     student_evidence = "Preferred qualification not currently detected in candidate profile."
@@ -1042,6 +1220,8 @@ class SkillGapService:
 
             if classification == "demonstrated":
                 demonstrated_items.append(item_data)
+            elif classification == "coursework":
+                coursework_items.append(item_data)
             elif classification == "listed":
                 listed_items.append(item_data)
             elif classification == "priority_gap":
@@ -1078,6 +1258,7 @@ class SkillGapService:
             "summary": {
                 "total_requirements": len(all_classified),
                 "demonstrated_count": len(demonstrated_items),
+                "coursework_count": len(coursework_items),
                 "listed_count": len(listed_items),
                 "priority_gap_count": len(priority_gaps),
                 "preferred_count": len(preferred_items),
@@ -1085,6 +1266,7 @@ class SkillGapService:
                 "skill_coverage": coverage_pct
             },
             "demonstrated": demonstrated_items,
+            "coursework": coursework_items,
             "listed": listed_items,
             "priority_gaps": priority_gaps,
             "preferred": preferred_items,

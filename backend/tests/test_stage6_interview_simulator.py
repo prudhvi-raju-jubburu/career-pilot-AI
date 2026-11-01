@@ -354,8 +354,8 @@ def test_route_security_cross_user_isolation(client, test_application, other_aut
     assert res.status_code == 404
     assert res.get_json()["error"] == "NOT_FOUND"
 
-def test_route_answer_validation_length(client, test_application, auth_headers):
-    """Rejects answers that are too short to be substantive."""
+def test_route_answer_validation_empty_and_short_answers(client, test_application, auth_headers):
+    """Rejects empty/whitespace answers with 400, but accepts valid short technical answers."""
     app_id = str(test_application["id"])
     start_res = client.post(
         f"/api/applications/{app_id}/interview-simulator/start",
@@ -364,13 +364,23 @@ def test_route_answer_validation_length(client, test_application, auth_headers):
     )
     session_id = start_res.get_json()["data"]["id"]
 
-    too_short_res = client.post(
+    # Empty answer -> 400
+    empty_res = client.post(
+        f"/api/applications/{app_id}/interview-simulator/sessions/{session_id}/answer",
+        json={"question_index": 0, "answer": "   "},
+        headers=auth_headers
+    )
+    assert empty_res.status_code == 400
+    assert "cannot be empty" in empty_res.get_json()["message"].lower()
+
+    # Short valid answer "yes" -> 200 accepted
+    short_res = client.post(
         f"/api/applications/{app_id}/interview-simulator/sessions/{session_id}/answer",
         json={"question_index": 0, "answer": "yes"},
         headers=auth_headers
     )
-    assert too_short_res.status_code == 400
-    assert "too short" in too_short_res.get_json()["message"].lower()
+    assert short_res.status_code == 200
+    assert short_res.get_json()["success"] is True
 
 def test_route_add_simulator_task_to_roadmap(client, test_application, auth_headers):
     app_id = str(test_application["id"])

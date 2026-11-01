@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogIn, Compass, AlertCircle, Mail, Lock } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -14,12 +14,18 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/dashboard';
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [authLoading, isAuthenticated, navigate, from]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,7 +48,7 @@ export default function LoginPage() {
     <AuthTemplate
       title="Welcome Back"
       subtitle="Sign in to your CareerPilot AI student account to continue."
-      badgeText="Secure Flight Deck Login"
+      badgeText="Student & Recruiter Login"
     >
 
         {/* Auth Card */}

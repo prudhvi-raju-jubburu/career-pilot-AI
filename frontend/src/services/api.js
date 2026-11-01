@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Base URL configured from environment variable or defaulting to localhost:5000
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+// Base URL configured from environment variable or defaulting to same-origin proxy in dev / 127.0.0.1:5000
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' && window.location.port === '5173' ? '' : 'http://127.0.0.1:5000');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -56,6 +56,13 @@ export const getCurrentUser = async () => {
 
 export const refreshToken = async () => {
   return await api.post('/api/auth/refresh');
+};
+
+export const changePassword = async ({ currentPassword, newPassword }) => {
+  return await api.post('/api/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
 };
 
 export const logoutUser = async () => {
@@ -124,6 +131,12 @@ export const getProfileCompletion = async () => {
   return await api.get('/api/profile/completion');
 };
 
+export const deleteAccount = async ({ password, confirmation }) => {
+  return await api.delete('/api/profile/account', {
+    data: { password, confirmation },
+  });
+};
+
 // Skill Gap & Learning Roadmap Services
 export const getSkillGap = async (targetRole, opportunityId) => {
   let url = '/api/skill-gap';
@@ -165,6 +178,12 @@ export const updateLearningProgress = async (skill, progressData) => {
 // Opportunity Discovery Services
 export const getOpportunities = async (params = {}) => {
   return await api.get('/api/opportunities', { params });
+};
+
+export const verifyOpportunityLink = async (oppId, force = false) => {
+  return await api.get(`/api/opportunities/${oppId}/verify-link`, {
+    params: force ? { force: true } : {},
+  });
 };
 
 export const getRecommendations = async (params = {}) => {
@@ -274,17 +293,37 @@ export const triggerDigestSend = async (frequency = 'daily') => {
   return await api.post('/api/notifications/digest/send', { frequency });
 };
 
-// AI Career Advisor Services
+// AI Career Advisor & Student Career Copilot Services
 export const getAdvisorHistory = async () => {
   return await api.get('/api/advisor/history');
 };
 
-export const sendAdvisorMessage = async (message) => {
-  return await api.post('/api/advisor/chat', { message });
+export const sendAdvisorMessage = async (message, conversationId = null) => {
+  return await api.post('/api/copilot/chat', { message, conversation_id: conversationId });
 };
 
 export const clearAdvisorHistory = async () => {
-  return await api.delete('/api/advisor/history');
+  return await api.delete('/api/copilot/conversations');
+};
+
+export const getCopilotConversations = async () => {
+  return await api.get('/api/copilot/conversations');
+};
+
+export const getCopilotConversation = async (conversationId) => {
+  return await api.get(`/api/copilot/conversations/${conversationId}`);
+};
+
+export const createCopilotConversation = async (title = '') => {
+  return await api.post('/api/copilot/conversations', { title });
+};
+
+export const deleteCopilotConversation = async (conversationId) => {
+  return await api.delete(`/api/copilot/conversations/${conversationId}`);
+};
+
+export const sendCopilotMessage = async (message, conversationId = null) => {
+  return await api.post('/api/copilot/chat', { message, conversation_id: conversationId });
 };
 
 // Data Sources & Ingestion Status
