@@ -7,56 +7,188 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-PyMongo-47A248?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**CareerPilot AI** is a production-grade, AI-augmented career opportunity discovery and student readiness platform built specifically for university students and early-career software engineers. 
+**CareerPilot AI** is an intelligent, event-driven career opportunity discovery and student readiness platform built specifically for university engineering students and early-career software engineers.
 
-The platform runs 100% on **REAL MongoDB collections** and **LIVE, continuously refreshed data from multiple external sources** with real-time Server-Sent Events (SSE) updates, deterministic student profile & resume parsing, ATS scoring, and zero mock or fixture data in production code.
+The platform runs 100% on **REAL MongoDB collections** and **LIVE, continuously refreshed external ingestion pipelines** (Unstop, Devfolio, Codeforces, Remotive, ATS boards) with real-time Server-Sent Events (SSE) updates, deterministic academic eligibility validation, evidence-based skill-gap analysis, an interactive 200-question exam arena, a voice-enabled AI Interview Simulator, and a RAG-grounded AI Career Copilot — with **zero mock or fixture data in production code**.
+
+---
+
+## 📸 Platform Interface & Visual Tour
+
+### 1. Landing Page & AI Architecture Constellation
+> *AI-powered career intelligence designed for students and tech candidates, mapping automated pipelines, skill-gap analysis, and generative AI copilots.*
+
+![CareerPilot AI Landing Page](docs/images/01-landing-hero.jpg)
+
+---
+
+### 2. Student Dashboard & Personalized Opportunity Deck
+> *Real-time student dashboard displaying live sync telemetry, the Abekus Hero Deck, profile completion score, and verified job recommendations with salary/stipend breakdowns.*
+
+![CareerPilot AI Student Dashboard](docs/images/02-dashboard-overview.jpg)
+
+---
+
+### 3. Personalized Opportunities Feed & Hard Eligibility Badging
+> *Live opportunity cards featuring match percentages, strict academic eligibility checks (batch, degree, CGPA), work mode filters, and skill compatibility tags.*
+
+![Personalized Opportunities Feed](docs/images/03-opportunities-matching.jpg)
+
+---
+
+### 4. Evidence-Based Skill Gap Analysis
+> *Target role benchmark arena comparing verified candidate skills against industry standards across 7 canonical categories, identifying priority gaps and milestone roadmaps.*
+
+![Skill Gap Analysis Arena](docs/images/04-skill-gap-analysis.jpg)
+
+---
+
+### 5. Grounded RAG AI Career Copilot
+> *Conversational AI Career Advisor with dynamic database context retrieval, prompt injection defense, quick prompt chips, and token-by-token streaming via Server-Sent Events.*
+
+![CareerPilot AI Copilot](docs/images/05-ai-copilot-rag.jpg)
+
+---
+
+### 6. Profile Builder & Deterministic Completeness
+> *Comprehensive student profile tracking academic credentials, verified skills, project history, and section-by-section completion metrics with manual edit protection.*
+
+![Student Profile & Completeness](docs/images/06-profile-completion.jpg)
 
 ---
 
 ## 📑 Table of Contents
 
+- [The Big Picture: What is CareerPilot AI?](#-the-big-picture-what-is-careerpilot-ai)
+- [Problems Solved vs. Solution Mapping](#-problems-solved-vs-solution-mapping)
+- [Complete Master Technology Stack](#-complete-master-technology-stack)
+- [AI, LLM, RAG & Machine Learning Deep Dive](#-ai-llm-rag--machine-learning-deep-dive)
+- [System Architecture & Data Flow](#-system-architecture--data-flow)
 - [Core Platform Capabilities](#-core-platform-capabilities)
-- [System Architecture](#-system-architecture)
-- [Canonical Data Models & MongoDB Schema](#-canonical-data-models--mongodb-schema)
-- [Ingestion Pipeline & 5 Live External Sources](#-ingestion-pipeline--5-live-external-sources)
-- [Zero-Mock Acceptance Guarantee](#-zero-mock-acceptance-guarantee)
-- [Real-Time SSE Stream Architecture](#-real-time-sse-stream-architecture)
-- [Skill Normalization & Roadmap Engine](#-skill-normalization--roadmap-engine)
-- [REST API Reference](#-rest-api-reference)
-- [Frontend Architecture & Design System](#-frontend-architecture--design-system)
-- [Security, Provenance & Quality Control](#-security-provenance--quality-control)
-- [Installation & Quick Start](#-installation--quick-start)
+- [Detailed Audit & Architectural Documentation](#-detailed-audit--architectural-documentation)
+- [Installation & Developer Quick Start](#-installation--developer-quick-start)
 - [Testing & Quality Verification](#-testing--quality-verification)
 - [Project Directory Structure](#-project-directory-structure)
+- [License & Contributions](#-license--contributions)
 
 ---
 
-## 🌟 Core Platform Capabilities
+## 💡 The Big Picture: What is CareerPilot AI?
 
-### 1. Opportunity Discovery & Ingestion Engine (India Tech Ecosystem Focus)
-- **Live External Connectors (India Focus)**: Ingests real software engineering roles, internships, hackathons, and coding contests from Unstop (India's premier university hiring platform), Devfolio (India's premier hackathon network), Codeforces (global CP), Remotive (India-eligible remote tech roles), and curated feeds. (See [docs/sources.md](file:///d:/careerpilot_ai/docs/sources.md) for rate limits, schedules, and schemas).
-- **India Tech Mission & Hub Normalization**: Automatically normalizes locations to major Indian tech hubs (Bengaluru, Hyderabad, Pune, Delhi NCR, Noida, Mumbai, Chennai) with real INR (`₹`) stipends and salaries.
-- **Strict India Eligibility Filtering (`is_india_eligible`)**: Actively rejects foreign-exclusive listings (USA-only, Europe-only, Berlin, Munich, etc.), ensuring every opportunity is open to Indian students and engineers.
-- **Deterministic Deduplication**: Employs SHA-256 fingerprint hashing combining title + company canonicalization, coupled with fuzzy matching (`SequenceMatcher` threshold $\ge 0.85$).
-- **Automated Lifecycle Expiration**: Built-in background engine marks opportunities with past deadlines as `expired`, preventing stale listings from cluttering student feeds.
-- **Circuit Breaker & Resilience**: Per-connector exponential backoff, rate limiting, and circuit breaker trip state preventing third-party timeouts from affecting service.
+Imagine you are a 3rd or 4th-year college student preparing for placements:
+- You check 10+ different websites every day (LinkedIn, Unstop, Devfolio, company careers pages).
+- You spend 30 minutes reading a job post only to realize at the end that they require a 2024 graduation batch (and you graduate in 2026), or require an 8.5 CGPA (and you have an 8.0).
+- Resumes get rejected by automated Applicant Tracking Systems (ATS) without human feedback.
+- You freeze during technical interviews because you haven't practiced speaking out loud about your own project architecture.
 
-### 2. Student Profile & Resume Provenance
-- **Field-Level Provenance (`field_sources`)**: Every attribute in a student's profile tracks its exact origin (`manual`, `resume`, or `system`) along with updated timestamps.
-- **Manual-Field Protection**: User-verified edits are safeguarded from being overwritten by subsequent automated resume parsers.
-- **Dual-Engine Resume Parser**: Text extraction from both PDF (`pypdf`) and Word DOCX (`python-docx`), analyzed via Google Gemini AI for ATS scoring, skills, and projects.
-
-### 3. Applications Pipeline & Kanban Tracker
-- **Stage Progression**: Full CRUD tracking across `Saved`, `Applied`, `Interviewing`, `Offer`, and `Rejected`.
-- **Timeline & Notes**: Automatic audit event logging for status changes, dates, notes, and offer confetti triggers.
-
-### 4. Real-Time SSE Stream & AI Advisor
-- **SSE Opportunities Stream (`/api/stream/opportunities`)**: Pub/Sub event stream broadcasting newly discovered roles with auto-reconnecting React hook.
-- **Conversational Career Advisor**: Interactive career coach grounded in student profile context with chat history persisted in MongoDB.
+**CareerPilot AI brings your entire career journey into one unified platform:**
+1. **Live Discovery**: Continuously pulls engineering jobs, internships, hackathons, and coding contests from multiple platforms with an India-tech focus (Bengaluru, Hyderabad, Pune, Delhi NCR, etc.).
+2. **Honest Eligibility Checks**: Decoupled from match scores — automatically evaluates deadlines, graduation year, degree branch, and CGPA with 0% false positives before you apply.
+3. **Evidence-Based Skill Gaps**: Distinguishes between *demonstrated skills* (verified in projects and work experience) vs. *listed skills* (keywords typed on a resume).
+4. **Interactive Practice**: Features a 200-question timed proctored exam arena and a speech-enabled AI Interview Simulator with 6-dimension rubric grading.
+5. **RAG Career Copilot**: An intelligent conversational coach that knows your verified resume, projects, applications, and diagnosed skill gaps.
 
 ---
 
-## 🏛️ System Architecture
+## ⚖️ Problems Solved vs. Solution Mapping
+
+| Real Student Problem | How CareerPilot AI Solves It | Technical Implementation |
+|---|---|---|
+| **Scattered Opportunities** | Ingests listings into one centralized feed | Background connectors (Unstop, Devfolio, Remotive, Codeforces, ATS feeds) with 5-layer deduplication |
+| **Unclear Eligibility Criteria** | Instantly flags eligible vs ineligible jobs | Deterministic Hard Eligibility Engine checking graduation batch, CGPA, and branch |
+| **Resume & ATS Mismatches** | Scans resumes and extracts verified entities | Dual-format parsing (`pypdf` + `python-docx`) with Gemini AI and human-in-the-loop review mode |
+| **Superficial Skill Matching** | Evaluates real project proof vs. buzzwords | Evidence-based qualification ($1.0$ Demonstrated, $0.75$ Coursework, $0.5$ Listed) |
+| **Application Tracking Chaos** | Replaces spreadsheets with a visual pipeline | Drag-and-drop Kanban board (`@dnd-kit`) with status transitions and `.ics` calendar export |
+| **Interview Nervousness** | Real verbal interview practice | Speech-to-text (Web Speech API) + 6-dimension AI rubric scoring (Technical, Clarity, STAR) |
+| **Generic Chatbot Advice** | Context-aware, personalized guidance | Dynamic Context RAG injecting real candidate profile, projects, and active job applications |
+
+---
+
+## 🛠️ Complete Master Technology Stack
+
+### 1. Frontend Layer (React 18 SPA)
+- **Framework & Build**: React `18.3.1`, Vite `5.4.11`, React Router DOM `6.28.1`.
+- **State & Data Caching**: TanStack React Query `5.104.1` for background cache revalidation.
+- **Styling & Design System**: Custom design tokens (`frontend/src/index.css`), Lucide React icons (`0.475.0`).
+- **Animations & Physics**: Framer Motion `14.0.0` for layout reveals, modal transitions, and living AI orbs.
+- **Data Visualization**: Recharts `3.10.1` for skill radar charts and category breakdown graphs.
+- **Drag-and-Drop**: `@dnd-kit/core` `6.3.1` and `@dnd-kit/sortable` `10.0.0` for Kanban pipeline management.
+- **Real-Time Clients**: Native `fetch` reader for Server-Sent Events (SSE) and `socket.io-client` `4.8.4` for WebSockets.
+- **Voice Machine Learning**: Browser Web Speech API (`SpeechRecognition` / `speechSynthesis`) for real-time voice dictation.
+
+### 2. Backend Layer (Python & Flask)
+- **Language & Runtime**: Python `3.12.5`.
+- **API Framework**: Flask `>=3.0.0` utilizing the application factory pattern with 16 modular Blueprints.
+- **WebSocket Engine**: Flask-SocketIO `>=5.3.6` managing real-time private rooms (`user_{user_id}`) and broadcasts.
+- **Background Scheduler**: APScheduler `>=3.10.4` running non-blocking intervals for ingestion (6h), deadline checks (6h), and digests (24h).
+- **Authentication & Security**: PyJWT `>=2.8.0` (HS256 tokens) and Werkzeug `>=3.0.0` (PBKDF2/SHA256 password hashing).
+- **Document Extractors**: `pypdf` `>=4.0.0` (PDFs) and `python-docx` `>=1.0.0` (Word documents).
+- **Network Client**: Requests `>=2.31.0` with circuit breaker policies and custom User-Agent headers.
+
+### 3. Database & Storage Layer
+- **Database Engine**: MongoDB `7.0+` (NoSQL Document Store).
+- **Database Driver**: PyMongo `>=4.6.0` with centralized singleton connection pooling (`db.py`).
+- **Collections (20)**: Dedicated models for `users`, `student_profiles`, `opportunities`, `applications`, `interview_prep_packs`, `mock_test_attempts`, `interview_sessions`, `copilot_conversations`, `notifications`, `source_runs`, `audit_logs`, etc.
+- **Indexing Strategy**: Unique sparse indexes on `raw_hash`, compound indexes on `user_id + status`, `source.name + external_id`.
+- **File Storage**: User-isolated local directories (`uploads/resumes/{user_id}/`).
+
+---
+
+## 🧠 AI, LLM, RAG & Machine Learning Deep Dive
+
+CareerPilot AI uses a **hybrid multi-tier AI topology** to ensure 100% operational uptime without vendor lock-in.
+
+```
+                       ┌───────────────────────────────┐
+                       │   Student Request / Prompt    │
+                       └───────────────┬───────────────┘
+                                       │
+                                       ▼
+                       ┌───────────────────────────────┐
+                       │      Primary LLM Provider     │
+                       │    Google Gemini 2.5 Flash    │
+                       └───────────────┬───────────────┘
+                                       │ (On 429 Quota / 401 Auth / Timeout > 15s)
+                                       ▼
+                       ┌───────────────────────────────┐
+                       │    Secondary Fallback LLM     │
+                       │       OpenAI GPT-4o-mini      │
+                       └───────────────┬───────────────┘
+                                       │ (If both APIs fail or offline)
+                                       ▼
+                       ┌───────────────────────────────┐
+                       │ Deterministic Safety Fallback │
+                       │    (Rule-Based JSON Engine)   │
+                       └───────────────────────────────┘
+```
+
+### 1. Large Language Models (LLMs)
+- **Primary Model: Google Gemini 2.5 Flash (`gemini-2.5-flash`)**
+  - Invoked via `google-genai` SDK or `google.generativeai`.
+  - Powers resume extraction, token-by-token chat streaming, interview question synthesis, and 6-dimension rubric grading.
+- **Secondary Fallback: OpenAI GPT-4o-mini (`gpt-4o-mini`)**
+  - Invoked via `openai` SDK with `response_format={"type": "json_object"}`.
+  - Automatically takes over on rate limits (429), quota exhaustion, or timeouts (> 15s).
+- **Deterministic Rule Generators**
+  - Safety fallback that ensures the platform never crashes if cloud AI services are unreachable.
+
+### 2. Retrieval-Augmented Generation (RAG) Architecture
+- **Entity-Aware Dynamic Context RAG**: Pulls real-time structured facts from MongoDB (verified profile, projects, active applications, diagnosed skill gaps, live jobs).
+- **Intent Classifier (`CareerIntentService`)**: Deterministic pattern classifier routing queries across 10 career intents (`OPPORTUNITY_ELIGIBILITY`, `SKILL_GAP_ANALYSIS`, `RESUME_QUERY`, `APPLICATION_QUERY`, etc.).
+- **Prompt Injection Defense**: Boundary delimiter tags (`<<<UNTRUSTED_STUDENT_CONTEXT>>>` and `<<<UNTRUSTED_JOB_DESCRIPTION>>>`) with control character stripping and system override neutralization.
+- **Streaming Protocol**: Token-by-token Server-Sent Events (`POST /api/copilot/stream`) with structured source attribution badges.
+
+### 3. Machine Learning & Classical NLP Components
+- **5-Layer Deduplication Engine**: Uses `difflib.SequenceMatcher` with a **$\ge 0.85$ similarity threshold** and SHA-256 fingerprinting to eliminate duplicate jobs across feeds.
+- **Skill Normalization**: Translates raw tech aliases (`py`, `k8s`, `reactjs`, `postgres`) into canonical industry standards.
+- **Evidence-Based Weighting Model**: Evaluates skill readiness using evidence multipliers:
+  $$\text{Readiness Score} = \frac{\sum (1.0 \times \text{Demonstrated}) + (0.75 \times \text{Coursework}) + (0.5 \times \text{Listed})}{\sum \text{Target Role Requirements}} \times 100$$
+- **5-Factor Recommendation Formula**:
+  $$\text{Fit Score} = 0.35(S_{\text{skill}}) + 0.25(S_{\text{role}}) + 0.15(S_{\text{project}}) + 0.15(S_{\text{edu}}) + 0.10(S_{\text{location}})$$
+
+---
+
+## 🏛️ System Architecture & Data Flow
 
 ```
                                   ┌──────────────────────────────┐
@@ -75,8 +207,8 @@ The platform runs 100% on **REAL MongoDB collections** and **LIVE, continuously 
 │   └─────────────────────┘   └─────────────┬────────────┘   └───────────────────────┘   │
 │                                           │                                            │
 │   ┌─────────────────────┐   ┌─────────────┴────────────┐   ┌───────────────────────┐   │
-│   │ Dashboard & Stats   │   │  Sources Telemetry       │   │  AI Career Advisor    │   │
-│   │ (Real Mongo Counts) │   │  (Live Status & Sync)    │   │  (Chat Stream & Logs) │   │
+│   │ Dashboard & Stats   │   │  Sources Telemetry       │   │  AI Career Copilot    │   │
+│   │ (Real Mongo Counts) │   │  (Live Status & Sync)    │   │  (RAG Stream & Logs)  │   │
 │   └─────────────────────┘   └─────────────┬────────────┘   └───────────────────────┘   │
 │                                           │                                            │
 │   ┌───────────────────────────────────────┴────────────────────────────────────────┐   │
@@ -99,396 +231,150 @@ The platform runs 100% on **REAL MongoDB collections** and **LIVE, continuously 
                                             │ PyMongo Driver
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                   MongoDB 6.0+ Database                                │
-│                                                                                        │
-│   • opportunities       (Active opportunities, hashed dedupes, text indexes)           │
-│   • student_profiles    (Unique user_id, field provenance, verified flags)             │
-│   • users               (Unique email, bcrypt hashed passwords, JWT refresh)           │
-│   • applications        (Tracked applications, stages, timeline history, notes)        │
-│   • notifications       (System alerts, deadline warnings, daily digests)              │
-│   • source_runs         (Telemetry history: duration, fetched, accepted, status)       │
-│   • advisor_conversations (Student AI advisor chat messages & timestamps)              │
-│   • learning_progress   (User skill topic tracking)                                    │
+│                                MongoDB 7.0 Persistence                                 │
+│  users • student_profiles • opportunities • applications • copilot_conversations       │
+│  interview_sessions • mock_test_attempts • notifications • audit_logs (20 collections) │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🗄️ Canonical Data Models & MongoDB Schema
+## 🌟 Core Platform Capabilities
 
-### 1. Opportunities Collection (`opportunities`)
+### 1. Opportunity Discovery & Ingestion Engine (India Tech Ecosystem Focus)
+- **Live External Connectors**: Ingests real software engineering roles, internships, hackathons, and contests from Unstop, Devfolio, Codeforces, Remotive, and ATS boards. (See [`docs/sources.md`](file:///d:/careerpilot_ai/docs/sources.md) for details).
+- **India Tech Mission & Hub Normalization**: Automatically normalizes locations to major Indian tech hubs (Bengaluru, Hyderabad, Pune, Delhi NCR, Noida, Mumbai, Chennai) with real INR (`₹`) stipends and salaries.
+- **Strict India Eligibility Filtering (`is_india_eligible`)**: Actively rejects foreign-exclusive listings (USA-only, Europe-only), ensuring every opportunity is open to Indian candidates.
+- **Automated Lifecycle Expiration**: Built-in background engine marks opportunities with past deadlines as `expired`.
 
-```json
-{
-  "_id": "ObjectId('6ac0c7e68ff19163d196a278')",
-  "title": "Software Engineer Intern — Summer 2026",
-  "organization": {
-    "name": "Google",
-    "website": "https://careers.google.com"
-  },
-  "description": "Build high-scale software applications and tools used by billions. Work with Google engineers on core systems, testing, and architecture.",
-  "type": "internship",
-  "category": "software",
-  "location": {
-    "city": "Bengaluru",
-    "state": "Karnataka",
-    "country": "India",
-    "is_remote": false
-  },
-  "work_mode": "Hybrid",
-  "skills": ["C++", "Data Structures & Algorithms", "Java", "Python", "System Design"],
-  "education_requirements": {
-    "degrees": ["B.Tech", "B.E.", "M.Tech", "M.S."],
-    "branches": ["Computer Science", "Information Technology", "Electronics"],
-    "graduation_years": [2026, 2027],
-    "cgpa_min": 7.5
-  },
-  "experience": {
-    "min_years": 0,
-    "max_years": 1
-  },
-  "eligibility_text": "Must be currently enrolled in an engineering degree graduating in 2026 or 2027. Minimum 7.5 CGPA required.",
-  "application_url": "https://careers.google.com/jobs/results/swe-intern-india",
-  "source": {
-    "name": "careerpilot_curated_feed",
-    "url": "https://careers.google.com/jobs/results/swe-intern-india",
-    "external_id": "google-swe-intern-2026"
-  },
-  "dates": {
-    "posted_at": "2026-09-15T00:00:00+00:00",
-    "deadline": "2026-11-30T23:59:59+00:00"
-  },
-  "compensation": {
-    "type": "stipend",
-    "min": 110000,
-    "max": 130000,
-    "currency": "INR"
-  },
-  "status": "active",
-  "metadata": {
-    "tags": ["faang", "summer-2026", "campus"],
-    "raw_hash": "careerpilot_curated_feed:google-swe-intern-2026"
-  },
-  "created_at": "2026-10-03T09:16:22.214232+00:00",
-  "updated_at": "2026-10-03T10:05:26.177110+00:00",
-  "last_seen_at": "2026-10-03T10:05:26.177110+00:00"
-}
-```
+### 2. Student Profile & Resume Provenance
+- **Field-Level Provenance (`field_sources`)**: Every attribute in a student's profile tracks its exact origin (`manual`, `resume`, or `system`) along with updated timestamps.
+- **Manual-Field Protection**: User-verified edits are safeguarded from being overwritten by subsequent automated resume parsers.
+- **Dual-Engine Resume Parser**: Text extraction from both PDF (`pypdf`) and Word DOCX (`python-docx`), analyzed via Google Gemini AI for ATS scoring, skills, and projects.
 
-#### MongoDB Indexes
-- `metadata.raw_hash` (Unique, Sparse) — Enforces hard database-level deduplication.
-- `status` — Efficiently slices active vs expired opportunities.
-- `type` & `category` — Fast faceted filtering.
-- `skills` (Multi-key index) — High-speed matching on student skill arrays.
-- `dates.deadline` — Powers deadline queries and automated status expiration.
-- Compound Index `[("status", 1), ("type", 1), ("dates.deadline", 1)]` — Optimizes the primary explorer query.
+### 3. Applications Pipeline & Kanban Tracker
+- **Stage Progression**: Full drag-and-drop CRUD tracking across `Saved`, `Applied`, `Interviewing`, `Offer`, and `Rejected`.
+- **Timeline & Notes**: Automatic audit event logging for status changes, dates, notes, and offer confetti triggers.
+- **Calendar Synchronization**: Export upcoming deadlines and interview schedules to `.ics` files.
+
+### 4. Proctored Mock Test Arena & AI Interview Simulator
+- **200-Question Exam Arena**: Timed test portal with anti-cheating tab-switch detection, randomized choices, and weak-topic diagnostics.
+- **AI Interview Simulator**: Interactive speech-to-text (Web Speech API) practice simulating Technical, Coding, Project Deep-Dive, and Behavioral tracks with 6-dimension rubric grading.
+
+### 5. Cascading Privacy & Account Purge
+- Permanent, staged account deletion across 14 personal collections, physical disk file removal, Socket.IO disconnect, and anonymized audit logging (compliant with GDPR & DPDP standards).
 
 ---
 
-## 🔄 Ingestion Pipeline & Source Adapters
+## 📚 Detailed Audit & Architectural Documentation
 
-The opportunity ingestion architecture is decoupled from Flask web threads:
+The project includes an exhaustive, professional 10-document system audit located in [`docs/project-audit/`](file:///d:/careerpilot_ai/docs/project-audit):
 
-```
-Source Adapter (fetch) 
-       ↓ 
-Raw Extraction 
-       ↓ 
-Canonical Mapping 
-       ↓ 
-Deterministic Normalization (Title, Org, Type, Location, Skills, Dates) 
-       ↓ 
-Quality Validation (Schema integrity, valid URLs, non-empty titles) 
-       ↓ 
-Deduplication Fingerprinting (SHA-256 raw_hash check) 
-       ↓ 
-Atomic Upsert in MongoDB ($set updated_at, $setOnInsert created_at)
-```
-
-### Source Providers
-- **`SampleOpportunitySource`**: Curated, verified repository of high-value opportunities from Google, Stripe, Microsoft Research, Major League Hacking, Smart India Hackathon (SIH), Postman, and Meta.
-- **`PublicFeedOpportunitySource`**: Lightweight HTTP adapter that queries robots.txt-compliant public remote technical feeds with strict timeouts and rate limits.
-- **APScheduler Service**: Background cron runs every 6 hours to discover updates and transition past opportunities to `expired` status.
+1. [**`CAREERPILOT_PROJECT_OVERVIEW.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_PROJECT_OVERVIEW.md): Executive project explanation, problem-to-solution mapping, and system boundaries.
+2. [**`CAREERPILOT_SYSTEM_ARCHITECTURE.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_SYSTEM_ARCHITECTURE.md): Complete technical architecture, communication protocols, and **12 production Mermaid diagrams**.
+3. [**`CAREERPILOT_FEATURE_DOCUMENTATION.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_FEATURE_DOCUMENTATION.md): Complete inventory of all features across Areas A through M.
+4. [**`CAREERPILOT_API_DOCUMENTATION.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_API_DOCUMENTATION.md): Comprehensive REST API catalog with synthetic request/response schemas.
+5. [**`CAREERPILOT_DATABASE_DICTIONARY.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_DATABASE_DICTIONARY.md): Master data dictionary for all 20 MongoDB collections and Mermaid ERD.
+6. [**`CAREERPILOT_SECURITY_AUDIT.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_SECURITY_AUDIT.md): Threat modeling, JWT security, prompt-injection defense, and vulnerability audit.
+7. [**`CAREERPILOT_TESTING_REPORT.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_TESTING_REPORT.md): Test execution report, AST zero-mock scanner results, and AI resilience verification.
+8. [**`CAREERPILOT_DEVELOPER_ONBOARDING.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_DEVELOPER_ONBOARDING.md): Step-by-step developer onboarding guide and troubleshooting tips.
+9. [**`CAREERPILOT_DEPLOYMENT_READINESS.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_DEPLOYMENT_READINESS.md): Production hosting guide, Gunicorn async workers, Nginx buffering, and Redis queues.
+10. [**`CAREERPILOT_PROJECT_HEALTH_REPORT.md`**](file:///d:/careerpilot_ai/docs/project-audit/CAREERPILOT_PROJECT_HEALTH_REPORT.md): 12-factor quality scorecard (4.6/5.0), presentation pitch scripts, and strategic roadmap.
 
 ---
 
-## 🧠 Skill Normalization & Roadmap Engine
-
-Skill names in free text and resumes are chaotic. CareerPilot maintains a central alias dictionary in `backend/app/utils/skill_normalizer.py`:
-
-| Raw Input Variations | Canonical Stored Form |
-| :--- | :--- |
-| `React.js`, `ReactJS`, `react js` | **React** |
-| `NodeJS`, `Node JS`, `Node.js Engine` | **Node.js** |
-| `Mongo DB`, `Mongo Database` | **MongoDB** |
-| `Postgres`, `PostgreSQL DB` | **PostgreSQL** |
-| `Golang` | **Go** |
-| `Fast API`, `fastapi` | **FastAPI** |
-
-### Skill Gap Analysis
-- Evaluates role requirements across Core, Development, Engineering, and Tooling.
-- Provides comprehensive 5-level topic outlines for each missing skill (Syntax $\to$ Internals $\to$ Architecture $\to$ Production $\to$ Advanced Optimization).
-- Links students to curated documentation and practical resume capstone projects.
-
----
-
-## 📡 REST API Reference
-
-All responses strictly follow the standardized envelope:
-```json
-{
-  "success": true,
-  "data": { ... },
-  "message": "Optional status message"
-}
-```
-
-### Authentication (`/api/auth`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register` | Create a new student account | No |
-| `POST` | `/api/auth/login` | Sign in & receive signed JWT | No |
-| `GET` | `/api/auth/me` | Fetch authenticated user context | Yes (Bearer) |
-
-### Opportunities (`/api/opportunities`)
-| Method | Endpoint | Query Parameters | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/opportunities` | `page`, `limit`, `search`, `type`, `category`, `location`, `remote`, `sort` | Paginated opportunity list with filters |
-| `GET` | `/api/opportunities/<id>` | — | Fetch single opportunity by ID |
-| `GET` | `/api/opportunities/categories` | — | Available categories with item counts |
-| `GET` | `/api/opportunities/filters` | — | Faceted filter options (types, locations) |
-| `POST` | `/api/opportunities/<id>/feedback` | — | Submit student relevance feedback (`rating`, `reason`) |
-| `GET` | `/api/opportunities/<id>/feedback` | — | Get user's feedback on this opportunity |
-| `DELETE` | `/api/opportunities/<id>/feedback` | — | Withdraw / undo student feedback |
-| `POST` | `/api/opportunities/<id>/view` | — | Record rate-capped view event |
-| `POST` | `/api/opportunities/<id>/dismiss` | — | Explicitly dismiss recommendation |
-| `GET` | `/api/recommendations/feedback-summary` | — | Aggregated user feedback metrics |
-| `POST` | `/api/opportunities/ingest` | `source` (optional) | Trigger manual ingestion run |
-
-### Student Profile (`/api/profile`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/profile` | Retrieve student profile & provenance | Yes |
-| `PUT` | `/api/profile` | Update profile fields (marked as `manual`) | Yes |
-| `GET` | `/api/profile/completion` | Fetch completion percentage & missing tasks | Yes |
-| `POST` | `/api/profile/verify` | Confirm profile accuracy | Yes |
-
-### Skill Gap & Learning (`/api/skill-gap`)
-| Method | Endpoint | Query Parameters | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/skill-gap` | `targetRole` | Calculate role readiness & roadmap |
-| `GET` | `/api/skill-gap/roles` | — | List all industry target roles |
-| `POST` | `/api/skill-gap/progress` | — | Track mastered topics for a skill |
-
-### Applications Pipeline (`/api/applications`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/applications` | List user's tracked applications | Yes |
-| `POST` | `/api/applications` | Track a new opportunity | Yes |
-| `GET` | `/api/applications/<id>` | Fetch application detail with timeline | Yes |
-| `PATCH` | `/api/applications/<id>/stage` | Update Kanban pipeline stage | Yes |
-| `POST` | `/api/applications/<id>/notes` | Add a note to timeline | Yes |
-| `DELETE` | `/api/applications/<id>` | Untrack / delete application | Yes |
-
-### Notifications & Daily Digest (`/api/notifications`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/notifications` | List user notifications | Yes |
-| `PATCH` | `/api/notifications/<id>/read` | Mark notification as read | Yes |
-| `POST` | `/api/notifications/read-all` | Mark all notifications read | Yes |
-| `GET` | `/api/notifications/digest` | Generate daily career digest | Yes |
-
-### External Sources & Ingestion (`/api/sources`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/sources/status` | Live status & metrics of 5 connectors | No |
-| `POST` | `/api/sources/sync` | Trigger instant background sync | Yes |
-
-### AI Career Advisor (`/api/advisor`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/advisor/history` | Fetch persistent chat history | Yes |
-| `POST` | `/api/advisor/chat` | Send message (Gemini AI grounded) | Yes |
-| `GET` | `/api/advisor/stream` | SSE real-time token stream | Yes |
-| `DELETE` | `/api/advisor/history` | Clear conversation history | Yes |
-
-### Dashboard & Analytics (`/api/dashboard`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/dashboard/stats` | Real computed MongoDB collection telemetry | Yes |
-
-### Real-Time Live Stream (`/api/stream`)
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/stream/opportunities` | Server-Sent Events (SSE) live opportunities feed | No |
-
-### System Health (`/api/health`)
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/health` | Service health, collection counts & scheduler status |
-
----
-
----
-
-## 🎨 Frontend Architecture & "Mission Control" Design System (v2.0 Redesign)
-
-The CareerPilot AI frontend is engineered to top-tier design-driven startup standards (Linear, Vercel, Stripe, Arc). It departs completely from generic templates by establishing the **"Mission Control for Your Career"** visual and interactive paradigm.
-
-### 1. Signature Design Language (`src/styles/design-language.md`)
-- **Metaphor**: Flight-deck telemetry, radar sweeps, orbital progress rings, and trajectory waypoints.
-- **3 Celestial Accents**:
-  1. **Pulsar Cyan (`#00F2FE`)**: Navigational radar, high match scores ($\ge 85\%$), discovery searchlights.
-  2. **Solar Flare Amber (`#F59E0B`)**: Real-time ticking deadlines ("closes in 2d 4h"), urgency alerts, focus stage.
-  3. **Quantum Violet (`#8B5CF6`)**: Neural AI core reasoning, resume ML analysis, skill graph mastery.
-- **4 Signature Themes**:
-  - `Deep Space Obsidian` (Default dark-first flight deck)
-  - `Solar Daybreak` (High-contrast clean daylight HUD)
-  - `Neon Hyperdrive` (Cyberpunk vibrant violet & laser cyan)
-  - `Aurora Matrix` (Luminescent deep-space emerald)
-  - Smooth circular reveal transition via View Transitions API (`::view-transition-new(root)`).
-- **Typography Continuum**:
-  - Display: `Space Grotesk` (Expressive, mechanical display font)
-  - Text: `Inter` (Ultra-crisp UI and body copy)
-  - Telemetry: `JetBrains Mono` (Tabular numbers, match percentages, timers, salary figures)
-  - Fluid type scale via CSS `clamp()`
-
-### 2. Advanced Motion Physics System (`src/motion/`)
-- **Physics Tokens (`tokens.js`)**: Spring models for `snappy` (stiffness: 420, damping: 30), `smooth` (stiffness: 260, damping: 26), `gentle` (stiffness: 120, damping: 18), and `bouncy` (stiffness: 480).
-- **Custom Hooks (`hooks.js`)**:
-  - `useMagnetic`: Organic cursor attraction for buttons & badges.
-  - `useTilt`: 3D perspective tilt on cards with dynamic spotlight coordinate calculation.
-  - `useScrollProgress`: Scroll-linked telemetry progress tracking.
-  - `useCountUp`: Smooth numeric telemetry counters.
-  - `useInView`: Lightweight viewport entrance trigger.
-  - `useReducedMotionSafe`: Automatic adherence to accessibility motion preferences.
-- **Shared Variants (`variants.js`)**: Container staggering, radar sweeps, orbital rotations, and drawers.
-
-### 3. Living Component Library & Style Guide (`/design-system`)
-- Accessible at route `/design-system`.
-- Interactive showroom showcasing:
-  - Theme switching matrix
-  - Kinetic magnetic buttons (6 variants: primary, secondary, outline, ghost, danger, glow)
-  - Form controls, sliders, switches, and avatar stacks
-  - Composite flight-deck widgets: `MatchRing`, `SkillRadar`, `DeadlineCountdown`, `StatCard` (with sparklines), `Stepper`, `Timeline`, `BottomSheet`, `Accordion`, and `Modal`.
-
-### 4. Screen-by-Screen Signature Moments
-- **Landing Page**: Interactive 3D/particle "Career Constellation" hero with canvas starfield, orbiting opportunity nodes reacting to cursor, typewriter role cycling, and continuous live telemetry ticker.
-- **Dashboard**: Asymmetric Bento Grid featuring daily AI synthesis, orbital match beacon, sparkline velocity cards, and 7-day activity heatmap streak.
-- **Opportunities Page**: Live radar feed (`useLiveFeed`) with animated "N new opportunities" ingest pill, physics-driven Swipe Deck, and mobile bottom sheet details.
-- **Applications Tracker**: 5-stage DnD Kanban with drag overlays, optimistic updates, and offer confetti bursts.
-- **Resume Analyzer**: Moving scanning radar beam with OCR telemetry and needle-physics score gauge.
-- **Skill Gap Page**: Interactive polygon radar chart morphing across 7 canonical engineering roles.
-- **AI Advisor**: Living Holographic AI Orb (`LivingAIOrb`) with 4 physical states (Idle, Listening, Thinking, Speaking) and token streaming with caret.
-- **Mobile-First Ergonomics**: Bottom tab bar with animated active indicator and haptic feedback, safe area insets (`env(safe-area-inset-*)`), and touch gestures.
-- **PWA Ready**: Web app manifest (`/manifest.json`), standalone viewport fit, and responsive icons.
-
----
-
-## 🔒 Security, Provenance & Quality Control
-
-1. **JWT Ownership Protection**: Authentication middleware verifies user ID claims to guarantee students cannot read or edit another user's profile.
-2. **CORS Hardening**: Explicit preflight handling (`OPTIONS`) with dynamic origin validation and headers.
-3. **Field Provenance**: Prevents automated tools from silently modifying user-verified personal and academic records.
-4. **Resilient Error Boundaries**: Backend endpoints catch database connection dropouts and feed parsing errors gracefully, returning meaningful error messages.
-
----
-
-## 🚀 Installation & Quick Start
+## 🚀 Installation & Developer Quick Start
 
 ### Prerequisites
-- **Python**: 3.12+
-- **Node.js**: 18+ (tested on Node v20/v22)
-- **MongoDB**: MongoDB Community Server 6.0+ running locally on port `27017` or a MongoDB Atlas connection string.
+- **Python**: Version `3.12+`
+- **Node.js**: Version `18.x` or `20.x` LTS
+- **MongoDB**: Community Server `7.0+` (running on `localhost:27017` or MongoDB Atlas URI)
+- **Git**: `2.30+`
 
-### 1. Clone the Repository
+---
+
+### Step 1: Clone the Repository
 ```bash
 git clone https://github.com/prudhvi-raju-jubburu/career-pilot-AI.git
 cd career-pilot-AI
 ```
 
-### 2. Backend Setup
+---
+
+### Step 2: Set Up the Backend
 ```bash
 cd backend
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
 
-# Activate virtual environment
-# Windows:
-.\venv\Scripts\activate
-# macOS/Linux:
+# Windows (PowerShell)
+.\venv\Scripts\Activate.ps1
+# macOS/Linux
 source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+pip install Flask-SocketIO>=5.3.6 openai>=1.12.0 pytest
+```
 
-# Configure environment
+Configure environment variables:
+```bash
 cp .env.example .env
+```
+Populate `.env` with your values:
+```ini
+FLASK_ENV=development
+FLASK_PORT=5000
+SECRET_KEY=your_secret_key_here
+MONGO_URI=mongodb://localhost:27017/careerpilot_ai
+JWT_SECRET=your_jwt_secret_here
+FRONTEND_URL=http://localhost:5173
+AI_PROVIDER=auto
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+ENABLE_BACKGROUND_SCHEDULER=true
+```
 
-# Run server
+Start the backend:
+```bash
 python run.py
 ```
-*Backend API starts at: `http://localhost:5000`*
-
-### 3. Frontend Setup
-```bash
-cd ../frontend
-
-# Install dependencies
-npm install
-
-# Optional: configure environment (set VITE_USE_MOCKS=true for standalone mock mode)
-cp .env.example .env
-
-# Start development server
-npm run dev
-
-# Or run production build
-npm run build
-```
-*Frontend application starts at: `http://localhost:5173`*
-
+*Backend runs at `http://localhost:5000` (Health check: `http://localhost:5000/api/health`).*
 
 ---
 
-### 5. Phase 4: Personalized Notifications, Opportunity Digests & Delivery Reliability
-- **Multi-Channel Alert Architecture**: In-app real-time notification radar, combined with scheduled personalized email digests (Daily morning or Weekly summary) and 48-hour deadline reminders.
-- **Strict Hard-Eligibility Invariant**: Newly ingested or updated opportunities strictly pass deterministic `EligibilityEngine` rule checks before being matched to any student. Ineligible students never receive notifications.
-- **Personalized Relevance Threshold**: Students configure a minimum match relevance threshold (40% - 95%, default 70%) to prevent notification fatigue.
-- **Deduplication Engine**: Unique sparse compound indices on `dedupe_key` (`{user_id}_newopp_{opp_id}` and `{user_id}_deadline_{opp_id}_{date}`) ensure students are never notified repeatedly about the same opportunity.
-- **Digest Delivery Idempotency**: `DigestDeliveryModel` compound index (`[("user_id", 1), ("digest_date", 1), ("frequency", 1)]`) prevents duplicate email dispatching during worker restarts or multiple scheduler runs.
-- **Privacy-Preserving & Safe Email Rendering**: Multipart text/HTML email templates with strict `html.escape` sanitization, safe deep-links to `/opportunities?selected={id}`, and zero embedded student resume data.
-- **Graceful SMTP Fallback**: Automatic detection of SMTP credentials with safe simulated fallback logging (`status: simulated`) in development and test environments.
+### Step 3: Set Up the Frontend
+Open a new terminal:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+*Frontend runs at `http://localhost:5173`.*
 
 ---
 
 ## 🧪 Testing & Quality Verification
 
-### 1. Run Backend Test Suite
-The backend contains 99 comprehensive unit and integration tests across 13 test suites covering Authentication, Applications Pipeline, Notifications & Email Digests, Eligibility Invariants, Opportunity Intelligence, Sources Telemetry, Health Checks, Dashboard Stats, AI Advisor, Resume Parsing (PDF + DOCX), Skill Gap Analysis, and Opportunity Ingestion:
-
+### 1. Zero-Mock Production Acceptance Scanner
+Verify that zero mock arrays, fake fixtures, or sample opportunities exist in production code:
 ```bash
-cd backend
-python -m pytest tests/ -v
+node scripts/check-no-mocks.js
 ```
-**Test Results**: `99 passed in 40.10s` (100% passing rate, 0 regressions).
+*Result: Scans 246 production source files — PASSED (0 violations).*
 
-### 2. Verify Zero Mocks Across Production Code
-The CI acceptance script scans all production code in `frontend/src` and `backend/app` for forbidden mock tokens, fixtures, or fallback arrays:
-
+### 2. AI Provider Resilience & Security Unit Tests
+Verify Gemini-to-OpenAI multi-tier fallbacks, fast-fail quota behavior, and prompt injection defense:
 ```bash
-cd frontend
-npm run check:no-mocks
+pytest backend/tests/test_ai_provider_resilience.py -v
 ```
-**Acceptance Result**: `Scanned 160 production source files. ✅ PASSED: Zero mock tokens found.`
+*Result: 12 passed in 2.38s (100% pass rate).*
 
-### 3. Build Frontend for Production
+### 3. Full Integration Test Suite (Requires local MongoDB)
 ```bash
-cd frontend
-npm run build
+pytest backend/tests/ -q
 ```
-**Build Results**: Vite production bundle completes with **0 errors**, transforming 2,850 modules and code-splitting into optimized assets in 19.08s.
 
 ---
 
@@ -496,106 +382,43 @@ npm run build
 
 ```
 careerpilot-ai/
-├── backend/
-│   ├── app/
-│   │   ├── ai/                  # Gemini AI Advisor Agent & Context Injection
-│   │   ├── config/              # MongoDB connection & app settings
-│   │   ├── models/              # User, Profile, Opportunity, Application, Notification, SourceRun
-│   │   ├── routes/              # Flask Blueprints (auth, profile, opportunity, application, notification,
-│   │   │                        #                  sources, advisor, dashboard, stream, skill_gap, health)
-│   │   ├── scrapers/            # Base connector + 5 live connectors (Remotive, Arbeitnow, Codeforces, Devfolio, OpportunityDesk)
-│   │   ├── services/            # OpportunityService, IngestionService, ProfileService, ResumeParser, EventStream
-│   │   ├── utils/               # Normalizers, JWT auth helper, deduplication hash
-│   │   └── __init__.py          # App factory, CORS hooks, index registration
-│   ├── tests/                   # Pytest suites (test_auth, test_opportunity, test_production_features, test_profile_resume, test_skill_gap)
-│   ├── run.py                   # Flask server entrypoint
-│   └── requirements.txt         # Pinned backend dependencies
-│
-├── frontend/
+├── backend/                      # Flask 3.0 REST API & Socket.IO backend
+│   ├── app/                      # Application package
+│   │   ├── ai/                   # AI services (Gemini, OpenAI, Resume Analyzer)
+│   │   ├── config/               # DB connection, weights, company registry
+│   │   ├── models/               # 20 PyMongo document models
+│   │   ├── routes/               # 16 Flask REST blueprints
+│   │   ├── scrapers/             # Ingestion connectors (Unstop, Devfolio, etc.)
+│   │   ├── services/             # Core business logic (Recommendation, Copilot, etc.)
+│   │   └── utils/                # Auth, normalizers, experience calculators
+│   ├── tests/                    # Pytest integration & unit test suite (30+ files)
+│   ├── uploads/                  # User resume files storage root
+│   ├── requirements.txt          # Python dependencies
+│   └── run.py                    # Server entry point (socketio.run)
+├── frontend/                     # React 18 Single Page Application (SPA)
 │   ├── src/
-│   │   ├── components/          # Layouts (Sidebar, Topbar), UI (Card, Badge, Button, Drawer)
-│   │   ├── context/             # AuthContext, ToastContext
-│   │   ├── hooks/               # useAuth, useProfile, useOpportunities, useApplications, useLiveFeed, useSkillGap
-│   │   ├── pages/               # Dashboard, Opportunities, Applications, SkillGap, Profile, AICareerAdvisor
-│   │   ├── services/            # Axios API layer (api, opportunityService, applicationService, skillGapService)
-│   │   ├── App.jsx              # Routing & code-split views
-│   │   ├── index.css            # Production CSS design tokens & layout utilities
-│   │   └── main.jsx             # React DOM root
-│   ├── vite.config.js           # Vite build & proxy config
-│   └── package.json             # Frontend dependencies & check:no-mocks script
-│
-├── docs/
-│   └── sources.md               # Legal review, rate limits, schedules, and schemas for 5 connectors
-│
-├── scripts/
-│   └── check-no-mocks.js        # Strict CI verification script
-│
-└── README.md                    # Platform documentation
+│   │   ├── components/           # Reusable UI widgets & feature components
+│   │   ├── context/              # AuthContext & ToastContext
+│   │   ├── hooks/                # Custom hooks (useAuth, useStream, useNotifications)
+│   │   ├── pages/                # Top-level view pages (Dashboard, Opportunities, etc.)
+│   │   ├── services/             # Axios REST client & Socket.IO client
+│   │   ├── App.jsx               # Client routes & route guards
+│   │   └── main.jsx              # React DOM root render
+│   ├── package.json              # Frontend npm dependencies
+│   └── vite.config.js            # Vite build configuration
+├── docs/                         # System documentation
+│   ├── images/                   # Platform UI screenshots & architecture images
+│   ├── project-audit/            # Comprehensive 10-document system audit
+│   └── sources.md                # Ingestion connector reference & schemas
+├── scripts/                      # Operational utilities
+│   ├── check-no-mocks.js         # Zero-mock acceptance CI scanner
+│   └── purge_users.py            # Environment reset & test user cleanup tool
+└── README.md                     # Platform overview & master documentation
 ```
 
 ---
 
-## 📅 Phase 5: Application Follow-ups, Interview Scheduling & Personalized Interview Preparation
+## 📄 License & Contributions
 
-CareerPilot AI provides students with an end-to-end interview tracking, calendar integration, and AI study preparation suite:
-
-### 1. Enhanced Application Tracking
-- Extended tracking schema storing `contact_name`, `contact_info` (email/LinkedIn), `next_action`, and explicit `submission_date`.
-- Audit timeline tracking stage transitions, notes, and milestones.
-
-### 2. Interview & Assessment Scheduling (`interview_events`)
-- Multi-round tracking: `technical_interview`, `hr_interview`, `online_assessment`, `coding_test`, `group_discussion`, and `other`.
-- Timezone-aware scheduling with strict timestamp validation (`start_time <= end_time`).
-- Safe protocol validation for meeting links (`http://` or `https://` only; blocks unsafe URI injection).
-- One-click RFC 5545 `.ics` calendar file downloads with byte-level line folding (<= 75 octets) and character escaping, fully compatible with Google Calendar, Apple iCal, and Microsoft Outlook.
-
-### 3. Automated Reminders via APScheduler
-- Periodic background scans dispatching in-app reminders:
-  - **24-hour reminder**: upcoming interview alert 1 day prior.
-  - **1-hour reminder**: urgent alert with meeting link and prep checklist.
-  - **Follow-up due alert**: triggers on `follow_up_date <= today`.
-- Idempotent deduplication keys guarantee students never receive duplicate notifications.
-
-### 4. Grounded AI Interview Preparation Pack (`InterviewPrepService`)
-- Grounded directly in student verified profile data:
-  - Candidate's actual projects (extracted from profile/resume) with targeted architecture, bottleneck, and trade-off questions.
-  - Role requirements and company tech stack alignment.
-  - Behavioral questions formatted with the STAR methodology (Situation, Task, Action, Result).
-  - Reverse interview questions to ask interviewers.
-  - Pre-populated, interactive readiness checklist persisted atomically in MongoDB.
-  - Prominent practice simulation disclaimer stating questions are AI-assisted study aids.
-
-### 5. Verification & Test Metrics
-- **Backend Test Suite**: **105 passing tests** in 54.08s (0 regressions).
-- **Frontend Production Build**: Vite build completed in 9.82s (0 errors).
-
----
-
-## 🛡️ Phase 6: Production Hardening, Integration Audit & Release Readiness
-
-CareerPilot AI has undergone an evidence-based production-readiness audit and hardening release:
-
-### 1. Security Architecture & SSRF Defense
-- **Server-Side Request Forgery (SSRF) Protection**: `LinkImportService` now performs strict DNS and IP address resolution checks via `socket.getaddrinfo` and `ipaddress.ip_address`. It prevents requests targeting private IP networks (RFC 1918), loopback (`127.0.0.0/8`, `localhost`), link-local/cloud metadata (`169.254.169.254`), multicast, and reserved addresses.
-- **Redirect Interception**: Custom `SafeRedirectHandler` enforces SSRF IP restrictions on redirect hops, blocking redirect-based escape attacks.
-- **Defensive HTTP Security Headers**: Every API response automatically serves `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and `X-XSS-Protection: 1; mode=block`.
-- **Sensitive Error Sanitization**: Internal 500 error handlers mask server stack traces, database credentials, and raw exception messages to prevent telemetry or credential leakage.
-
-### 2. Multi-Worker Background Scheduler Isolation
-- **Concurrency & Re-entrancy Control**: Added `ENABLE_BACKGROUND_SCHEDULER` environment variable support. In multi-worker WSGI/container environments (e.g., Gunicorn or Kubernetes pods), the background scheduler can be enabled exclusively on a designated worker process, eliminating redundant job execution.
-- **Deduplicated Scanning**: APScheduler jobs for deadline reminders, interview alerts, and daily/weekly digests run with idempotent deduplication keys preventing duplicate notifications across workers.
-
-### 3. AI Prompt Injection & Untrusted Context Framing
-- **Prompt Isolation**: `ResumeAnalyzerService` and `InterviewPrepService` explicitly frame candidate resumes and opportunity descriptions inside `<candidate_resume>` / `<untrusted_context>` tags.
-- **Boundary System Instructions**: The AI models are explicitly commanded to treat all text within these blocks as raw candidate data and never execute embedded instructions, system prompts, or override requests.
-
-### 4. Input Validation & Cross-User Isolation
-- **Payload Bound Checking**: Strict length and type validation across endpoints (e.g. registration name <= 100, email <= 255, password <= 256 to prevent bcrypt DoS, and feedback actions restricted to canonical allowlists).
-- **Strict User Scoping**: 100% of user-owned resources (applications, interview events, prep packs, notifications, resumes, profiles) are verified to query and mutate strictly within the authenticated user's scope. Cross-user modification attempts receive strict 404 / unauthorized rejections.
-
-### 5. Final Release Verification Metrics
-- **Zero-Mock Verification**: 200 production source files scanned, **0 mock tokens found**.
-- **Backend Test Suite**: **114 passing tests** in 53.69s (100% passing, 0 failures, 0 regressions).
-- **Frontend Production Build**: Vite production build succeeded in 8.41s (0 errors).
-
----
+- **License**: Distributed under the [MIT License](LICENSE).
+- **Contributions**: Pull requests and issue reports are welcome. Please ensure changes pass `node scripts/check-no-mocks.js` and relevant pytest test suites before submitting PRs.
